@@ -31,6 +31,8 @@ export type Student = {
   gpa: string;
   attendanceRate: string;
   specialStatus?: string;
+  email: string;
+  phone: string;
 };
 
 const INITIAL_STUDENTS: Student[] = [
@@ -54,6 +56,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Chloe checked into counseling regarding IB workload stress.", "Physics IA proposal approved."],
     gpa: "3.85",
     attendanceRate: "97.4%",
+    email: "chloe.vance@student.edu",
+    phone: "+1 (555) 012-9840"
   },
   {
     id: "std-2",
@@ -76,6 +80,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Dismissal requested for Period 5 due to fever.", "Math exam make-up pending."],
     gpa: "3.20",
     attendanceRate: "91.2%",
+    email: "lucas.gray@student.edu",
+    phone: "+1 (555) 234-9080"
   },
   {
     id: "std-3",
@@ -96,6 +102,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Syllabus checklist for DP Chemistry completed.", "Library workspace reserved for EE research."],
     gpa: "3.90",
     attendanceRate: "98.5%",
+    email: "dilan.patel@student.edu",
+    phone: "+1 (555) 345-0980"
   },
   {
     id: "std-4",
@@ -118,6 +126,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["EE Draft review scheduled.", "Guidance counselor suggested study calendar adjustments."],
     gpa: "3.65",
     attendanceRate: "95.0%",
+    email: "emma.watson@student.edu",
+    phone: "+1 (555) 456-1230"
   },
   {
     id: "std-5",
@@ -138,6 +148,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Late arrival logged due to family commitments.", "Leadership program approval granted."],
     gpa: "4.00",
     attendanceRate: "99.1%",
+    email: "bruce.wayne@student.edu",
+    phone: "+1 (555) 900-1930"
   },
   {
     id: "std-6",
@@ -159,6 +171,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Active participation in MYP drama showcase.", "Personal project proposal review complete."],
     gpa: "3.45",
     attendanceRate: "93.8%",
+    email: "zoe.kravitz@student.edu",
+    phone: "+1 (555) 789-0120"
   },
   {
     id: "std-7",
@@ -179,6 +193,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Chemistry lab reports are exceptional.", "Frequent tardiness noted for Period 1."],
     gpa: "3.75",
     attendanceRate: "92.0%",
+    email: "peter.parker@student.edu",
+    phone: "+1 (555) 500-1960"
   },
   {
     id: "std-8",
@@ -200,6 +216,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Excellence in athletic agility tests.", "Personal Project focuses on city murals."],
     gpa: "3.50",
     attendanceRate: "94.2%",
+    email: "miles.morales@student.edu",
+    phone: "+1 (555) 488-2010"
   },
   {
     id: "std-9",
@@ -220,6 +238,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["MYP Science design cycle outstanding.", "Student Council rep."],
     gpa: "3.95",
     attendanceRate: "98.9%",
+    email: "gwen.stacy@student.edu",
+    phone: "+1 (555) 616-1960"
   },
   {
     id: "std-10",
@@ -241,6 +261,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Dentist appointment. Check-out logged by front desk at 12:45 PM.", "Make-up task for Literature submitted."],
     gpa: "3.10",
     attendanceRate: "89.4%",
+    email: "harry.osborn@student.edu",
+    phone: "+1 (555) 100-3940"
   },
   {
     id: "std-11",
@@ -262,6 +284,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Clark is coordinating the school agricultural expo project.", "Excellent leadership skills logged in Career Portfolio."],
     gpa: "3.92",
     attendanceRate: "99.4%",
+    email: "clark.kent@student.edu",
+    phone: "+1 (555) 762-1930"
   },
   {
     id: "std-12",
@@ -282,6 +306,8 @@ const INITIAL_STUDENTS: Student[] = [
     notes: ["Bruce requested library access for research projects.", "Safety briefing completed for chemistry lab."],
     gpa: "3.78",
     attendanceRate: "94.5%",
+    email: "bruce.banner@student.edu",
+    phone: "+1 (555) 284-1960"
   }
 ];
 
@@ -291,13 +317,23 @@ type StudentLookupPanelProps = {
   searchQuery: string;
   selectedStudentId?: string | null;
   onClearSelectedStudent?: () => void;
+  onViewStatistics?: (studentId: string) => void;
+};
+
+export type RecipientType = {
+  name: string;
+  email: string;
+  phone: string;
+  relationship?: string;
+  type: "student" | "guardian" | "teacher";
 };
 
 export function StudentLookupPanel({ 
   theme, 
   searchQuery,
   selectedStudentId,
-  onClearSelectedStudent
+  onClearSelectedStudent,
+  onViewStatistics
 }: StudentLookupPanelProps) {
   const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -317,10 +353,11 @@ export function StudentLookupPanel({
     }
   }, [selectedStudentId, students, onClearSelectedStudent]);
 
-  const [activeChatGuardian, setActiveChatGuardian] = useState<Guardian | null>(null);
+  // Generic messaging & calling targets
+  const [activeChatRecipient, setActiveChatRecipient] = useState<RecipientType | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [mockMessages, setMockMessages] = useState<string[]>([]);
-  const [activeCallGuardian, setActiveCallGuardian] = useState<Guardian | null>(null);
+  const [activeCallRecipient, setActiveCallRecipient] = useState<RecipientType | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -330,20 +367,20 @@ export function StudentLookupPanel({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const handleEmailGuardian = (guardian: Guardian) => {
+  const handleEmailRecipient = (email: string) => {
     if (typeof window !== "undefined") {
       const win = window as typeof window & {
         pendingComposeEmail?: { to: string; subject: string; body: string };
       };
       win.pendingComposeEmail = {
-        to: guardian.email,
+        to: email,
         subject: "",
         body: ""
       };
     }
     window.dispatchEvent(new CustomEvent("axis-compose-email", {
       detail: {
-        to: guardian.email,
+        to: email,
         subject: "",
         body: ""
       }
@@ -369,7 +406,7 @@ export function StudentLookupPanel({
         },
         panelBg: "bg-[#0E0E10]/95 border-l border-zinc-800",
         input: "bg-zinc-950 border-zinc-800 focus:border-cyan-500 text-white",
-        button: "bg-cyan-500 text-black hover:bg-cyan-400",
+        button: "bg-cyan-50 text-black hover:bg-cyan-200",
         buttonSec: "border-zinc-800 hover:bg-zinc-800 text-zinc-300",
       },
       light: {
@@ -593,7 +630,9 @@ export function StudentLookupPanel({
       {/* View modes rendering */}
       {filteredStudents.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
-          <span className="text-xl">🔍</span>
+          <svg className="size-6 text-zinc-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
           <h4 className={`text-sm font-semibold mt-2 ${styles.textPrimary}`}>No students matching criteria</h4>
           <p className={`text-xs mt-1 ${styles.textSecondary}`}>Refine your search parameters or program context filters.</p>
         </div>
@@ -605,7 +644,7 @@ export function StudentLookupPanel({
               onClick={() => setSelectedStudent(student)}
               className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between gap-4 ${styles.card}`}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3 text-left">
                 <div className="flex items-center gap-3">
                   <div className="size-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-xs text-cyan-400">
                     {student.avatar}
@@ -623,7 +662,7 @@ export function StudentLookupPanel({
                 </span>
               </div>
 
-              <div className="border-t border-white/[0.03] pt-3.5 space-y-2">
+              <div className="border-t border-white/[0.03] pt-3.5 space-y-2 text-left">
                 <div className="flex justify-between items-center text-xs">
                   <span className={styles.textSecondary}>Current Class:</span>
                   <span className={`font-semibold ${styles.textPrimary} max-w-[150px] truncate`}>
@@ -637,8 +676,11 @@ export function StudentLookupPanel({
                   </span>
                 </div>
                 {student.specialStatus && (
-                  <div className="mt-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[10px] text-amber-400 font-medium">
-                    ⚠️ {student.specialStatus}
+                  <div className="mt-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[10px] text-amber-400 font-medium flex items-start gap-1">
+                    <svg className="size-3.5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>{student.specialStatus}</span>
                   </div>
                 )}
               </div>
@@ -747,7 +789,7 @@ export function StudentLookupPanel({
               className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-md p-6 overflow-y-auto flex flex-col justify-between ${styles.panelBg}`}
             >
               {/* Profile body content */}
-              <div className="space-y-6">
+              <div className="space-y-6 text-left">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
                   <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest">
@@ -755,9 +797,11 @@ export function StudentLookupPanel({
                   </span>
                   <button
                     onClick={() => setSelectedStudent(null)}
-                    className={`p-1 rounded-lg hover:bg-white/10 transition-colors ${styles.textSecondary} hover:${styles.textPrimary}`}
+                    className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors ${styles.textSecondary} hover:${styles.textPrimary}`}
                   >
-                    ✕
+                    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
 
@@ -795,17 +839,6 @@ export function StudentLookupPanel({
                       <span className={styles.textSecondary}>Assigned Room:</span>
                       <span className={`font-mono text-cyan-400 font-bold`}>{selectedStudent.currentRoom}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className={styles.textSecondary}>Academic Advisor:</span>
-                      <span className={`font-semibold ${styles.textPrimary}`}>{selectedStudent.advisor}</span>
-                    </div>
-
-                    {selectedStudent.specialStatus && (
-                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] leading-relaxed text-amber-400 font-semibold">
-                        ⚠️ SPECIAL STATUS NOTE: <br />
-                        <span className="font-normal block mt-0.5 text-white/80">{selectedStudent.specialStatus}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -821,7 +854,69 @@ export function StudentLookupPanel({
                   </div>
                 </div>
 
-                {/* Guardians & Emergency Contacts */}
+                {/* Academic Profile Redirect */}
+                {onViewStatistics && (
+                  <button
+                    onClick={() => {
+                      onViewStatistics(selectedStudent.id);
+                      setSelectedStudent(null);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500 hover:text-black border border-cyan-500/25 text-cyan-400 font-bold uppercase tracking-wider text-[10px] transition-all flex items-center justify-center gap-2"
+                  >
+                    <svg className="size-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span>View Academic Statistics Profile</span>
+                  </button>
+                )}
+
+                {/* Student direct communications */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Student Contact Actions</h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEmailRecipient(selectedStudent.email)}
+                      className={theme === "light"
+                        ? "flex-1 py-1.5 px-3 rounded-xl bg-black/[0.02] border border-black/[0.06] hover:bg-black/[0.05] text-black/70 hover:text-black flex items-center justify-center gap-1.5 text-[10px] font-semibold transition-all"
+                        : "flex-1 py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] text-white/70 hover:text-white flex items-center justify-center gap-1.5 text-[10px] font-semibold transition-all"
+                      }
+                    >
+                      <svg className="size-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                      </svg>
+                      <span>Email</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMockMessages([]);
+                        setActiveChatRecipient({ name: selectedStudent.name, email: selectedStudent.email, phone: selectedStudent.phone, type: "student" });
+                      }}
+                      className={theme === "light"
+                        ? "flex-1 py-1.5 px-3 rounded-xl bg-black/[0.02] border border-black/[0.06] hover:bg-black/[0.05] text-black/70 hover:text-black flex items-center justify-center gap-1.5 text-[10px] font-semibold transition-all"
+                        : "flex-1 py-1.5 px-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] text-white/70 hover:text-white flex items-center justify-center gap-1.5 text-[10px] font-semibold transition-all"
+                      }
+                    >
+                      <svg className="size-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                      </svg>
+                      <span>Message</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveCallRecipient({ name: selectedStudent.name, email: selectedStudent.email, phone: selectedStudent.phone, type: "student" })}
+                      className={theme === "light"
+                        ? "flex-1 py-1.5 px-3 rounded-xl bg-cyan-500/5 border border-cyan-500/15 hover:bg-cyan-500/10 text-cyan-600 hover:text-cyan-700 flex items-center justify-center gap-1.5 text-[10px] font-semibold transition-all"
+                        : "flex-1 py-1.5 px-3 rounded-xl bg-cyan-500/5 border border-cyan-500/15 hover:bg-cyan-500/10 text-cyan-400 hover:text-cyan-300 flex items-center justify-center gap-1.5 text-[10px] font-semibold transition-all"
+                      }
+                    >
+                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.622c0-1.03.837-1.868 1.868-1.868h3.354c.49 0 .935.293 1.13.742l1.378 3.149c.195.446.068.966-.312 1.276L7.333 11.1c.884 1.784 2.33 3.23 4.114 4.114l1.176-1.341c.31-.38.83-.507 1.276-.312l3.149 1.378c.449.195.742.64.742 1.13v3.354c0 1.03-.837 1.868-1.868 1.868A15.897 15.897 0 012.25 6.622z" />
+                      </svg>
+                      <span>Call</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Guardians Contacts */}
                 <div className="space-y-3">
                   <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Guardians & Emergency Contacts</h4>
                   <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-4 text-xs">
@@ -843,25 +938,43 @@ export function StudentLookupPanel({
                           <span className={`text-[10px] ${styles.textSecondary}`}>{guardian.email}</span>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleEmailGuardian(guardian)}
-                              className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold uppercase hover:bg-white/10 text-white/80 hover:text-white"
+                              onClick={() => handleEmailRecipient(guardian.email)}
+                              className={theme === "light"
+                                ? "py-1 px-2.5 rounded-lg bg-black/[0.02] border border-black/[0.06] hover:bg-black/[0.05] text-black/70 hover:text-black flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                                : "py-1 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] text-white/70 hover:text-white flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                              }
                             >
-                              Email
+                              <svg className="size-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                              </svg>
+                              <span>Email</span>
                             </button>
                             <button
                               onClick={() => {
                                 setMockMessages([]);
-                                setActiveChatGuardian(guardian);
+                                setActiveChatRecipient({ name: guardian.name, email: guardian.email, phone: guardian.phone, relationship: guardian.relationship, type: "guardian" });
                               }}
-                              className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold uppercase hover:bg-white/10 text-white/80 hover:text-white"
+                              className={theme === "light"
+                                ? "py-1 px-2.5 rounded-lg bg-black/[0.02] border border-black/[0.06] hover:bg-black/[0.05] text-black/70 hover:text-black flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                                : "py-1 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] text-white/70 hover:text-white flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                              }
                             >
-                              Message
+                              <svg className="size-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                              </svg>
+                              <span>Message</span>
                             </button>
                             <button
-                              onClick={() => setActiveCallGuardian(guardian)}
-                              className="px-2 py-1 rounded bg-cyan-400/10 border border-cyan-400/20 text-[9px] font-bold uppercase text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all"
+                              onClick={() => setActiveCallRecipient({ name: guardian.name, email: guardian.email, phone: guardian.phone, relationship: guardian.relationship, type: "guardian" })}
+                              className={theme === "light"
+                                ? "py-1 px-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/15 hover:bg-cyan-500/10 text-cyan-600 hover:text-cyan-700 flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                                : "py-1 px-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/15 hover:bg-cyan-500/10 text-cyan-400 hover:text-cyan-300 flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                              }
                             >
-                              Call
+                              <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.622c0-1.03.837-1.868 1.868-1.868h3.354c.49 0 .935.293 1.13.742l1.378 3.149c.195.446.068.966-.312 1.276L7.333 11.1c.884 1.784 2.33 3.23 4.114 4.114l1.176-1.341c.31-.38.83-.507 1.276-.312l3.149 1.378c.449.195.742.64.742 1.13v3.354c0 1.03-.837 1.868-1.868 1.868A15.897 15.897 0 012.25 6.622z" />
+                              </svg>
+                              <span>Call</span>
                             </button>
                           </div>
                         </div>
@@ -871,13 +984,86 @@ export function StudentLookupPanel({
                     <div className="h-px bg-white/[0.05]" />
 
                     <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-red-400">Emergency: {selectedStudent.emergencyContact}</span>
+                      <div className="flex justify-between text-red-400/90 font-semibold">
+                        <span>Emergency: {selectedStudent.emergencyContact}</span>
                         <span className={styles.textSecondary}>{selectedStudent.emergencyPhone}</span>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Academic Advisor Contact Actions */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Academic Advisor</h4>
+                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] flex items-center justify-between text-xs">
+                    <div>
+                      <span className={`font-semibold ${styles.textPrimary} block`}>{selectedStudent.advisor}</span>
+                      <span className="text-[10px] text-white/40 block mt-0.5">Faculty Advisor</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const email = `${selectedStudent.advisor.toLowerCase().replace(" ", ".")}@school.edu`;
+                          handleEmailRecipient(email);
+                        }}
+                        className={theme === "light"
+                          ? "py-1 px-2.5 rounded-lg bg-black/[0.02] border border-black/[0.06] hover:bg-black/[0.05] text-black/70 hover:text-black flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                          : "py-1 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] text-white/70 hover:text-white flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                        }
+                      >
+                        <svg className="size-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                        </svg>
+                        <span>Email</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMockMessages([]);
+                          const phone = "+1 (555) 019-2834";
+                          const email = `${selectedStudent.advisor.toLowerCase().replace(" ", ".")}@school.edu`;
+                          setActiveChatRecipient({ name: selectedStudent.advisor, email, phone, type: "teacher" });
+                        }}
+                        className={theme === "light"
+                          ? "py-1 px-2.5 rounded-lg bg-black/[0.02] border border-black/[0.06] hover:bg-black/[0.05] text-black/70 hover:text-black flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                          : "py-1 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] text-white/70 hover:text-white flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                        }
+                      >
+                        <svg className="size-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                        </svg>
+                        <span>Message</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const email = `${selectedStudent.advisor.toLowerCase().replace(" ", ".")}@school.edu`;
+                          const phone = "+1 (555) 019-2834";
+                          setActiveCallRecipient({ name: selectedStudent.advisor, email, phone, type: "teacher" });
+                        }}
+                        className={theme === "light"
+                          ? "py-1 px-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/15 hover:bg-cyan-500/10 text-cyan-600 hover:text-cyan-700 flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                          : "py-1 px-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/15 hover:bg-cyan-500/10 text-cyan-400 hover:text-cyan-300 flex items-center justify-center gap-1 text-[9px] font-semibold transition-all"
+                        }
+                      >
+                        <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.622c0-1.03.837-1.868 1.868-1.868h3.354c.49 0 .935.293 1.13.742l1.378 3.149c.195.446.068.966-.312 1.276L7.333 11.1c.884 1.784 2.33 3.23 4.114 4.114l1.176-1.341c.31-.38.83-.507 1.276-.312l3.149 1.378c.449.195.742.64.742 1.13v3.354c0 1.03-.837 1.868-1.868 1.868A15.897 15.897 0 012.25 6.622z" />
+                        </svg>
+                        <span>Call</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedStudent.specialStatus && (
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs leading-relaxed text-amber-400 font-semibold flex items-start gap-2">
+                    <svg className="size-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <span className="block text-[10px] uppercase font-bold text-amber-400/60 tracking-wider">Special Status Note</span>
+                      <span className="font-normal block mt-1 text-white/80">{selectedStudent.specialStatus}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Notes and logs */}
                 <div className="space-y-3">
@@ -924,13 +1110,13 @@ export function StudentLookupPanel({
 
             {/* Contextual Messaging Slide-Out Panel */}
             <AnimatePresence>
-              {activeChatGuardian && (
+              {activeChatRecipient && (
                 <>
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 0.2 }}
                     exit={{ opacity: 0 }}
-                    onClick={() => setActiveChatGuardian(null)}
+                    onClick={() => setActiveChatRecipient(null)}
                     className="fixed inset-0 z-45 bg-black"
                   />
                   <motion.div
@@ -944,12 +1130,23 @@ export function StudentLookupPanel({
                     <div className="flex flex-col h-full justify-between">
                       {/* Header */}
                       <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 shrink-0">
-                        <div>
+                        <div className="text-left">
                           <span className="text-[8px] font-mono font-bold text-cyan-400 uppercase tracking-widest block">Direct Channel</span>
-                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">{activeChatGuardian.name} ({activeChatGuardian.relationship})</h4>
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                            {activeChatRecipient.name}
+                            {activeChatRecipient.type === "guardian" && activeChatRecipient.relationship && (
+                              <span className="text-[9px] text-white/40 block mt-0.5 normal-case font-medium">({activeChatRecipient.relationship})</span>
+                            )}
+                            {activeChatRecipient.type === "student" && (
+                              <span className="text-[9px] text-white/40 block mt-0.5 normal-case font-medium">(Student)</span>
+                            )}
+                            {activeChatRecipient.type === "teacher" && (
+                              <span className="text-[9px] text-white/40 block mt-0.5 normal-case font-medium">(Advisor)</span>
+                            )}
+                          </h4>
                         </div>
                         <button
-                          onClick={() => setActiveChatGuardian(null)}
+                          onClick={() => setActiveChatRecipient(null)}
                           className="text-white/40 hover:text-white text-xs px-2 py-1 bg-white/5 rounded-lg"
                         >
                           ✕
@@ -957,18 +1154,20 @@ export function StudentLookupPanel({
                       </div>
 
                       {/* Chat History */}
-                      <div className="flex-1 overflow-y-auto py-4 space-y-3.5 pr-1 select-none scrollbar-none">
-                        <div className="text-[10px] text-white/35 font-bold uppercase tracking-widest text-center py-2">Beginning of Conversation regarding {selectedStudent.name}</div>
+                      <div className="flex-1 overflow-y-auto py-4 space-y-3.5 pr-1 select-none scrollbar-none text-left">
+                        <div className="text-[10px] text-white/35 font-bold uppercase tracking-widest text-center py-2">
+                          Beginning of Conversation with {activeChatRecipient.name}
+                        </div>
                         <div className="flex flex-col gap-1.5 items-end">
-                          <div className="p-3 rounded-2xl bg-cyan-500 text-black text-xs font-medium max-w-[85%] rounded-tr-sm">
-                            Hi {activeChatGuardian.name}, just wanted to check in regarding {selectedStudent.name}&apos;s progress this week.
+                          <div className="p-3 rounded-2xl bg-cyan-500 text-black text-xs font-medium max-w-[85%] rounded-tr-sm text-left">
+                            Hi {activeChatRecipient.name}, just wanted to check in.
                           </div>
                           <span className="text-[8px] text-white/30 font-bold uppercase font-mono mr-1">Delivered</span>
                         </div>
                         {/* Mock sent message */}
                         {mockMessages.map((m, idx) => (
                           <div key={idx} className="flex flex-col gap-1.5 items-end">
-                            <div className="p-3 rounded-2xl bg-cyan-500 text-black text-xs font-medium max-w-[85%] rounded-tr-sm">
+                            <div className="p-3 rounded-2xl bg-cyan-500 text-black text-xs font-medium max-w-[85%] rounded-tr-sm text-left">
                               {m}
                             </div>
                             <span className="text-[8px] text-white/30 font-bold uppercase font-mono mr-1">Sent</span>
@@ -1009,34 +1208,36 @@ export function StudentLookupPanel({
 
             {/* Call Option Modal */}
             <AnimatePresence>
-              {activeCallGuardian && (
+              {activeCallRecipient && (
                 <div className="fixed inset-0 z-[260] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm select-none">
-                  <div className="fixed inset-0" onClick={() => setActiveCallGuardian(null)} />
+                  <div className="fixed inset-0" onClick={() => setActiveCallRecipient(null)} />
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="relative bg-[#0E0E10] border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl z-10 text-white"
+                    className="relative bg-[#0E0E10] border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl z-10 text-white text-left"
                   >
                     <div className="flex justify-between items-center border-b border-white/[0.08] pb-3">
                       <div className="flex items-center gap-2">
                         <span className="size-2 rounded-full bg-cyan-400 animate-pulse" />
                         <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">Communication Link</span>
                       </div>
-                      <button onClick={() => setActiveCallGuardian(null)} className="text-white/40 hover:text-white">✕</button>
+                      <button onClick={() => setActiveCallRecipient(null)} className="text-white/40 hover:text-white">✕</button>
                     </div>
                     
                     <div className="text-center space-y-2 py-2">
-                      <h4 className="text-sm font-black text-white">{activeCallGuardian.name}</h4>
-                      <p className="text-[11px] text-white/45 uppercase tracking-wider font-semibold">{activeCallGuardian.relationship}</p>
-                      <p className="text-lg font-mono font-bold text-cyan-400 tracking-wide mt-1.5">{activeCallGuardian.phone}</p>
+                      <h4 className="text-sm font-black text-white">{activeCallRecipient.name}</h4>
+                      <p className="text-[11px] text-white/45 uppercase tracking-wider font-semibold">
+                        {activeCallRecipient.type === "guardian" && activeCallRecipient.relationship ? activeCallRecipient.relationship : activeCallRecipient.type.toUpperCase()}
+                      </p>
+                      <p className="text-lg font-mono font-bold text-cyan-400 tracking-wide mt-1.5">{activeCallRecipient.phone}</p>
                     </div>
 
                     <div className="flex flex-col gap-2.5">
                       <button
                         onClick={() => {
-                          alert(`Initiating encrypted Axis Audio Call to ${activeCallGuardian.name}...`);
-                          setActiveCallGuardian(null);
+                          alert(`Initiating encrypted Axis Audio Call to ${activeCallRecipient.name}...`);
+                          setActiveCallRecipient(null);
                         }}
                         className="w-full py-2.5 bg-cyan-400 hover:bg-cyan-300 text-black font-extrabold uppercase tracking-wider text-[10px] rounded-xl transition-all shadow-[0_0_15px_rgba(34,211,238,0.2)]"
                       >
@@ -1044,15 +1245,15 @@ export function StudentLookupPanel({
                       </button>
                       {isMobile && (
                         <a
-                          href={`tel:${activeCallGuardian.phone}`}
-                          onClick={() => setActiveCallGuardian(null)}
+                          href={`tel:${activeCallRecipient.phone}`}
+                          onClick={() => setActiveCallRecipient(null)}
                           className="w-full py-2.5 text-center bg-white/5 hover:bg-white/10 text-white font-extrabold uppercase tracking-wider text-[10px] rounded-xl transition-all border border-white/10"
                         >
                           Phone Call
                         </a>
                       )}
                       <button
-                        onClick={() => setActiveCallGuardian(null)}
+                        onClick={() => setActiveCallRecipient(null)}
                         className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-extrabold uppercase tracking-wider text-[10px] rounded-xl transition-all border border-white/5"
                       >
                         Cancel

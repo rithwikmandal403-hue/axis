@@ -35,7 +35,7 @@ export function RequestsWidget({ onRequestClick }: RequestsWidgetProps) {
         description: "Projector not working properly. Screen flickers intermittently.",
         dateSubmitted: "2024-08-28T08:15:00Z",
         priority: "high",
-        status: "new"
+        status: "in_progress"
       },
       {
         id: "req-2",
@@ -53,7 +53,7 @@ export function RequestsWidget({ onRequestClick }: RequestsWidgetProps) {
         description: "Lab equipment computers not connecting to network.",
         dateSubmitted: "2024-08-28T09:30:00Z",
         priority: "urgent",
-        status: "new"
+        status: "pending"
       },
       {
         id: "req-3",
@@ -67,7 +67,7 @@ export function RequestsWidget({ onRequestClick }: RequestsWidgetProps) {
         description: "Suggest adding more charging stations in the library.",
         dateSubmitted: "2024-08-27T14:20:00Z",
         priority: "medium",
-        status: "waiting"
+        status: "pending"
       }
     ]
   };

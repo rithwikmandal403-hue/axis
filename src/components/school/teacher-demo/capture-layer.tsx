@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type CapturedItem = {
@@ -37,8 +37,6 @@ export function CaptureLayer({ onSaveCapture }: CaptureLayerProps) {
   const [importance, setImportance] = useState("normal");
   const [linkedPerson, setLinkedPerson] = useState("Chloe Vance");
 
-  const lastKeyPressTimeRef = useRef<number>(0);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is writing in inputs
@@ -54,12 +52,8 @@ export function CaptureLayer({ onSaveCapture }: CaptureLayerProps) {
       }
 
       if ((e.key === "e" || e.key === "E") && captureState === "idle") {
-        const now = Date.now();
-        const diff = now - lastKeyPressTimeRef.current;
-        if (diff > 0 && diff < 300) {
-          setCaptureState("capturing");
-        }
-        lastKeyPressTimeRef.current = now;
+        e.preventDefault();
+        setCaptureState("capturing");
       }
     };
 
@@ -258,89 +252,86 @@ export function CaptureLayer({ onSaveCapture }: CaptureLayerProps) {
                 </div>
               )}
             </motion.div>
-
+            
             {/* Selection Box Render */}
-            {captureState === "capturing" && startPoint && currentPoint && (
+            {(captureState === "capturing" || captureState === "cardOpen") && startPoint && currentPoint && (
               <div
                 className="pointer-events-none absolute border border-dashed border-white/50 bg-white/[0.03] shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]"
                 style={getSelectionBoxStyles()}
               />
             )}
 
-            {/* Glassmorphic Capture Card Popup */}
-            {captureState === "cardOpen" && (
-              <div className="fixed inset-0 flex items-center justify-center p-6 z-50">
+            {/* Glassmorphic Capture Card Popup (Floating Bottom-Right Preview) */}
+            {captureState === "cardOpen" && startPoint && currentPoint && (
+              <div className="fixed bottom-6 right-6 w-80 z-50">
                 
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                  initial={{ opacity: 0, scale: 0.95, y: 15 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                  className="w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0E0E10]/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.95)] backdrop-blur-2xl text-white"
+                  exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0E0E10]/95 p-4 shadow-[0_12px_48px_rgba(0,0,0,0.85)] backdrop-blur-2xl text-white space-y-3"
                 >
                   
                   {/* Header */}
-                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-3.5">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
                     <div className="flex items-center gap-2">
                       <div className="size-2 rounded-full bg-sky-400 animate-pulse" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-white/55">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/55">
                         Context Capture
                       </span>
                     </div>
                     <button
                       onClick={handleCancel}
-                      className="text-white/30 hover:text-white transition-colors text-xs"
+                      className="text-white/40 hover:text-white transition-colors text-[10px] font-bold"
                     >
-                      Discard (Esc)
+                      Discard
                     </button>
                   </div>
 
                   {/* Crop Preview Graphic */}
                   {(() => {
-                    const w = startPoint && currentPoint ? Math.abs(startPoint.x - currentPoint.x) : 0;
-                    const h = startPoint && currentPoint ? Math.abs(startPoint.y - currentPoint.y) : 0;
+                    const w = Math.abs(currentPoint.x - startPoint.x);
+                    const h = Math.abs(currentPoint.y - startPoint.y);
                     return (
-                      <div className="mt-4 relative aspect-video w-full rounded-xl bg-zinc-950/80 border border-white/10 overflow-hidden flex items-center justify-center shadow-inner">
-                        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:12px_12px]" />
-                        <div className="absolute border border-cyan-400 bg-cyan-500/10 rounded-sm shadow-[0_0_15px_rgba(34,211,238,0.25)] flex items-center justify-center p-2 text-center"
-                             style={{
-                               width: Math.max(70, Math.min(180, w * 0.25)),
-                               height: Math.max(40, Math.min(100, h * 0.25)),
-                             }}>
-                          <span className="text-[8px] font-bold text-cyan-400 uppercase tracking-widest leading-none">Crop Area</span>
+                      <div className="relative h-20 w-full rounded-lg bg-zinc-900 border border-white/5 overflow-hidden flex items-center justify-center">
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.15),transparent)] pointer-events-none" />
+                        <div className="flex flex-col items-center gap-1 z-10">
+                          <svg className="size-5 text-cyan-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                          </svg>
+                          <span className="text-[9px] font-mono text-cyan-300 font-semibold">{w} × {h} Snip</span>
                         </div>
-                        <div className="absolute bottom-2 right-2 text-[8px] font-mono text-white/30">
-                          {w} x {h} px
-                        </div>
+                        <div className="absolute bottom-1 right-2 text-[7px] font-mono text-white/20">AXIS SNIPPER</div>
                       </div>
                     );
                   })()}
 
                   {/* Form fields */}
-                  <div className="mt-4 space-y-4">
+                  <div className="space-y-2.5">
                     
                     {/* Notes */}
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] text-white/35 font-semibold uppercase tracking-wider">Quick Note</label>
+                    <div className="space-y-1">
+                      <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-extrabold">Quick Note</label>
                       <input
                         type="text"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         placeholder="What's important here?"
-                        className="w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 py-2.5 text-xs text-white placeholder-white/20 focus:border-white/30 focus:outline-none"
+                        className="w-full rounded-xl border border-white/[0.08] bg-zinc-900 px-2.5 py-1.5 text-xs text-white placeholder-white/20 focus:border-cyan-500/50 focus:outline-none font-semibold"
                         autoFocus
                       />
                     </div>
 
                     {/* Settings columns */}
-                    <div className="grid grid-cols-2 gap-3.5">
+                    <div className="grid grid-cols-2 gap-2">
                       
-                      <div className="space-y-1.5">
-                        <label className="text-[9px] text-white/35 font-semibold uppercase tracking-wider">Contextual Tag</label>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-extrabold">Tag</label>
                         <select
                           value={tag}
                           onChange={(e) => setTag(e.target.value)}
-                          className="w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 py-2 text-xs text-white focus:outline-none"
+                          className="w-full rounded-xl border border-white/[0.08] bg-zinc-900 px-2 py-1 text-[11px] text-white focus:outline-none font-semibold"
                         >
                           <option value="Physics IA">Physics IA</option>
                           <option value="Lab Sync">Lab Sync Space</option>
@@ -349,12 +340,12 @@ export function CaptureLayer({ onSaveCapture }: CaptureLayerProps) {
                         </select>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-[9px] text-white/35 font-semibold uppercase tracking-wider">Link Person</label>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-extrabold">Link Person</label>
                         <select
                           value={linkedPerson}
                           onChange={(e) => setLinkedPerson(e.target.value)}
-                          className="w-full rounded-xl border border-white/[0.08] bg-black/40 px-3 py-2 text-xs text-white focus:outline-none"
+                          className="w-full rounded-xl border border-white/[0.08] bg-zinc-900 px-2 py-1 text-[11px] text-white focus:outline-none font-semibold"
                         >
                           <option value="Chloe Vance">Chloe Vance</option>
                           <option value="Emma Watson">Emma Watson</option>
@@ -365,15 +356,15 @@ export function CaptureLayer({ onSaveCapture }: CaptureLayerProps) {
 
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] text-white/35 font-semibold uppercase tracking-wider">Importance</label>
-                      <div className="flex gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-extrabold">Importance</label>
+                      <div className="flex gap-1.5">
                         {["low", "normal", "urgent"].map((level) => (
                           <button
                             key={level}
                             type="button"
                             onClick={() => setImportance(level)}
-                            className={`flex-1 py-1.5 rounded-lg border text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                            className={`flex-1 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-wider transition-colors ${
                               importance === level
                                 ? "bg-white text-black border-white"
                                 : "bg-white/[0.02] border-white/10 text-white/50 hover:text-white"
@@ -385,42 +376,21 @@ export function CaptureLayer({ onSaveCapture }: CaptureLayerProps) {
                       </div>
                     </div>
 
-                    {/* Auto-Contextual sensing indicator */}
-                    <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
-                      <div className="text-[8px] font-bold text-white/35 uppercase tracking-widest">
-                        Auto-Context Linked
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <span className="rounded bg-white/[0.04] border border-white/[0.05] px-2 py-0.5 text-[9px] text-white/50">
-                          Class: DP Physics B
-                        </span>
-                        <span className="rounded bg-white/[0.04] border border-white/[0.05] px-2 py-0.5 text-[9px] text-white/50">
-                          Room: Lab 3
-                        </span>
-                        <span className="rounded bg-white/[0.04] border border-white/[0.05] px-2 py-0.5 text-[9px] text-white/50">
-                          Time: Period 2
-                        </span>
-                        <span className="rounded bg-white/[0.04] border border-white/[0.05] px-2 py-0.5 text-[9px] text-white/50">
-                          Fac: Aarav Chen
-                        </span>
-                      </div>
-                    </div>
-
                     {/* Action triggers */}
-                    <div className="flex justify-end gap-3 pt-2">
+                    <div className="flex gap-2.5 pt-1">
                       <button
                         type="button"
                         onClick={handleCancel}
-                        className="rounded-xl border border-white/[0.08] bg-transparent px-4.5 py-2.5 text-xs text-white/60 hover:text-white"
+                        className="flex-1 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold uppercase text-white/70 hover:text-white hover:bg-white/10 transition-all text-center"
                       >
                         Cancel
                       </button>
                       <button
                         type="button"
                         onClick={handleSave}
-                        className="rounded-xl bg-white text-black px-5 py-2.5 text-xs font-bold shadow-soft"
+                        className="flex-1 py-1.5 rounded-xl bg-cyan-400 text-zinc-950 font-bold uppercase text-[10px] hover:bg-cyan-300 transition-all text-center animate-pulse"
                       >
-                        Save to Essential Space
+                        Save
                       </button>
                     </div>
 

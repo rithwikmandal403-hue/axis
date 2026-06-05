@@ -233,6 +233,7 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
   // Connected Resources states
   const [attachedResource, setAttachedResource] = useState<string | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -897,7 +898,36 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
 
         {/* Input Message Area (only for conversations view) */}
         {activeTab === "conversations" && !isInMeeting && (
-          <div className={`p-4 border-t shrink-0 ${styles.border} flex flex-col gap-2`}>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragOver(false);
+              try {
+                const data = e.dataTransfer.getData("application/json");
+                if (data) {
+                  const item = JSON.parse(data);
+                  if (item && item.title) {
+                    setAttachedResource(item.title);
+                    if (item.content) {
+                      setInputText((prev) => 
+                        prev ? `${prev}\n\n[Attached: ${item.title}] ${item.content}` : `[Attached: ${item.title}] ${item.content}`
+                      );
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error("Failed to drop item in messages panel", err);
+              }
+            }}
+            className={`p-4 border-t shrink-0 ${styles.border} flex flex-col gap-2 transition-all duration-200 ${
+              isDragOver ? "ring-2 ring-cyan-400 border-cyan-400/50 bg-cyan-950/10 scale-[1.01]" : ""
+            }`}
+          >
             {attachedResource && (
               <div className="flex items-center gap-2 p-1.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold w-fit">
                 <span>📄 {attachedResource}</span>

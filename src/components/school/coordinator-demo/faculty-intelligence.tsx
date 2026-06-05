@@ -206,7 +206,7 @@ export function FacultyIntelligence({
                 : "text-white/60 hover:text-white hover:bg-white/5"
             }`}
           >
-            Supervisor Directory
+            Faculty Directory
           </button>
         </div>
         <span className={`text-xs font-mono ${styling.textSecondary}`}>

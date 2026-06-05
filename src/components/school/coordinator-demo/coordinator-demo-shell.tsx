@@ -19,7 +19,6 @@ import { CoordinatorAttendance } from "./coordinator-attendance";
 import { CoordinatorMessages } from "./coordinator-messages";
 import { ClockSystem } from "../teacher-demo/clock-system";
 import { SharedDemoHeader } from "../shared-demo-header";
-import { type ContextItem } from "../teacher-demo/context-layer";
 import { CoordinatorEmail } from "./coordinator-email";
 import { ConnectedResourcesWorkspace, ResourcePickerModal } from "./connected-resources";
 import { getThemeColors, type Theme, AXIS_TOKENS, getAxisTheme } from "@/lib/theme-utils";
@@ -146,52 +145,23 @@ const ALL_SEARCH_ITEMS: SearchItem[] = [
   { id: "doc-1", type: "Document", title: "EE Coordinator Guide 2026", subtitle: "Extended Essay regulations", avatar: "Doc", targetTab: "settings" }
 ];
 
-const COORDINATOR_CONTEXT_ITEMS: ContextItem[] = [
-  {
-    id: "coord-c1",
-    type: "coordination",
-    title: "EE Coordinator Review Check",
-    description: "4 supervisor allocations have unsubmitted comments. Reviews recommended before the IB registration lock.",
-    actionLabel: "Verify Submissions",
-    meta: "Extended Essay · DP2",
-    active: true,
-    dateAdded: "Today"
-  },
-  {
-    id: "coord-c2",
-    type: "support",
-    title: "TOK Exhibition Risk",
-    description: "Dilan Patel's TOK exhibition draft is blank. Follow-up meeting scheduled for Period 3.",
-    actionLabel: "View Student",
-    meta: "TOK Advisory · DP1",
-    active: true,
-    dateAdded: "Today"
-  },
-  {
-    id: "coord-c3",
-    type: "space",
-    title: "Displacement Request",
-    description: "Aarav Chen requested a temporary room swap for Science Lab 3 during Period 5 practical exam.",
-    actionLabel: "Approve Swap",
-    meta: "Science Lab 3 · Period 5",
-    active: true,
-    dateAdded: "Today"
-  }
-];
 
 type EssentialItem = {
   id: string;
-  type: "note" | "screenshot";
+  type: "screenshot" | "note" | "resource" | "email" | "message" | "announcement" | "student" | "faculty" | "request";
   title: string;
   content: string;
   tags: string[];
   date: string;
+  metadata?: Record<string, string>;
 };
 
 const INITIAL_ESSENTIAL_ITEMS: EssentialItem[] = [
-  { id: "es-1", type: "note", title: "Aarav Chen — Parent Follow-up", content: "Mother mentioned concerns about workload balance in TOK and EE. Follow up with advisor by Friday.", tags: ["parent", "follow-up", "DP2"], date: "Today, 9:15 AM" },
-  { id: "es-2", type: "screenshot", title: "Attendance Anomaly — Grade 11", content: "Screenshot of attendance drop pattern for DP1 cohort during Period 3 across last 2 weeks.", tags: ["attendance", "DP1"], date: "Yesterday, 2:30 PM" },
-  { id: "es-3", type: "note", title: "Budget Reallocation Note", content: "Science dept requested additional 2,400 for lab equipment. Approved pending VP sign-off.", tags: ["budget", "science"], date: "2 days ago" }
+  { id: "es-1", type: "student", title: "Student Record: Chloe Vance", content: "Grade 11-B Student. Advisor: Aarav Chen. GPA: 3.85. Attendance: 97.4%. Email: chloe.vance@student.edu. Checked in regarding IB workload stress.", tags: ["student", "DP1", "vance"], date: "Today, 9:15 AM" },
+  { id: "es-2", type: "screenshot", title: "Screenshot — Attendance Anomaly Grade 11", content: "Captured screen snippet of attendance drop pattern for DP1 cohort during Period 3 across last 2 weeks.", tags: ["capture", "attendance", "DP1"], date: "Yesterday, 2:30 PM" },
+  { id: "es-3", type: "request", title: "Saved Request — Science Reallocation Note", content: "Science department requested additional 2,400 for lab equipment. Approved pending VP sign-off.", tags: ["request", "budget", "science"], date: "2 days ago" },
+  { id: "es-4", type: "resource", title: "Connected Resource — EE Guide 2026", content: "Extended Essay official regulation booklet. PDF format, 1.4 MB. Status: Verified.", tags: ["resource", "EE", "guidelines"], date: "3 days ago" },
+  { id: "es-5", type: "message", title: "Saved Message Thread — Ananya Rao", content: "Discussion regarding Physics IA cover assignment to Dr. Sarah. Confirmed availability for Period 5.", tags: ["message", "chemistry", "faculty"], date: "4 days ago" }
 ];
 
 export function CoordinatorDemoShell() {
@@ -208,13 +178,21 @@ export function CoordinatorDemoShell() {
   const [isResourcePickerOpen, setIsResourcePickerOpen] = useState(false);
   const [isSpotlightSearchOpen, setIsSpotlightSearchOpen] = useState(false);
   const [isEssentialSpaceOpen, setIsEssentialSpaceOpen] = useState(false);
-  const [isEssentialTabVisible, setIsEssentialTabVisible] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
   const [essentialItems, setEssentialItems] = useState<EssentialItem[]>(INITIAL_ESSENTIAL_ITEMS);
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [noteTags, setNoteTags] = useState("");
   const [spotlightQuery, setSpotlightQuery] = useState("");
+  const [isCaptureOverlayOpen, setIsCaptureOverlayOpen] = useState(false);
+  const [captureState, setCaptureState] = useState<"idle" | "capturing" | "preview">("idle");
+  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [currentPoint, setCurrentPoint] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [captureNote, setCaptureNote] = useState("");
+  const [captureTitle, setCaptureTitle] = useState("");
+  const [captureTags, setCaptureTags] = useState("");
+  const [scrapedContent, setScrapedContent] = useState("");
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -268,7 +246,7 @@ export function CoordinatorDemoShell() {
     const tabLabels: Record<string, string> = {
       home: "Overview Dashboard", students: "Student Directory", attendance: "Attendance Monitor",
       email: "Email Workspace", messaging: "Messages Panel", meetings: "Meetings Schedule",
-      schedule: "Programme Schedule", teachers: "Academic Structure", map: "Campus Spaces",
+      schedule: "Programme Schedule", teachers: "Faculty Directory", map: "Campus Spaces",
       events: "Calendar & Events", analytics: "Analytics Dashboard", requests: "Requests Panel",
       resources: "Connected Resources", settings: "Settings Panel", announcements: "Announcements"
     };
@@ -304,6 +282,166 @@ export function CoordinatorDemoShell() {
 
   const handleDeleteItem = (id: string) => {
     setEssentialItems(prev => prev.filter(item => item.id !== id));
+  };
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (captureState !== "capturing") return;
+    setStartPoint({ x: e.clientX, y: e.clientY });
+    setCurrentPoint({ x: e.clientX, y: e.clientY });
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !startPoint) return;
+    setCurrentPoint({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging || !startPoint || !currentPoint) return;
+    setIsDragging(false);
+    const w = Math.abs(currentPoint.x - startPoint.x);
+    const h = Math.abs(currentPoint.y - startPoint.y);
+    if (w > 10 && h > 10) {
+      setCaptureState("preview");
+      
+      // Auto-detect context for title/tags
+      let title = "Screen Snip";
+      let content = "Captured screen region snapshot.";
+      let tags = ["capture"];
+      
+      if (activeTab === "home") {
+        title = "Snippet — Coordinator Home";
+        content = "Operational telemetry and overview card clipping.";
+        tags = ["home", "telemetry"];
+      } else if (activeTab === "students") {
+        title = "Snippet — Student Directory";
+        content = "Academic records and cohort tracking clipping.";
+        tags = ["students", "directory"];
+      } else if (activeTab === "faculty") {
+        title = "Snippet — Faculty Directory";
+        content = "Faculty schedule and availability details clipping.";
+        tags = ["faculty", "directory"];
+      } else if (activeTab === "email") {
+        title = "Snippet — Email Composer";
+        content = "Email message thread or draft correspondence clipping.";
+        tags = ["email", "correspondence"];
+      } else if (activeTab === "messages") {
+        title = "Snippet — Message Thread";
+        content = "Direct chat interaction log clipping.";
+        tags = ["messages", "chat"];
+      } else if (activeTab === "meetings") {
+        title = "Snippet — Meeting Schedule";
+        content = "Supervisor meeting logs and scheduling details clipping.";
+        tags = ["meetings", "scheduling"];
+      } else if (activeTab === "requests") {
+        title = "Snippet — Requests Center";
+        content = "Leaves, issues, and approvals decision clipping.";
+        tags = ["requests", "records"];
+      }
+      
+      setCaptureTitle(title);
+      setScrapedContent(content);
+      setCaptureNote("");
+      setCaptureTags(tags.join(", "));
+    } else {
+      setStartPoint(null);
+      setCurrentPoint(null);
+    }
+  };
+
+  const getEssentialItemIcon = (type: EssentialItem["type"]) => {
+    switch (type) {
+      case "screenshot":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+          </svg>
+        );
+      case "note":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+          </svg>
+        );
+      case "resource":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+          </svg>
+        );
+      case "email":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        );
+      case "message":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+          </svg>
+        );
+      case "announcement":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+          </svg>
+        );
+      case "student":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 018.729 5.842c-.896.243-1.782.515-2.658.814m-13.413 0C5.352 10.601 7.886 11.26 12 11.26c4.113 0 6.648-.66 8.653-1.3a12.01 12.01 0 01.385 4.887m-17.07 0l2.368 4.736a2.25 2.25 0 001.378 1.189M21 14.885l-2.368 4.736a2.25 2.25 0 01-1.378 1.189M12 11.26V21.75" />
+          </svg>
+        );
+      case "faculty":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.03 0 1.9.693 2.166 1.638m-7.332 0A48.536 48.536 0 0112 3.479c-.39-.01-1.208-.01-1.599.011m4.065 0L15 4.5M9 4.5L7.5 3.479M4.5 6.108v10.142A2.25 2.25 0 006.75 18.5h3.75" />
+          </svg>
+        );
+      case "request":
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+          </svg>
+        );
+    }
+  };
+
+  const getEssentialItemIconColor = (type: EssentialItem["type"]) => {
+    switch (type) {
+      case "screenshot": return "bg-violet-500/10 text-violet-400 border border-violet-500/20";
+      case "note": return "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20";
+      case "resource": return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+      case "email": return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+      case "message": return "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+      case "announcement": return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+      case "student": return "bg-teal-500/10 text-teal-400 border border-teal-500/20";
+      case "faculty": return "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
+      case "request": return "bg-pink-500/10 text-pink-400 border border-pink-500/20";
+      default: return "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20";
+    }
+  };
+
+  const getEssentialItemLabel = (type: EssentialItem["type"]) => {
+    switch (type) {
+      case "screenshot": return "Screenshot";
+      case "note": return "Quick Note";
+      case "resource": return "Connected Resource";
+      case "email": return "Saved Email";
+      case "message": return "Saved Message";
+      case "announcement": return "Announcement";
+      case "student": return "Student Record";
+      case "faculty": return "Faculty Record";
+      case "request": return "Request";
+      default: return "Captured Item";
+    }
   };
 
 
@@ -372,7 +510,7 @@ export function CoordinatorDemoShell() {
     }
   }, []);
 
-  // Keyboard listeners for Spotlight Search (Ctrl+K or Cmd+K)
+  // Keyboard listeners for Spotlight Search (Ctrl+K or Cmd+K) and Universal Capture (E)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -381,6 +519,31 @@ export function CoordinatorDemoShell() {
       }
       if (e.key === "Escape") {
         setIsSpotlightSearchOpen(false);
+        setIsCaptureOverlayOpen(false);
+        setCaptureState("idle");
+        setStartPoint(null);
+        setCurrentPoint(null);
+        setIsDragging(false);
+      }
+
+      // Universal Capture shortcut (E)
+      // Check if target is input/textarea/contenteditable
+      const target = e.target as HTMLElement;
+      if (target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      )) {
+        return;
+      }
+
+      // If they press "e" or "E" (case-insensitive)
+      if (e.key.toLowerCase() === "e" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setIsCaptureOverlayOpen(true);
+        setCaptureState("capturing");
+        setStartPoint(null);
+        setCurrentPoint(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -669,8 +832,8 @@ export function CoordinatorDemoShell() {
             },
             {
               id: "teachers",
-              label: "Academic Structure",
-              sub: "Departments & leadership",
+              label: "Faculty Directory",
+              sub: "Faculty list & leadership",
               icon: (
                 <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0110.089 21c-2.902 0-5.54-1.088-7.54-2.881.346-1.3.83-2.522 1.435-3.63a3.75 3.75 0 017.153-1.755 4.887 4.887 0 00-2.231 4.17M6.75 7.5a3.375 3.375 0 116.75 0 3.375 3.375 0 01-6.75 0zM19.5 8.25a2.25 2.25 0 120-4.5 2.25 2.25 0 020 4.5z" />
@@ -700,7 +863,7 @@ export function CoordinatorDemoShell() {
             {
               id: "requests",
               label: "Requests",
-              sub: "Support & approvals",
+              sub: "Approvals & records",
               icon: (
                 <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.192-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 01-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
@@ -1432,7 +1595,25 @@ export function CoordinatorDemoShell() {
               >
                 
                 {/* Announcement Composer */}
-                <div className={`p-6 rounded-2xl border ${cardStyle} shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] space-y-6`}>
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    try {
+                      const data = e.dataTransfer.getData("application/json");
+                      if (data) {
+                        const item = JSON.parse(data);
+                        if (item && item.title) {
+                          setAttachedResource(item.title);
+                          alert(`Attached "${item.title}" to announcement reference.`);
+                        }
+                      }
+                    } catch (err) {
+                      console.error(err);
+                    }
+                  }}
+                  className={`p-6 rounded-2xl border ${cardStyle} shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] space-y-6`}
+                >
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block">Executive Broadcaster</span>
                     <h3 className="text-base font-bold tracking-tight text-white">Compose DP Notice</h3>
@@ -2465,33 +2646,24 @@ export function CoordinatorDemoShell() {
       </button>
     </div>
 
-    {/* Essential Space — Edge Trigger Zone */}
-    <div
-      className="fixed right-0 top-0 bottom-0 w-3 z-[40]"
-      onMouseEnter={() => setIsEssentialTabVisible(true)}
-    />
-
-    {/* Essential Space — Slim Tab */}
-    <AnimatePresence>
-      {isEssentialTabVisible && !isEssentialSpaceOpen && (
-        <motion.button
-          initial={{ x: 28 }}
-          animate={{ x: 0 }}
-          exit={{ x: 28 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          onMouseLeave={() => setIsEssentialTabVisible(false)}
-          onClick={() => { setIsEssentialSpaceOpen(true); setIsEssentialTabVisible(false); }}
-          className={`fixed right-0 top-1/2 -translate-y-1/2 z-[41] w-7 h-32 rounded-l-xl border-y border-l flex flex-col items-center justify-center gap-2 transition-colors ${
-            theme === "light"
-              ? "bg-white/90 border-black/10 hover:bg-white text-black/50 hover:text-black shadow-[-4px_0_20px_rgba(0,0,0,0.08)]"
-              : "bg-[#0E0E10]/95 border-white/10 hover:border-cyan-500/30 text-white/40 hover:text-white shadow-[-4px_0_20px_rgba(0,0,0,0.5)]"
-          }`}
-        >
-          <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-[7px] font-bold uppercase tracking-widest [writing-mode:vertical-lr] rotate-180 select-none">Tray</span>
-        </motion.button>
-      )}
-    </AnimatePresence>
+    {/* Discoverable Axis-style Essential Space edge handle */}
+    {!isEssentialSpaceOpen && (
+      <button
+        onClick={() => setIsEssentialSpaceOpen(true)}
+        className={`fixed right-0 top-1/2 -translate-y-1/2 z-[41] w-[6px] hover:w-8 h-32 rounded-l-xl border-y border-l flex flex-col items-center justify-center gap-2 transition-all duration-300 group shadow-2xl ${
+          theme === "light"
+            ? "bg-white/80 border-black/10 hover:bg-white text-black/50 hover:text-black shadow-[-4px_0_20px_rgba(0,0,0,0.08)]"
+            : "bg-[#0E0E10]/90 border-white/10 hover:border-cyan-500/30 text-white/40 hover:text-cyan-400 shadow-[#000000_0px_4px_18px]"
+        }`}
+      >
+        <div className="flex flex-col gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+          <div className="w-[1.5px] h-4 rounded-full bg-current" />
+          <div className="w-[1.5px] h-4 rounded-full bg-current" />
+        </div>
+        <div className="size-1 rounded-full bg-cyan-400 animate-pulse group-hover:scale-125 transition-all" />
+        <span className="hidden group-hover:inline-block text-[7px] font-extrabold uppercase tracking-widest [writing-mode:vertical-lr] rotate-180 select-none mt-1">TRAY</span>
+      </button>
+    )}
 
     {/* Essential Space — Slide-Out Tray */}
     <AnimatePresence>
@@ -2618,7 +2790,8 @@ export function CoordinatorDemoShell() {
                     key={item.id}
                     draggable
                     onDragStart={(e) => {
-                      e.dataTransfer.setData("text/plain", item.title + "\n" + item.content);
+                      e.dataTransfer.setData("application/json", JSON.stringify(item));
+                      e.dataTransfer.setData("text/plain", `${item.title}: ${item.content}`);
                       e.dataTransfer.effectAllowed = "copy";
                     }}
                     className={`group rounded-xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing ${
@@ -2628,17 +2801,13 @@ export function CoordinatorDemoShell() {
                     }`}
                   >
                     <div className="flex items-start gap-2.5">
-                      <div className={`mt-0.5 size-6 rounded-lg flex items-center justify-center shrink-0 ${
-                        item.type === "screenshot" ? "bg-violet-500/10 text-violet-400" : "bg-cyan-500/10 text-cyan-400"
-                      }`}>
-                        {item.type === "screenshot" ? (
-                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" /></svg>
-                        ) : (
-                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                        )}
+                      <div className={`mt-0.5 size-6 rounded-lg flex items-center justify-center shrink-0 ${getEssentialItemIconColor(item.type)}`}>
+                        {getEssentialItemIcon(item.type)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <span className={`text-[8px] font-bold uppercase tracking-widest ${item.type === "screenshot" ? "text-violet-400/70" : "text-cyan-400/70"}`}>{item.type === "screenshot" ? "Screen Capture" : "Quick Note"}</span>
+                        <span className={`text-[8px] font-bold uppercase tracking-widest opacity-85`}>
+                          {getEssentialItemLabel(item.type)}
+                        </span>
                         <p className={`text-[11px] font-semibold leading-snug mt-0.5 ${theme === "light" ? "text-black/85" : "text-white/85"}`}>{item.title}</p>
                         <p className={`text-[10px] leading-relaxed mt-1 line-clamp-2 ${theme === "light" ? "text-black/45" : "text-white/40"}`}>{item.content}</p>
                         {item.tags.length > 0 && (
@@ -3036,6 +3205,165 @@ export function CoordinatorDemoShell() {
         onSelect={(doc) => setAttachedResource(doc.title)}
         theme={theme}
       />
+
+      {/* CSS keyframe animation for scanning line */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes scan {
+          0% { top: 0%; }
+          50% { top: 100%; }
+          100% { top: 0%; }
+        }
+      ` }} />
+
+      {/* Universal Capture Overlay Modal */}
+      <AnimatePresence>
+        {isCaptureOverlayOpen && (
+          <div
+            className="fixed inset-0 z-[200] font-sans overflow-hidden select-none"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+          >
+            {/* Capturing region draw state */}
+            {captureState === "capturing" && (
+              <>
+                {/* Crosshair Backdrop */}
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] cursor-crosshair" />
+
+                {/* Subtle instruction text at top */}
+                <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-zinc-950/90 border border-white/10 px-4 py-2 rounded-full text-xs font-semibold text-white tracking-wide shadow-xl flex items-center gap-2 pointer-events-none">
+                  <span className="size-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <span>Click and drag to capture a screen region</span>
+                  <span className="text-[10px] text-white/40 border border-white/20 px-1.5 py-0.5 rounded uppercase font-bold">Esc to Cancel</span>
+                </div>
+
+                {/* The drag selection boundary box */}
+                {startPoint && currentPoint && (
+                  <div
+                    className="absolute border border-cyan-400/80 bg-cyan-400/5 shadow-[0_0_15px_rgba(34,211,238,0.15)] pointer-events-none"
+                    style={{
+                      left: Math.min(startPoint.x, currentPoint.x),
+                      top: Math.min(startPoint.y, currentPoint.y),
+                      width: Math.abs(currentPoint.x - startPoint.x),
+                      height: Math.abs(currentPoint.y - startPoint.y),
+                    }}
+                  >
+                    {/* Bounding width/height labels */}
+                    <div className="absolute -top-6 left-0 bg-cyan-950 border border-cyan-500/30 text-[9px] font-mono px-1.5 py-0.5 rounded text-cyan-400 font-bold">
+                      {Math.round(Math.abs(currentPoint.x - startPoint.x))}px × {Math.round(Math.abs(currentPoint.y - startPoint.y))}px
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Preview and details overlay (floating CleanShot-style card in bottom-right corner) */}
+            {captureState === "preview" && (
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                className="absolute bottom-6 right-6 w-80 bg-zinc-950/95 border border-zinc-800 rounded-2xl p-4 shadow-[0_24px_48px_rgba(0,0,0,0.8)] backdrop-blur-md space-y-3.5 z-[210] pointer-events-auto"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-1.5">
+                    <div className="size-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400">Capture Preview</span>
+                  </div>
+                  <span className="text-[9px] text-white/40 font-semibold font-mono">
+                    {startPoint && currentPoint ? `${Math.round(Math.abs(currentPoint.x - startPoint.x))}×${Math.round(Math.abs(currentPoint.y - startPoint.y))}` : ""}
+                  </span>
+                </div>
+
+                {/* Small snip preview graphic */}
+                <div className="relative h-20 w-full rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
+                  {/* Diagonal grid lines background */}
+                  <div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,#fff_12.5%,transparent_12.5%,transparent_50%,#fff_50%,#fff_62.5%,transparent_62.5%,transparent_100%)] bg-[length:10px_10px]" />
+                  <div className="flex flex-col items-center gap-1">
+                    <svg className="size-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    </svg>
+                    <span className="text-[8px] font-extrabold text-white/50 tracking-wider uppercase">{activeTab ? `${activeTab} view` : "workspace"} context</span>
+                  </div>
+                </div>
+
+                {/* Form Inputs */}
+                <div className="space-y-2.5">
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block">Capture Name</label>
+                    <input
+                      type="text"
+                      value={captureTitle}
+                      onChange={(e) => setCaptureTitle(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border bg-zinc-900 border-zinc-800 text-white outline-none focus:border-cyan-500 font-semibold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block">Add Notes</label>
+                    <textarea
+                      value={captureNote}
+                      onChange={(e) => setCaptureNote(e.target.value)}
+                      placeholder="Type a quick observation..."
+                      rows={2}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border bg-zinc-900 border-zinc-800 text-white outline-none focus:border-cyan-500 resize-none font-semibold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase tracking-wider text-zinc-500 font-extrabold block">Tags (Comma-separated)</label>
+                    <input
+                      type="text"
+                      value={captureTags}
+                      onChange={(e) => setCaptureTags(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-[10px] rounded-lg border bg-zinc-900 border-zinc-800 text-white outline-none focus:border-cyan-500 font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-1.5">
+                  <button
+                    onClick={() => {
+                      setIsCaptureOverlayOpen(false);
+                      setCaptureState("idle");
+                    }}
+                    className="flex-1 py-2 border border-zinc-800 hover:bg-white/5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFlashActive(true);
+                      setTimeout(() => setFlashActive(false), 150);
+
+                      const newItem: EssentialItem = {
+                        id: `es-cap-${Date.now()}`,
+                        type: "screenshot",
+                        title: captureTitle.trim() || "Captured Screen Snip",
+                        content: captureNote.trim() 
+                          ? `${scrapedContent}\n\nNote: ${captureNote.trim()}`
+                          : scrapedContent,
+                        tags: captureTags.split(",").map(t => t.trim()).filter(Boolean),
+                        date: "Just now"
+                      };
+
+                      setEssentialItems(prev => [newItem, ...prev]);
+                      setIsCaptureOverlayOpen(false);
+                      setCaptureState("idle");
+                      setIsEssentialSpaceOpen(true);
+                    }}
+                    className="flex-1 py-2 bg-cyan-400 hover:bg-cyan-300 text-zinc-950 text-[10px] font-extrabold uppercase tracking-wider rounded-lg transition-all shadow-[0_0_15px_rgba(34,211,238,0.25)]"
+                  >
+                    Save to Tray
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

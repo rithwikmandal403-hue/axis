@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { StudentLookupPanel } from "./student-lookup-panel";
+import { StudentStatisticsProfile } from "./student-statistics-profile";
 
 type SubjectKey = "physics" | "math" | "business" | "arts";
 
@@ -27,13 +28,15 @@ export function StudentIntelligence({
   selectedStudentId?: string | null;
   onClearSelectedStudent?: () => void;
 }) {
-  const [activeView, setActiveView] = useState<"overview" | "finder">("overview");
+  const [activeView, setActiveView] = useState<"overview" | "finder" | "statistics">("overview");
   const [selectedSubject, setSelectedSubject] = useState<SubjectDetail | null>(null);
+  const [statsStudentId, setStatsStudentId] = useState<string>("std-1");
 
   // Switch to directory finder when selection is pushed from global search
   useEffect(() => {
     if (selectedStudentId) {
       setActiveView("finder");
+      setStatsStudentId(selectedStudentId);
     }
   }, [selectedStudentId]);
 
@@ -342,6 +345,26 @@ export function StudentIntelligence({
               searchQuery={searchQuery}
               selectedStudentId={selectedStudentId}
               onClearSelectedStudent={onClearSelectedStudent}
+              onViewStatistics={(studentId) => {
+                setStatsStudentId(studentId);
+                setActiveView("statistics");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {/* VIEW 3: STUDENT STATISTICS PROFILE */}
+        {activeView === "statistics" && (
+          <motion.div
+            key="statistics"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <StudentStatisticsProfile
+              theme={theme}
+              selectedStudentId={statsStudentId}
+              onBack={() => setActiveView("finder")}
             />
           </motion.div>
         )}

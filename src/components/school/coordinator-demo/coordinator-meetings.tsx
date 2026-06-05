@@ -1,189 +1,283 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getAxisTheme, type Theme } from "@/lib/theme-utils";
+import { type Theme } from "@/lib/theme-utils";
 import { ResourcePickerModal } from "./connected-resources";
 
-type Meeting = {
+// ─── Types ──────────────────────────────────────────────────────────────
+
+type MeetingItem = {
   id: string;
   title: string;
-  description: string;
-  date: string;
+  organizer?: string;
+  participants: string[];
+  classGroup?: string;
   time: string;
-  duration: string;
-  type: "in-person" | "online" | "hybrid";
-  status: "upcoming" | "ongoing" | "completed" | "cancelled";
-  attendees: string[];
-  location?: string;
-  meetingLink?: string;
-  priority: "high" | "medium" | "low";
+  purpose: string;
+  status: "scheduled" | "invited";
+  suggestedPrep?: string;
+  timetableBlock?: string;
+  isShareable?: boolean;
+  shareLink?: string;
+  priority?: "high" | "medium" | "low";
+  category?: string;
   attachments?: string[];
   decisionsMade?: string[];
   meetingNotes?: string;
 };
 
-type CoordinatorMeetingsProps = {
-  theme?: Theme;
+type DecisionItem = {
+  id: string;
+  text: string;
+  time: string;
 };
 
-const INITIAL_MEETINGS: Meeting[] = [
-  {
-    id: "m-parent",
-    title: "DP Parent Conference",
-    description: "Cohort alignment session to review IA workloads, predicted grades policy, and exam schedules",
-    date: "2026-06-05", // Tomorrow
-    time: "16:00",
-    duration: "2h",
-    type: "hybrid",
-    status: "upcoming",
-    attendees: ["Ms. Sarah Thompson", "DP1 & DP2 Parents", "Subject Leads"],
-    location: "Main Auditorium",
-    meetingLink: "https://meet.axis.edu/dp-parent-townhall",
-    priority: "high",
-    attachments: ["Assessment Policy & Criteria.pdf"],
-    meetingNotes: "Prepare slides summarizing mock exam timelines and university counselor assignment lists.",
-  },
-  {
-    id: "m-cas",
-    title: "CAS Progress Meeting",
-    description: "CAS reflections check and final candidate portfolio approval reviews",
-    date: "2026-06-08", // This Week
-    time: "11:00",
-    duration: "1h",
-    type: "online",
-    status: "upcoming",
-    attendees: ["Ms. Sarah Thompson", "Aarav Chen", "CAS Advisors"],
-    meetingLink: "https://meet.axis.edu/cas-progress-sync",
-    priority: "medium",
-    attachments: [],
-    meetingNotes: "Focus on students with fewer than 3 documented reflections. Ensure advisor flags are logged.",
-  },
-  {
-    id: "m-ee",
-    title: "EE Supervisor Checkpoint",
-    description: "Draft feedback progress check and caseload balance audits for DP1 & DP2 candidates",
-    date: "2026-06-10", // This Week
-    time: "14:00",
-    duration: "1h",
-    type: "online",
-    status: "upcoming",
-    attendees: ["Ms. Sarah Thompson", "Marcus Vance", "Ananya Rao", "EE Supervisors"],
-    meetingLink: "https://meet.axis.edu/ee-supervisor-sync",
-    priority: "high",
-    attachments: ["Extended Essay Supervisor Guide.pdf"],
-    meetingNotes: "Double-check advisor loading. Identify supervisors with more than 5 candidates.",
-  },
-  {
-    id: "m-tok",
-    title: "TOK Exhibition Review",
-    description: "Review TOK exhibition grading criteria and schedule supervisor review slots",
-    date: "2026-06-15", // Next Week
-    time: "09:00",
-    duration: "1.5h",
-    type: "in-person",
-    status: "upcoming",
-    attendees: ["Ms. Sarah Thompson", "Aarav Chen", "Clara Dupont", "TOK Advisors"],
-    location: "Library Conference Room",
-    priority: "high",
-    attachments: ["Academic Honesty Policy.pdf", "TOK Exhibition Guidelines.pdf"],
-    meetingNotes: "Align grading standards for the internal exhibition. Prepare moderation feedback templates.",
-  },
-  {
-    id: "m-univ",
-    title: "University Guidance Sync",
-    description: "Review predicted grade alignment and final transcript packages with counseling staff",
-    date: "2026-06-20", // Next Week
-    time: "10:00",
-    duration: "2h",
-    type: "hybrid",
-    status: "upcoming",
-    attendees: ["Ms. Sarah Thompson", "University Counselors", "Michael Torres"],
-    location: "Executive Suite",
-    meetingLink: "https://meet.axis.edu/university-counseling",
-    priority: "medium",
-    attachments: [],
-    meetingNotes: "Ensure transcript security compliance protocols are verified before submission.",
-  },
-  {
-    id: "m-exam",
-    title: "Exam Coordination Review",
-    description: "IB exam room setup, invigilator assignments, and safety storage room audit",
-    date: "2026-06-04", // Today (completed)
-    time: "08:00",
-    duration: "1.5h",
-    type: "in-person",
-    status: "completed",
-    attendees: ["Ms. Sarah Thompson", "Administration Staff", "Invigilator Leads"],
-    location: "Exam Hall A",
-    priority: "high",
-    attachments: ["School Calendar 2026-2027.pdf"],
-    decisionsMade: [
-      "Secured secondary vault location for exam papers.",
-      "Approved invigilator roster with 12 substitutes registered.",
-      "Assigned separate rooms for student access arrangements."
-    ],
-    meetingNotes: "Audit of secure room complete. Vault double locks verified by Director.",
-  },
-  {
-    id: "m-dept",
-    title: "Department Curriculum Audit",
-    description: "Review curriculum syllabus mapping and coverage plans for PYP, MYP, and DP streams",
-    date: "2026-06-03", // Past
-    time: "14:00",
-    duration: "2.5h",
-    type: "in-person",
-    status: "completed",
-    attendees: ["Ms. Sarah Thompson", "Department Heads", "Michael Torres"],
-    location: "Executive Suite",
-    priority: "medium",
-    attachments: ["Academic Honesty Policy.pdf"],
-    decisionsMade: [
-      "Authorized transition to digital syllabi tracking.",
-      "Identified Group 4 science laboratory coverage overlaps."
-    ],
-    meetingNotes: "All departments have locked their current syllabus tracking logs.",
-  }
+type ParticipantEntity = {
+  id: string;
+  name: string;
+  type: "student" | "guardian" | "teacher" | "subject-lead" | "counselor" | "hod" | "admin" | "guest" | "class" | "department" | "staff" | "coordinator";
+  participantsCount: number;
+  subLabel?: string;
+  role?: string;
+  section?: string;
+  status?: "Available" | "Teaching" | "Active" | "Offline" | "In Meeting";
+};
+
+type GroupMember = {
+  name: string;
+  role: string;
+  section: string;
+  status: string;
+};
+
+// ─── Participant Entities (Coordinator Workflows) ───────────────────────
+
+const ALL_ENTITIES: ParticipantEntity[] = [
+  // Class / Groups
+  { id: "ent-class-1", name: "DP1 Candidates", type: "class", participantsCount: 48, subLabel: "48 Students · Grade 11 Cohort", role: "Cohort", section: "DP1" },
+  { id: "ent-class-2", name: "DP2 Candidates", type: "class", participantsCount: 45, subLabel: "45 Students · Grade 12 Cohort", role: "Cohort", section: "DP2" },
+  { id: "ent-class-3", name: "EE Supervisors", type: "class", participantsCount: 12, subLabel: "12 Advisors · Extended Essay", role: "Supervisors", section: "DP Core" },
+  { id: "ent-class-4", name: "TOK Essay Advisors", type: "class", participantsCount: 6, subLabel: "6 Staff · Theory of Knowledge", role: "Advisors", section: "DP Core" },
+  
+  // Teachers / HODs / Admins
+  { id: "ent-staff-1", name: "Marcus Vance", type: "hod", participantsCount: 1, subLabel: "Science Head · Teacher", role: "Subject Lead", section: "Science", status: "Available" },
+  { id: "ent-staff-2", name: "Aarav Chen", type: "teacher", participantsCount: 1, subLabel: "Physics Master · Teacher", role: "Subject Lead", section: "Science", status: "Teaching" },
+  { id: "ent-staff-3", name: "Elena Rostova", type: "teacher", participantsCount: 1, subLabel: "Chemistry Teacher", role: "Teacher", section: "Science", status: "Available" },
+  { id: "ent-staff-4", name: "Clara Dupont", type: "teacher", participantsCount: 1, subLabel: "Languages Lead · Teacher", role: "Subject Lead", section: "Languages", status: "Offline" },
+  { id: "ent-staff-5", name: "Principal Varma", type: "admin", participantsCount: 1, subLabel: "Secondary School Principal", role: "Administration", section: "Admin Office", status: "In Meeting" },
+  { id: "ent-staff-6", name: "Mr. Michael Torres", type: "admin", participantsCount: 1, subLabel: "Head of School", role: "Administration", section: "Executive Suite", status: "Available" },
+
+  // Counselors
+  { id: "ent-counselor-1", name: "Sarah Chen", type: "counselor", participantsCount: 1, subLabel: "Guidance Counselor", role: "Counselor", section: "Room 102", status: "Available" },
+
+  // Students (Individuals)
+  { id: "ent-student-1", name: "Chloe Vance", type: "student", participantsCount: 1, subLabel: "Student · Grade 11-A", role: "Student", section: "Grade 11-A", status: "Active" },
+  { id: "ent-student-2", name: "Dilan Patel", type: "student", participantsCount: 1, subLabel: "Student · Grade 11-B", role: "Student", section: "Grade 11-B", status: "Available" },
+  { id: "ent-student-3", name: "Emma Watson", type: "student", participantsCount: 1, subLabel: "Student · Grade 11-A", role: "Student", section: "Grade 11-A", status: "Offline" },
+
+  // Guests
+  { id: "ent-guest-1", name: "Robert Vance (Parent)", type: "guest", participantsCount: 1, subLabel: "Chloe's Father · External Guest", role: "Parent", section: "External" },
+  { id: "ent-guest-2", name: "May Parker (Guardian)", type: "guest", participantsCount: 1, subLabel: "Peter's Aunt · External Guest", role: "Guardian", section: "External" },
+  { id: "ent-guest-3", name: "IB DP Evaluation Officer", type: "guest", participantsCount: 1, subLabel: "IB Regional Board Inspector", role: "Evaluator", section: "External" },
 ];
 
-export function CoordinatorMeetings({ theme = "dark" }: CoordinatorMeetingsProps) {
-  const styles = getAxisTheme(theme);
+const GROUP_MEMBERS: { [entityId: string]: GroupMember[] } = {
+  "ent-class-1": [
+    { name: "Chloe Vance", role: "Student", section: "Grade 11-A", status: "Active" },
+    { name: "Dilan Patel", role: "Student", section: "Grade 11-B", status: "Available" },
+    { name: "Emma Watson", role: "Student", section: "Grade 11-A", status: "Offline" },
+  ],
+  "ent-class-2": [
+    { name: "Bruce Wayne", role: "Student", section: "Grade 12-A", status: "Active" },
+    { name: "Clark Kent", role: "Student", section: "Grade 12-B", status: "Available" },
+  ],
+  "ent-class-3": [
+    { name: "Marcus Vance", role: "Science Head", section: "Science", status: "Available" },
+    { name: "Aarav Chen", role: "Physics Master", section: "Science", status: "Teaching" },
+    { name: "Elena Rostova", role: "Chemistry Lead", section: "Science", status: "Available" },
+  ],
+  "ent-class-4": [
+    { name: "Aarav Chen", role: "TOK Advisor", section: "Science", status: "Teaching" },
+    { name: "Clara Dupont", role: "TOK Advisor", section: "Languages", status: "Offline" },
+  ]
+};
 
-  const [meetings, setMeetings] = useState<Meeting[]>(() => {
+// ─── Initial Coordinator Meetings ───────────────────────────────────────
+
+const INITIAL_MEETINGS: MeetingItem[] = [
+  {
+    id: "meet-coord-1",
+    title: "TOK Supervisor Reviews",
+    participants: ["Ms. Sarah Thompson", "Aarav Chen", "Clara Dupont"],
+    classGroup: "TOK Essay Advisors",
+    time: "2:15 PM - 3:00 PM (Today)",
+    purpose: "Resolve TOK exhibition draft moderation checkpoints and supervisor reviews.",
+    status: "scheduled",
+    timetableBlock: "Period 5",
+    priority: "high",
+    category: "TOK",
+    isShareable: true,
+    shareLink: "http://localhost:3000/school/experience/demo?role=guest&meetingId=meet-coord-1&title=TOK%20Supervisor%20Reviews",
+  },
+  {
+    id: "meet-coord-2",
+    title: "EE Progress Meetings",
+    participants: ["Ms. Sarah Thompson", "Marcus Vance", "Ananya Rao"],
+    classGroup: "EE Supervisors",
+    time: "4:00 PM - 4:45 PM (Today)",
+    purpose: "EE supervisor loading checkpoint and draft feedback progress audit.",
+    status: "scheduled",
+    timetableBlock: "Period 7",
+    priority: "high",
+    category: "Extended Essay",
+    isShareable: true,
+    shareLink: "http://localhost:3000/school/experience/demo?role=guest&meetingId=meet-coord-2&title=EE%20Progress%20Meetings",
+  },
+  {
+    id: "meet-coord-3",
+    title: "CAS Check-ins",
+    organizer: "Sarah Chen (Counselor)",
+    participants: ["Sarah Chen", "Ms. Sarah Thompson", "Chloe Vance"],
+    classGroup: "DP1 Candidates",
+    time: "10:30 AM - 11:15 AM (Tomorrow)",
+    purpose: "Student portfolio reviews and reflection check for selected DP1 students.",
+    status: "invited",
+    suggestedPrep: "Bring CAS logs and student portfolio summaries.",
+    timetableBlock: "Period 3",
+    priority: "medium",
+    category: "CAS",
+  },
+  {
+    id: "meet-coord-4",
+    title: "Parent Conference: Vance Case",
+    organizer: "Ms. Sarah Thompson",
+    participants: ["Ms. Sarah Thompson", "Robert Vance (Parent)", "Sarah Chen"],
+    classGroup: "Grade 11-A Parents",
+    time: "9:00 AM - 9:45 AM (Friday)",
+    purpose: "Review academic workload balance and guidance reports for Chloe Vance.",
+    status: "scheduled",
+    timetableBlock: "Period 1",
+    priority: "high",
+    category: "Parent Meeting",
+  },
+];
+
+export function CoordinatorMeetings({ theme = "dark" }: { theme?: Theme }) {
+  const [currentView, setCurrentView] = useState<"overview" | "meeting">("overview");
+
+  // Mock Meetings State
+  const [meetings, setMeetings] = useState<MeetingItem[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = window.sessionStorage.getItem("axis-meetings");
+      const saved = window.sessionStorage.getItem("axis-coordinator-meetings");
       if (saved) return JSON.parse(saved);
     }
     return INITIAL_MEETINGS;
   });
 
+  const [selectedMeeting, setSelectedMeeting] = useState<MeetingItem | null>(null);
+
+  // Form Fields under "Start a Meeting" toolbox (Left Panel)
+  const [meetTitle, setMeetTitle] = useState("");
+  const [meetPurpose, setMeetPurpose] = useState("");
+  const [meetTime, setMeetTime] = useState("12:45 PM (Period 5)");
+  const [meetingType, setMeetingType] = useState("TOK");
+  const [selectedEntities, setSelectedEntities] = useState<ParticipantEntity[]>([ALL_ENTITIES[3]]); // Default: TOK Essay Advisors
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewingMembersEntityId, setViewingMembersEntityId] = useState<string | null>(null);
+
+  const [generateShareLink, setGenerateShareLink] = useState(false);
+  const [sharingMeetingId, setSharingMeetingId] = useState<string | null>(null);
+
+  const [isResourcePickerOpen, setIsResourcePickerOpen] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const triggerToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+
+  // Calibration Devices state
+  const [cameraActive, setCameraActive] = useState(true);
+  const [micActive, setMicActive] = useState(true);
+  const [bgBlurActive, setBgBlurActive] = useState(false);
+  const [audioInputDevice, setAudioInputDevice] = useState("System Default (MacBook Mic)");
+
+  // Active Call Session states
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [meetingDuration, setMeetingDuration] = useState("00:00");
+  const meetingTimerRef = useRef(0);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+
+  // Active Call Sidebar states
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeSidebarTab, setActiveSidebarTab] = useState<"chat" | "participants" | "ledger">("ledger");
+
+  // Call features
+  const [decisions, setDecisions] = useState<DecisionItem[]>([]);
+  const [decisionInput, setDecisionInput] = useState("");
+  const [generatedRecap, setGeneratedRecap] = useState<string | null>(null);
+  const [captionsEnabled, setCaptionsEnabled] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isHandRaised, setIsHandRaised] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mutedAll, setMutedAll] = useState(false);
+  const [activeCaption, setActiveCaption] = useState("");
+
+  type MeetingMessage = {
+    id: string;
+    sender: "coordinator" | "other";
+    senderName: string;
+    avatar: string;
+    role: string;
+    text: string;
+    time: string;
   };
+
+  const [meetingMessages, setMeetingMessages] = useState<MeetingMessage[]>([
+    {
+      id: "mm-1",
+      sender: "other",
+      senderName: "Marcus Vance",
+      avatar: "MV",
+      role: "Science Head",
+      text: "Hi Sarah, thanks for setting up this session.",
+      time: "2:15 PM"
+    },
+    {
+      id: "mm-2",
+      sender: "other",
+      senderName: "Sarah Chen",
+      avatar: "SC",
+      role: "Guidance Counselor",
+      text: "Hello everyone, glad we can coordinate on the DP student check-ins.",
+      time: "2:16 PM"
+    },
+    {
+      id: "mm-3",
+      sender: "coordinator",
+      senderName: "Ms. Sarah Thompson",
+      avatar: "ST",
+      role: "DP Coordinator (You)",
+      text: "Welcome Marcus, Sarah. Let's first review the TOK/EE submission progress.",
+      time: "2:17 PM"
+    }
+  ]);
+  const [meetingChatInput, setMeetingChatInput] = useState("");
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.sessionStorage.setItem("axis-meetings", JSON.stringify(meetings));
+      window.sessionStorage.setItem("axis-coordinator-meetings", JSON.stringify(meetings));
     }
   }, [meetings]);
 
-  // Listen to the Axis Context event engine dispatches
+  // Context Engine Pre-fill Integration
   useEffect(() => {
     const handleCreateMeeting = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail && customEvent.detail.meeting) {
         const newMeet = customEvent.detail.meeting;
-        setQuickTitle(newMeet.title);
-        setQuickDesc(newMeet.description || "Meeting scheduled via context suggestion.");
-        setQuickDate(newMeet.date || "2026-06-05");
-        setQuickTime(newMeet.time || "15:30");
-        setQuickType(newMeet.type || "in-person");
-        setQuickPriority(newMeet.priority || "medium");
-        if (newMeet.attachments) {
-          setAttachedFiles(newMeet.attachments);
-        }
+        setMeetTitle(newMeet.title);
+        setMeetPurpose(newMeet.description || "Meeting scheduled via context suggestion.");
+        if (newMeet.time) setMeetTime(newMeet.time);
         triggerToast("Suggested meeting details pre-filled. Review and schedule.");
       }
     };
@@ -197,22 +291,16 @@ export function CoordinatorMeetings({ theme = "dark" }: CoordinatorMeetingsProps
         description: string;
         date: string;
         time: string;
-        type: Meeting["type"];
-        priority: Meeting["priority"];
+        type?: string;
+        priority?: string;
         attachments?: string[];
       };
     };
-    if (typeof window !== "undefined" && win.pendingContextMeeting) {
+    if (win.pendingContextMeeting) {
       const newMeet = win.pendingContextMeeting;
-      setQuickTitle(newMeet.title);
-      setQuickDesc(newMeet.description || "Meeting scheduled via context suggestion.");
-      setQuickDate(newMeet.date || "2026-06-05");
-      setQuickTime(newMeet.time || "15:30");
-      setQuickType(newMeet.type || "in-person");
-      setQuickPriority(newMeet.priority || "medium");
-      if (newMeet.attachments) {
-        setAttachedFiles(newMeet.attachments);
-      }
+      setMeetTitle(newMeet.title);
+      setMeetPurpose(newMeet.description || "Meeting scheduled via context suggestion.");
+      if (newMeet.time) setMeetTime(newMeet.time);
       delete win.pendingContextMeeting;
       setTimeout(() => {
         triggerToast("Suggested meeting details pre-filled. Review and schedule.");
@@ -224,606 +312,1712 @@ export function CoordinatorMeetings({ theme = "dark" }: CoordinatorMeetingsProps
     };
   }, []);
 
-  // UI state variables
-  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
-  const [searchArchiveQuery, setSearchArchiveQuery] = useState("");
-  const [isResourcePickerOpen, setIsResourcePickerOpen] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  // Initialize Media Stream
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    let isCurrent = true;
 
-  // Quick Schedule Form state
-  const [quickTitle, setQuickTitle] = useState("");
-  const [quickDesc, setQuickDesc] = useState("");
-  const [quickDate, setQuickDate] = useState("2026-06-05");
-  const [quickTime, setQuickTime] = useState("10:00");
-  const [quickDuration] = useState("1h");
-  const [quickType, setQuickType] = useState<Meeting["type"]>("in-person");
-  const [quickPriority, setQuickPriority] = useState<Meeting["priority"]>("medium");
-  const [quickLocation] = useState("Library Conference Room");
-
-  const handleQuickSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickTitle.trim()) return;
-
-    const newMeeting: Meeting = {
-      id: `meet-quick-${Date.now()}`,
-      title: quickTitle,
-      description: quickDesc || "Quick coordination session.",
-      date: quickDate,
-      time: quickTime,
-      duration: quickDuration,
-      type: quickType,
-      status: "upcoming",
-      attendees: ["Ms. Sarah Thompson", "Subject Leads"],
-      priority: quickPriority,
-      location: quickType !== "online" ? quickLocation : undefined,
-      meetingLink: quickType !== "in-person" ? "https://meet.axis.edu/quick-sync" : undefined,
-      attachments: attachedFiles,
-      meetingNotes: "Draft coordination agenda complete.",
-    };
-
-    setMeetings((prev) => [newMeeting, ...prev]);
-    setQuickTitle("");
-    setQuickDesc("");
-    setAttachedFiles([]);
-    triggerToast(`Meeting "${newMeeting.title}" scheduled successfully.`);
-  };
-
-  const handleRemoveAttachment = (filename: string) => {
-    setAttachedFiles(prev => prev.filter(f => f !== filename));
-  };
-
-  // Timeline chronology sorting logic
-  // Today = 2026-06-04
-  const todayDateStr = "2026-06-04";
-  const tomorrowDateStr = "2026-06-05";
-
-  const timelineMeetings = useMemo(() => {
-    // Only upcoming or today's active ones go into timeline
-    const active = meetings.filter(m => m.status === "upcoming" || m.status === "ongoing" || m.date === todayDateStr);
-    
-    // Sort chronologically by date then time
-    return [...active].sort((a, b) => {
-      const aVal = `${a.date}T${a.time}`;
-      const bVal = `${b.date}T${b.time}`;
-      return aVal.localeCompare(bVal);
-    });
-  }, [meetings]);
-
-  const timelineGroups = useMemo(() => {
-    const groups: Record<string, Meeting[]> = {
-      "Today": [],
-      "Tomorrow": [],
-      "This Week": [],
-      "Next Week & Beyond": [],
-    };
-
-    timelineMeetings.forEach(m => {
-      if (m.date === todayDateStr) {
-        groups["Today"].push(m);
-      } else if (m.date === tomorrowDateStr) {
-        groups["Tomorrow"].push(m);
-      } else {
-        const diffTime = new Date(m.date).getTime() - new Date(todayDateStr).getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays > 0 && diffDays <= 7) {
-          groups["This Week"].push(m);
+    async function setupLocalStream() {
+      try {
+        activeStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        if (isCurrent) {
+          setLocalStream(activeStream);
         } else {
-          groups["Next Week & Beyond"].push(m);
+          activeStream.getTracks().forEach(t => t.stop());
         }
+      } catch (err) {
+        console.warn("Failed to obtain media stream in meetings workspace:", err);
       }
+    }
+
+    setupLocalStream();
+
+    return () => {
+      isCurrent = false;
+      if (activeStream) {
+        activeStream.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
+
+  // Sync mic track
+  useEffect(() => {
+    if (localStream) {
+      const active = currentView === "meeting" ? !isAudioMuted : micActive;
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = active;
+      });
+    }
+  }, [localStream, currentView, isAudioMuted, micActive]);
+
+  // Sync video track
+  useEffect(() => {
+    if (localStream) {
+      const active = currentView === "meeting" ? !isVideoMuted : cameraActive;
+      localStream.getVideoTracks().forEach(track => {
+        track.enabled = active;
+      });
+    }
+  }, [localStream, currentView, isVideoMuted, cameraActive]);
+
+  // Captions simulation
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (currentView === "meeting") {
+      const simulatedCaptions = [
+        { speaker: "Ms. Sarah Thompson", text: "Welcome everyone to our coordination call. Let's sync on TOK deadlines." },
+        { speaker: "Marcus Vance", text: "Hi Sarah. I wanted to verify the Science HOD draft submissions checklist status." },
+        { speaker: "Ms. Sarah Thompson", text: "Yes, I have selected the TOK Essay Advisors group to resolve this checkpoint." },
+        { speaker: "Marcus Vance", text: "Excellent, that will align perfectly with our calendar checkpoints." },
+      ];
+      let captionIndex = 0;
+      timer = setInterval(() => {
+        const item = simulatedCaptions[captionIndex];
+        setActiveCaption(`[${item.speaker}]: ${item.text}`);
+        captionIndex = (captionIndex + 1) % simulatedCaptions.length;
+      }, 5000);
+      setActiveCaption(`[Ms. Sarah Thompson]: Welcome everyone to our coordination call. Let's sync on TOK deadlines.`);
+    } else {
+      setActiveCaption("");
+    }
+    return () => clearInterval(timer);
+  }, [currentView]);
+
+  // Timer simulation
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (currentView === "meeting") {
+      interval = setInterval(() => {
+        meetingTimerRef.current += 1;
+        const mins = Math.floor(meetingTimerRef.current / 60).toString().padStart(2, "0");
+        const secs = (meetingTimerRef.current % 60).toString().padStart(2, "0");
+        setMeetingDuration(`${mins}:${secs}`);
+      }, 1000);
+    } else {
+      meetingTimerRef.current = 0;
+      setMeetingDuration("00:00");
+      setGeneratedRecap(null);
+    }
+    return () => clearInterval(interval);
+  }, [currentView]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (activeSidebarTab === "chat" && isSidebarOpen) {
+      chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [meetingMessages, activeSidebarTab, isSidebarOpen]);
+
+  const selectedGroupsCount = useMemo(() => {
+    return selectedEntities.filter((e) => e.type === "class" || e.type === "department").length;
+  }, [selectedEntities]);
+
+  const totalParticipantsCount = useMemo(() => {
+    const sum = selectedEntities.reduce((acc, curr) => acc + curr.participantsCount, 0);
+    return sum + 1; // +1 Host
+  }, [selectedEntities]);
+
+  const filteredSearchEntities = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = searchQuery.toLowerCase();
+    return ALL_ENTITIES.filter((entity) => {
+      if (selectedEntities.some((se) => se.id === entity.id)) return false;
+      return (
+        entity.name.toLowerCase().includes(query) ||
+        (entity.subLabel && entity.subLabel.toLowerCase().includes(query)) ||
+        entity.type.toLowerCase().includes(query) ||
+        (entity.role && entity.role.toLowerCase().includes(query))
+      );
     });
+  }, [searchQuery, selectedEntities]);
 
-    return groups;
-  }, [timelineMeetings]);
+  const viewingMembers = useMemo(() => {
+    if (!viewingMembersEntityId) return null;
+    const entity = ALL_ENTITIES.find((e) => e.id === viewingMembersEntityId);
+    const members = GROUP_MEMBERS[viewingMembersEntityId] || [];
+    return { entity, members };
+  }, [viewingMembersEntityId]);
 
-  const archivedMeetings = useMemo(() => {
-    const past = meetings.filter(m => m.status === "completed" || m.status === "cancelled" || m.date < todayDateStr);
-    if (!searchArchiveQuery) return past;
-    return past.filter(m =>
-      m.title.toLowerCase().includes(searchArchiveQuery.toLowerCase()) ||
-      m.description.toLowerCase().includes(searchArchiveQuery.toLowerCase()) ||
-      m.attendees.some(att => att.toLowerCase().includes(searchArchiveQuery.toLowerCase()))
-    );
-  }, [meetings, searchArchiveQuery]);
+  const handleAddEntity = (entity: ParticipantEntity) => {
+    if (selectedEntities.some((e) => e.id === entity.id)) return;
+    setSelectedEntities((prev) => [...prev, entity]);
+    setSearchQuery("");
+  };
 
-  // Today's Spotlight Meeting
-  const todaysSpotlight = useMemo(() => {
-    // Look for today's completed/upcoming
-    const todayMeets = meetings.filter(m => m.date === todayDateStr);
-    return todayMeets[0] || null;
-  }, [meetings]);
+  const handleRemoveEntity = (id: string) => {
+    setSelectedEntities((prev) => prev.filter((e) => e.id !== id));
+  };
 
-  // High priority upcoming review checkpoint items
-  const upcomingReviews = useMemo(() => {
-    return meetings.filter(m => m.status === "upcoming" && m.priority === "high" && m.date !== todayDateStr).slice(0, 2);
-  }, [meetings]);
+  const contextLayerInsight = useMemo(() => {
+    if (selectedEntities.length === 0) {
+      return {
+        text: "Select participants to analyze availability, overlaps, and conflicts.",
+        iconColor: "bg-cyan-400 animate-pulse",
+        textColor: "text-cyan-400",
+        bgColor: "bg-cyan-500/[0.02]",
+        borderColor: "border-cyan-500/10",
+      };
+    }
+
+    const hasGuest = selectedEntities.some((e) => e.type === "guest");
+    const totalCount = selectedEntities.reduce((acc, curr) => acc + curr.participantsCount, 0);
+
+    if (hasGuest && !generateShareLink) {
+      return {
+        text: "External guest selected. Enable 'Generate Share Link' to allow access.",
+        iconColor: "bg-amber-400",
+        textColor: "text-amber-400",
+        bgColor: "bg-amber-500/[0.02]",
+        borderColor: "border-amber-500/10",
+      };
+    }
+
+    // Availability Warning
+    const unavailableCount = selectedEntities.filter(
+      (e) => e.status === "Offline" || e.status === "Teaching" || e.status === "In Meeting"
+    ).length;
+    if (unavailableCount > 0) {
+      return {
+        text: `${unavailableCount} participant${unavailableCount > 1 ? "s" : ""} currently unavailable. Consider rescheduling.`,
+        iconColor: "bg-amber-400",
+        textColor: "text-amber-400",
+        bgColor: "bg-amber-500/[0.02]",
+        borderColor: "border-amber-500/10",
+      };
+    }
+
+    if (totalCount > 30) {
+      return {
+        text: `High participant density (${totalCount} participants). Secure room channels active. Check mic feedback.`,
+        iconColor: "bg-amber-400",
+        textColor: "text-amber-400",
+        bgColor: "bg-amber-500/[0.02]",
+        borderColor: "border-amber-500/10",
+      };
+    }
+
+    return {
+      text: `Intelligent Availability: All selected participants/groups are free during ${meetTime}.`,
+      iconColor: "bg-emerald-400",
+      textColor: "text-emerald-400",
+      bgColor: "bg-emerald-500/[0.02]",
+      borderColor: "border-emerald-500/10",
+    };
+  }, [selectedEntities, generateShareLink, meetTime]);
+
+  const tempShareId = useMemo(() => `meet-share-${Date.now()}`, []);
+  const tempShareLink = useMemo(() => {
+    return `http://localhost:3000/school/experience/demo?role=guest&meetingId=${tempShareId}&title=${encodeURIComponent(meetTitle.trim() || "Spontaneous Virtual Realignment")}`;
+  }, [meetTitle, tempShareId]);
+
+  const handleLaunchInstantMeeting = () => {
+    const titleVal = meetTitle.trim() || "Spontaneous Virtual Realignment";
+    const purposeVal = meetPurpose.trim() || "Immediate operational coordination check.";
+    const groupLabel = selectedEntities.map((e) => e.name).join(", ") || "Custom Participant Group";
+    const participantNames = ["Ms. Sarah Thompson", ...selectedEntities.map((e) => e.name)];
+
+    const instantMeet: MeetingItem = {
+      id: `meet-instant-${Date.now()}`,
+      title: titleVal,
+      participants: participantNames,
+      classGroup: groupLabel,
+      time: "Active Now",
+      purpose: purposeVal,
+      status: "scheduled",
+      timetableBlock: meetTime,
+      category: meetingType,
+      isShareable: generateShareLink,
+      shareLink: generateShareLink ? tempShareLink : undefined,
+    };
+
+    setSelectedMeeting(instantMeet);
+    setIsAudioMuted(!micActive);
+    setIsVideoMuted(!cameraActive);
+    setCurrentView("meeting");
+  };
+
+  const handleScheduleFutureMeeting = () => {
+    const titleVal = meetTitle.trim() || "Virtual Coordination Sync";
+    const purposeVal = meetPurpose.trim() || "Academic guidelines sync.";
+    const groupLabel = selectedEntities.map((e) => e.name).join(", ") || "Custom Participant Group";
+    const participantNames = ["Ms. Sarah Thompson", ...selectedEntities.map((e) => e.name)];
+
+    const scheduledMeet: MeetingItem = {
+      id: `meet-custom-${Date.now()}`,
+      title: titleVal,
+      participants: participantNames,
+      classGroup: groupLabel,
+      time: `${meetTime} (Scheduled Today)`,
+      purpose: purposeVal,
+      status: "scheduled",
+      timetableBlock: meetTime,
+      category: meetingType,
+      attachments: attachedFiles,
+      isShareable: generateShareLink,
+      shareLink: generateShareLink ? tempShareLink : undefined,
+    };
+
+    setMeetings((prev) => [scheduledMeet, ...prev]);
+    setMeetTitle("");
+    setMeetPurpose("");
+    setGenerateShareLink(false);
+    setAttachedFiles([]);
+    setSelectedEntities([ALL_ENTITIES[3]]);
+    triggerToast(`Meeting "${titleVal}" scheduled successfully.`);
+  };
+
+  const handleJoinExistingMeeting = (meet: MeetingItem) => {
+    setSelectedMeeting(meet);
+    setIsAudioMuted(!micActive);
+    setIsVideoMuted(!cameraActive);
+    setCurrentView("meeting");
+  };
+
+  const handleInvitationResponse = (id: string, response: "accept" | "decline") => {
+    if (response === "accept") {
+      setMeetings((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, status: "scheduled" as const } : m))
+      );
+      triggerToast("Meeting invitation accepted.");
+    } else {
+      setMeetings((prev) => prev.filter((m) => m.id !== id));
+      triggerToast("Meeting invitation declined.");
+    }
+  };
+
+  const handleSendMeetingMessage = () => {
+    if (!meetingChatInput.trim()) return;
+    const newMsg: MeetingMessage = {
+      id: `mm-msg-${Date.now()}`,
+      sender: "coordinator",
+      senderName: "Ms. Sarah Thompson",
+      avatar: "ST",
+      role: "DP Coordinator (You)",
+      text: meetingChatInput,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    };
+    setMeetingMessages((prev) => [...prev, newMsg]);
+    setMeetingChatInput("");
+  };
+
+  const handleToggleSidebar = (tab: "chat" | "participants" | "ledger") => {
+    if (isSidebarOpen && activeSidebarTab === tab) {
+      setIsSidebarOpen(false);
+    } else {
+      setIsSidebarOpen(true);
+      setActiveSidebarTab(tab);
+    }
+  };
+
+  const handleAddDecision = () => {
+    if (!decisionInput.trim()) return;
+    const newDecision: DecisionItem = {
+      id: `dec-${Date.now()}`,
+      text: decisionInput,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    setDecisions((prev) => [...prev, newDecision]);
+    setDecisionInput("");
+  };
+
+  const handleGenerateRecap = () => {
+    if (!selectedMeeting) return;
+    const decisionLogStr = decisions.length > 0
+      ? decisions.map((d) => `• [${d.time}] ${d.text}`).join("\n")
+      : "• No formal decisions logged during coordination.";
+
+    const recap = `AXIS VIRTUAL MEETING RECAP
+-----------------------------------
+Meeting: ${selectedMeeting.title}
+Timestamp: ${new Date().toLocaleDateString()}
+Subject: ${selectedMeeting.purpose}
+Virtual Channel: Axis Secure Room (${selectedMeeting.id})
+
+Decisions Ledger:
+${decisionLogStr}
+
+Follow-ups Generated:
+1. Virtual schedules and coordination timelines synced.
+2. Participant dashboard status metrics updated.`;
+
+    setGeneratedRecap(recap);
+  };
+
+  const handleSelectResource = (doc: { title: string }) => {
+    if (!attachedFiles.includes(doc.title)) {
+      setAttachedFiles((prev) => [...prev, doc.title]);
+    }
+    setIsResourcePickerOpen(false);
+  };
+
+  const getParticipantDetails = (name: string) => {
+    if (name === "Ms. Sarah Thompson") {
+      return {
+        role: "DP Coordinator (Host)",
+        avatar: "ST",
+        status: "Active",
+        isMuted: isAudioMuted,
+        isHandRaised: isHandRaised
+      };
+    }
+    const entity = ALL_ENTITIES.find(e => e.name === name);
+    return {
+      role: entity?.role || (name.includes("Parent") ? "Guest Parent" : "Participant"),
+      avatar: name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase(),
+      status: name === "Marcus Vance" && !mutedAll ? "Speaking" : "Active",
+      isMuted: name === "Marcus Vance" ? mutedAll : true,
+      isHandRaised: false
+    };
+  };
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const isFormInvalid = !meetTitle.trim() || !meetPurpose.trim() || selectedEntities.length === 0;
 
   return (
-    <div className="space-y-8 font-sans">
-      {/* ─── TOP SECTION: CALM PORTAL ────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Today's Meetings & Upcoming Reviews (Left 2 Columns) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className={`p-6 rounded-2xl border ${styles.cardBg} ${styles.border} space-y-4 shadow-sm`}>
-            <div className="flex items-center justify-between border-b pb-3 border-white/[0.04]">
-              <div>
-                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block font-mono">Today&apos;s Focus</span>
-                <h3 className={`text-sm font-bold uppercase tracking-wider mt-0.5 ${styles.textPrimary}`}>Spotlight Sync</h3>
-              </div>
-              <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold uppercase tracking-wider">
-                Active Cycle
-              </span>
-            </div>
-
-            {todaysSpotlight ? (
-              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white/[0.01] border border-white/[0.04] p-4 rounded-xl">
-                <div className="space-y-1.5">
-                  <span className="px-2 py-0.5 bg-red-500/15 border border-red-500/20 text-red-400 rounded text-[8px] font-bold uppercase tracking-wider">
-                    {todaysSpotlight.priority} Priority · {todaysSpotlight.type}
-                  </span>
-                  <h4 className="text-sm font-bold text-white">{todaysSpotlight.title}</h4>
-                  <p className="text-xs text-white/50">{todaysSpotlight.description}</p>
-                  <div className="flex items-center gap-2.5 text-[10px] text-white/40 pt-1">
-                    <span>🕒 {todaysSpotlight.time} ({todaysSpotlight.duration})</span>
-                    <span>📍 {todaysSpotlight.location || "Online"}</span>
-                  </div>
+    <div className="relative min-h-[calc(100vh-140px)] w-full">
+      <AnimatePresence mode="wait">
+        
+        {/* VIEW 1: DUAL PANEL OVERVIEW */}
+        {currentView === "overview" && (
+          <motion.div
+            key="overview"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-6 w-full"
+          >
+            {/* COLUMN A: START A VIRTUAL MEETING (Left Panel) */}
+            <div className="relative space-y-6">
+              <div className={`rounded-2xl border p-6 shadow-2xl backdrop-blur-xl space-y-6 ${
+                theme === "light" ? "bg-white border-black/10 text-black shadow-black/[0.04]" : "bg-[#0C0C0E]/40 border-white/[0.06] text-white shadow-black/[0.45]"
+              }`}>
+                <div className={`flex flex-col gap-1 pb-4 border-b ${theme === "light" ? "border-black/[0.06]" : "border-white/[0.06]"}`}>
+                  <h2 className={`text-sm font-bold tracking-tight ${theme === "light" ? "text-black/90" : "text-white/90"}`}>Start a Virtual Meeting</h2>
+                  <p className={`text-[10px] font-medium leading-none ${theme === "light" ? "text-black/40" : "text-white/35"}`}>Configure operational tools and spawn secure room link</p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-                  <button
-                    onClick={() => setSelectedMeeting(todaysSpotlight)}
-                    className="px-3.5 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-[10px] font-bold uppercase tracking-wider text-white"
-                  >
-                    Details
-                  </button>
-                  {todaysSpotlight.status === "upcoming" && (
-                    <button className="px-3.5 py-1.5 rounded-lg bg-cyan-500 text-black text-[10px] font-extrabold uppercase tracking-wider hover:bg-cyan-400 transition-colors">
-                      Start Sync
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-6 text-xs text-white/20 uppercase tracking-widest font-semibold">
-                No meetings scheduled for today
-              </div>
-            )}
-          </div>
-
-          {/* Upcoming Academic Reviews Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {upcomingReviews.map((rev) => (
-              <div
-                key={rev.id}
-                onClick={() => setSelectedMeeting(rev)}
-                className={`p-4 rounded-2xl border cursor-pointer hover:border-white/10 transition-all ${styles.cardBg} ${styles.border} flex flex-col justify-between h-36`}
-              >
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[8px] font-bold text-cyan-400 uppercase tracking-wider font-mono">Academic Checkpoint</span>
-                    <span className="px-1.5 py-0.2 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-[8px] font-extrabold uppercase">{rev.priority}</span>
-                  </div>
-                  <h4 className="text-xs font-bold text-white truncate mt-1">{rev.title}</h4>
-                  <p className="text-[10px] text-white/40 line-clamp-2 leading-relaxed">{rev.description}</p>
-                </div>
-
-                <div className="flex justify-between items-center pt-2 border-t border-white/[0.03] text-[9.5px] text-white/35 font-mono">
-                  <span>📅 {rev.date}</span>
-                  <span>{rev.time}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Schedule Meeting Inline Form (Right 1 Column) */}
-        <div className={`p-6 rounded-2xl border ${styles.cardBg} ${styles.border} space-y-4 shadow-sm`}>
-          <div className="border-b pb-3 border-white/[0.04]">
-            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block font-mono">Operations</span>
-            <h3 className={`text-sm font-bold uppercase tracking-wider mt-0.5 ${styles.textPrimary}`}>Quick Schedule</h3>
-          </div>
-
-          <form onSubmit={handleQuickSubmit} className="space-y-3.5 text-xs font-semibold">
-            <div className="space-y-1">
-              <label className="text-[9px] uppercase tracking-wider text-white/35">Meeting Title</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. TOK Supervisor Sync"
-                value={quickTitle}
-                onChange={(e) => setQuickTitle(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border bg-black/40 border-white/[0.08] text-white outline-none focus:border-cyan-500/50"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[9px] uppercase tracking-wider text-white/35">Description</label>
-              <textarea
-                placeholder="Key objectives..."
-                rows={2}
-                value={quickDesc}
-                onChange={(e) => setQuickDesc(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border bg-black/40 border-white/[0.08] text-white outline-none focus:border-cyan-500/50 resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-white/35">Date</label>
-                <input
-                  type="date"
-                  value={quickDate}
-                  onChange={(e) => setQuickDate(e.target.value)}
-                  className="w-full px-2 py-1.5 text-xs rounded-xl border bg-black/40 border-white/[0.08] text-white outline-none focus:border-cyan-500/50"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-white/35">Time</label>
-                <input
-                  type="time"
-                  value={quickTime}
-                  onChange={(e) => setQuickTime(e.target.value)}
-                  className="w-full px-2 py-1.5 text-xs rounded-xl border bg-black/40 border-white/[0.08] text-white outline-none focus:border-cyan-500/50"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-white/35">Category</label>
-                <select
-                  value={quickType}
-                  onChange={(e) => setQuickType(e.target.value as Meeting["type"])}
-                  className="w-full px-2.5 py-1.5 text-xs rounded-xl border bg-black/40 border-white/[0.08] text-white outline-none focus:border-cyan-500/50"
-                >
-                  <option value="in-person">In-Person</option>
-                  <option value="online">Online Link</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-white/35">Priority</label>
-                <select
-                  value={quickPriority}
-                  onChange={(e) => setQuickPriority(e.target.value as Meeting["priority"])}
-                  className="w-full px-2.5 py-1.5 text-xs rounded-xl border bg-black/40 border-white/[0.08] text-white outline-none focus:border-cyan-500/50"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Resource Attachment Block */}
-            <div className="space-y-1.5 pt-2 border-t border-white/[0.04]">
-              <div className="flex justify-between items-center">
-                <label className="text-[9px] uppercase tracking-wider text-white/35">Meeting Resources</label>
-                <button
-                  type="button"
-                  onClick={() => setIsResourcePickerOpen(true)}
-                  className="text-[9.5px] font-extrabold text-cyan-400 hover:underline"
-                >
-                  + Reference Resource
-                </button>
-              </div>
-
-              {attachedFiles.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {attachedFiles.map((file) => (
-                    <span
-                      key={file}
-                      className="px-2 py-0.5 rounded bg-cyan-950/20 border border-cyan-500/20 text-cyan-400 text-[8.5px] font-bold flex items-center gap-1.5"
-                    >
-                      <span className="truncate max-w-[80px]">{file}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAttachment(file)}
-                        className="text-white/40 hover:text-red-400 text-[9px] font-extrabold select-none"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-[9px] text-white/20 block italic">No attachments linked</span>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold uppercase tracking-wider text-[10px] rounded-xl transition-all mt-2 cursor-pointer"
-            >
-              Dispatch Schedule
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* ─── MIDDLE SECTION: UPCOMING TIMELINE ──────────────────────────── */}
-      <div className={`p-6 rounded-2xl border ${styles.cardBg} ${styles.border} space-y-6 shadow-sm`}>
-        <div className="border-b pb-3 border-white/[0.04]">
-          <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block font-mono">Academic Rhythm</span>
-          <h3 className={`text-sm font-bold uppercase tracking-wider mt-0.5 ${styles.textPrimary}`}>Upcoming Chronology</h3>
-        </div>
-
-        {timelineMeetings.length === 0 ? (
-          <div className="text-center py-12 text-xs text-white/20 uppercase tracking-widest font-semibold">
-            No upcoming schedule items logged
-          </div>
-        ) : (
-          <div className="relative border-l border-white/[0.06] pl-6 ml-3 space-y-6">
-            {Object.entries(timelineGroups).map(([groupTitle, groupMeets]) => {
-              if (groupMeets.length === 0) return null;
-              return (
-                <div key={groupTitle} className="space-y-3.5 relative">
-                  {/* Timeline dot label connector */}
-                  <div className="absolute -left-[31px] top-1.5 size-2 rounded-full bg-cyan-400 border-4 border-black ring-4 ring-cyan-500/10 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
-                  
-                  <span className="text-[10px] font-extrabold text-cyan-400 uppercase tracking-widest font-mono block">
-                    {groupTitle}
-                  </span>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {groupMeets.map((m) => (
-                      <div
-                        key={m.id}
-                        onClick={() => setSelectedMeeting(m)}
-                        className="p-4 rounded-xl border border-white/[0.04] bg-white/[0.005] hover:bg-white/[0.01] hover:border-white/10 cursor-pointer transition-all flex flex-col justify-between gap-3 text-xs"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-start gap-3">
-                            <h4 className="font-bold text-white truncate leading-snug">{m.title}</h4>
-                            <span className={`px-1.5 py-0.2 rounded text-[7.5px] font-bold uppercase tracking-wider shrink-0 border ${
-                              m.priority === "high"
-                                ? "bg-red-500/15 border-red-500/25 text-red-400"
-                                : m.priority === "medium"
-                                ? "bg-amber-500/15 border-amber-500/25 text-amber-400"
-                                : "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
-                            }`}>
-                              {m.priority}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-white/50 line-clamp-2 leading-relaxed">{m.description}</p>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-2.5 border-t border-white/[0.03] text-[9.5px] text-white/35 font-mono">
-                          <div className="flex items-center gap-1">
-                            <span>🕒 {m.time} ({m.duration})</span>
-                            {m.location && <span>· 📍 {m.location}</span>}
-                          </div>
-                          <span className="text-cyan-400 font-bold uppercase tracking-widest group-hover:underline text-[8.5px]">Open →</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ─── BOTTOM SECTION: ARCHIVE & DECISIONS ───────────────────────── */}
-      <div className={`p-6 rounded-2xl border ${styles.cardBg} ${styles.border} space-y-6 shadow-sm`}>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-3 border-white/[0.04] gap-4">
-          <div>
-            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block font-mono">Records</span>
-            <h3 className={`text-sm font-bold uppercase tracking-wider mt-0.5 ${styles.textPrimary}`}>Historical Decisions & past reviews</h3>
-          </div>
-
-          <div className="relative w-full max-w-xs shrink-0">
-            <input
-              type="text"
-              placeholder="Search past review history..."
-              value={searchArchiveQuery}
-              onChange={(e) => setSearchArchiveQuery(e.target.value)}
-              className="w-full rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none bg-black/45 border border-white/[0.08] text-white focus:border-cyan-500/50"
-            />
-            <svg className="absolute left-2.5 top-2.5 size-3 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-            </svg>
-          </div>
-        </div>
-
-        {archivedMeetings.length === 0 ? (
-          <div className="text-center py-8 text-xs text-white/20 uppercase tracking-widest font-semibold">
-            No matching past records found
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {archivedMeetings.map((past) => (
-              <div
-                key={past.id}
-                onClick={() => setSelectedMeeting(past)}
-                className="p-5 rounded-xl border border-white/[0.04] bg-black/20 hover:bg-black/35 hover:border-white/10 cursor-pointer transition-all flex flex-col justify-between gap-4 text-xs"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-start">
-                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/15 text-[8px] font-black text-white/40 uppercase tracking-widest">
-                      {past.status.toUpperCase()}
-                    </span>
-                    <span className="text-[9.5px] font-mono text-white/30">{past.date}</span>
-                  </div>
-                  <h4 className="font-bold text-white text-xs">{past.title}</h4>
-                  <p className="text-[11px] text-white/50 leading-relaxed">{past.description}</p>
-                </div>
-
-                {past.decisionsMade && past.decisionsMade.length > 0 && (
-                  <div className="space-y-1.5 pt-2 border-t border-white/[0.04]">
-                    <span className="text-[8.5px] font-extrabold text-cyan-400 uppercase tracking-widest font-mono">Decisions Made</span>
-                    <ul className="list-disc list-inside text-[10px] text-white/70 space-y-0.5 leading-snug">
-                      {past.decisionsMade.map((dec, idx) => (
-                        <li key={idx} className="truncate">{dec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center text-[9px] text-white/30 pt-2 border-t border-white/[0.03] font-mono">
-                  <span>Attendees: {past.attendees.length}</span>
-                  <span className="text-cyan-400/80 font-bold uppercase tracking-wider">Inspect notes →</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ─── MEETING DETAILS EXECUTIVE DRAWER DIALOG ──────────────────── */}
-      <AnimatePresence>
-        {selectedMeeting && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
-            <div className="fixed inset-0" onClick={() => setSelectedMeeting(null)} />
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              className={`relative w-full max-w-xl border p-6 rounded-2xl shadow-2xl z-10 text-white bg-[#0E0E10] border-white/10 space-y-5`}
-            >
-              <div className="flex items-start justify-between border-b pb-3 border-white/10">
-                <div>
-                  <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400 block font-mono">
-                    {selectedMeeting.status} checkpoint
-                  </span>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white mt-0.5">{selectedMeeting.title}</h3>
-                </div>
-                <button
-                  onClick={() => setSelectedMeeting(null)}
-                  className="text-white/40 hover:text-white text-xs font-semibold px-2 py-1 bg-white/5 rounded-lg"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-4 border-b border-white/[0.04] pb-4">
+                {/* Form fields */}
+                <div className="space-y-4 font-semibold">
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase tracking-wider text-white/40">Temporal Window</span>
-                    <p className="font-semibold text-white/80">{selectedMeeting.date} · {selectedMeeting.time} ({selectedMeeting.duration})</p>
+                    <label className={`text-[9px] font-bold uppercase tracking-wider block ${theme === "light" ? "text-black/45" : "text-white/35"}`}>Virtual Session Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. TOK Supervisor Sync"
+                      value={meetTitle}
+                      onChange={(e) => setMeetTitle(e.target.value)}
+                      className={`w-full rounded-xl border px-4 py-2.5 text-xs outline-none focus:outline-none transition-all ${
+                        theme === "light"
+                          ? "bg-black/[0.01] border-black/[0.08] text-black placeholder:text-black/30 focus:border-black/20"
+                          : "bg-white/[0.02] border-white/[0.06] text-white placeholder:text-white/25 focus:border-white/20"
+                      }`}
+                    />
                   </div>
+
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase tracking-wider text-white/40">Location Slot</span>
-                    <p className="font-semibold text-white/80">{selectedMeeting.location || "Online Connect Link"}</p>
+                    <label className={`text-[9px] font-bold uppercase tracking-wider block ${theme === "light" ? "text-black/45" : "text-white/35"}`}>Agenda / Purpose</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Review moderation checkpoint timelines"
+                      value={meetPurpose}
+                      onChange={(e) => setMeetPurpose(e.target.value)}
+                      className={`w-full rounded-xl border px-4 py-2.5 text-xs outline-none focus:outline-none transition-all ${
+                        theme === "light"
+                          ? "bg-black/[0.01] border-black/[0.08] text-black placeholder:text-black/30 focus:border-black/20"
+                          : "bg-white/[0.02] border-white/[0.06] text-white placeholder:text-white/25 focus:border-white/20"
+                      }`}
+                    />
                   </div>
-                </div>
 
-                <div className="space-y-1">
-                  <span className="text-[9px] uppercase tracking-wider text-white/40">Sync Summary</span>
-                  <p className="text-white/70 leading-relaxed font-medium">{selectedMeeting.description}</p>
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className={`text-[9px] font-bold uppercase tracking-wider block ${theme === "light" ? "text-black/45" : "text-white/35"}`}>Timetable Slot</label>
+                      <select
+                        value={meetTime}
+                        onChange={(e) => setMeetTime(e.target.value)}
+                        className={`w-full rounded-xl border px-3 py-2 text-xs outline-none ${
+                          theme === "light"
+                            ? "bg-[#F9FAFB] border-black/[0.08] text-black/80"
+                            : "bg-[#0E0E10] border-white/[0.06] text-white/80"
+                        }`}
+                      >
+                        <option>12:45 PM (Period 5)</option>
+                        <option>2:15 PM (Period 6)</option>
+                        <option>4:00 PM (Period 7)</option>
+                      </select>
+                    </div>
 
-                {selectedMeeting.meetingNotes && (
-                  <div className="p-3.5 rounded-xl bg-white/[0.01] border border-white/[0.04] space-y-1.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-cyan-400 font-mono">Notes Ledger</span>
-                    <p className="text-white/75 leading-relaxed font-medium italic">&quot;{selectedMeeting.meetingNotes}&quot;</p>
-                  </div>
-                )}
-
-                {selectedMeeting.decisionsMade && selectedMeeting.decisionsMade.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="text-[9px] uppercase tracking-wider text-white/40">Action Items & Decisions</span>
-                    <div className="p-3.5 rounded-xl bg-cyan-950/10 border border-cyan-500/20 space-y-1.5">
-                      {selectedMeeting.decisionsMade.map((dec, idx) => (
-                        <div key={idx} className="flex items-start gap-2.5 text-white/85 font-medium">
-                          <span className="text-cyan-400 font-bold shrink-0 mt-0.5">✔</span>
-                          <span className="leading-snug">{dec}</span>
-                        </div>
-                      ))}
+                    <div className="space-y-1">
+                      <label className={`text-[9px] font-bold uppercase tracking-wider block ${theme === "light" ? "text-black/45" : "text-white/35"}`}>Meeting Category</label>
+                      <select
+                        value={meetingType}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setMeetingType(val);
+                          // Set default entities when selection type changes
+                          if (val === "TOK") {
+                            setSelectedEntities([ALL_ENTITIES[3]]); // TOK Essay Advisors
+                          } else if (val === "Extended Essay") {
+                            setSelectedEntities([ALL_ENTITIES[2]]); // EE Supervisors
+                          } else if (val === "CAS") {
+                            setSelectedEntities([ALL_ENTITIES[0]]); // DP1 Candidates
+                          } else if (val === "Parent Meeting") {
+                            setSelectedEntities([ALL_ENTITIES[11]]); // Robert Vance (Parent)
+                          } else if (val === "Faculty Coordination") {
+                            setSelectedEntities([ALL_ENTITIES[4]]); // Marcus Vance (Staff HOD)
+                          } else {
+                            setSelectedEntities([]);
+                          }
+                        }}
+                        className={`w-full rounded-xl border px-3 py-2 text-xs outline-none ${
+                          theme === "light"
+                            ? "bg-[#F9FAFB] border-black/[0.08] text-black/80"
+                            : "bg-[#0E0E10] border-white/[0.06] text-white/80"
+                        }`}
+                      >
+                        <option>Academic Review</option>
+                        <option>TOK</option>
+                        <option>Extended Essay</option>
+                        <option>CAS</option>
+                        <option>University Guidance</option>
+                        <option>Faculty Coordination</option>
+                        <option>Subject Lead Meeting</option>
+                        <option>Parent Meeting</option>
+                        <option>Student Support</option>
+                        <option>Programme Planning</option>
+                        <option>School Leadership</option>
+                      </select>
                     </div>
                   </div>
-                )}
 
-                {/* Meeting Attachments */}
-                <div className="space-y-2">
-                  <span className="text-[9px] uppercase tracking-wider text-white/40">Linked Documents</span>
-                  {selectedMeeting.attachments && selectedMeeting.attachments.length > 0 ? (
-                    <div className="flex flex-col gap-2">
-                      {selectedMeeting.attachments.map((file) => (
-                        <div
-                          key={file}
-                          className="flex items-center justify-between p-2.5 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] transition-colors"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-lg">📄</span>
-                            <span className="font-semibold text-white/90">{file}</span>
+                  {/* Smart Participant Picker Section */}
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className={`text-[9px] font-bold uppercase tracking-wider block ${theme === "light" ? "text-black/45" : "text-white/35"}`}>
+                        Search & Select Participants
+                      </label>
+                      <span className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-bold border ${
+                        theme === "light" ? "bg-black/5 border-black/10 text-black/40" : "bg-white/5 border-white/10 text-white/40"
+                      }`}>
+                        Smart Picker
+                      </span>
+                    </div>
+
+                    {/* Search Input Box */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search names, cohorts, categories..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className={`w-full rounded-xl border pl-10 pr-4 py-2 text-xs outline-none focus:outline-none transition-all ${
+                          theme === "light"
+                            ? "bg-black/[0.01] border-black/[0.08] text-black placeholder:text-black/30 focus:border-black/20"
+                            : "bg-white/[0.02] border-white/[0.06] text-white placeholder:text-white/20 focus:border-white/20"
+                        }`}
+                      />
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
+                        <svg className={`size-4 ${theme === "light" ? "text-black/30" : "text-white/30"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+
+                      {/* Dropdown Menu Search Results */}
+                      <AnimatePresence>
+                        {searchQuery.trim().length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 5 }}
+                            className={`absolute z-40 left-0 right-0 mt-1 max-h-[180px] overflow-y-auto rounded-xl border p-1.5 shadow-2xl space-y-0.5 scrollbar-none ${
+                              theme === "light" ? "bg-white border-black/10 text-black" : "bg-[#0C0C0E] border-white/10 text-white"
+                            }`}
+                          >
+                            {filteredSearchEntities.map((entity) => (
+                              <button
+                                key={entity.id}
+                                type="button"
+                                onClick={() => handleAddEntity(entity)}
+                                className={`w-full text-left rounded-lg px-3 py-2 text-xs flex items-center justify-between transition-colors ${
+                                  theme === "light" ? "hover:bg-black/5 text-black/80 hover:text-black" : "hover:bg-white/5 text-white/80 hover:text-white"
+                                }`}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-bold">{entity.name}</span>
+                                  <span className={`text-[9px] mt-0.5 ${theme === "light" ? "text-black/40" : "text-white/35"}`}>{entity.subLabel}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[8px] border rounded px-1.5 py-0.2 uppercase font-bold ${
+                                    theme === "light" ? "border-black/10 text-black/40" : "border-white/10 text-white/40"
+                                  }`}>
+                                    {entity.type}
+                                  </span>
+                                  <svg className="size-3.5 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                  </svg>
+                                </div>
+                              </button>
+                            ))}
+                            {filteredSearchEntities.length === 0 && (
+                              <div className={`text-[10px] text-center py-3 italic ${theme === "light" ? "text-black/35" : "text-white/30"}`}>
+                                No matching resources found.
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Selected Entities List */}
+                    <div className={`rounded-xl border p-3.5 space-y-2.5 ${
+                      theme === "light" ? "bg-black/[0.01] border-black/[0.06]" : "bg-black/20 border-white/[0.04]"
+                    }`}>
+                      <span className={`text-[8px] font-extrabold uppercase tracking-widest block ${theme === "light" ? "text-black/35" : "text-white/35"}`}>
+                        Selected Entity Scope
+                      </span>
+
+                      <div className="flex flex-col gap-2 max-h-[130px] overflow-y-auto scrollbar-none pr-1">
+                        {selectedEntities.map((entity) => (
+                          <div
+                            key={entity.id}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border text-left ${
+                              theme === "light" ? "bg-white border-black/[0.06]" : "bg-white/[0.01] border-white/[0.03]"
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-bold truncate">
+                                  {entity.name}
+                                </span>
+                                <span className={`text-[8px] px-1 py-0.2 rounded font-extrabold uppercase border ${
+                                  theme === "light" ? "bg-black/5 border-black/10 text-black/40" : "bg-white/5 border-white/10 text-white/40"
+                                }`}>
+                                  {entity.type}
+                                </span>
+                              </div>
+                              <span className={`text-[9px] line-clamp-1 mt-0.5 ${theme === "light" ? "text-black/40" : "text-white/35"}`}>
+                                {entity.subLabel}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 ml-3">
+                              {(entity.type === "class" || entity.type === "department") && (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingMembersEntityId(entity.id)}
+                                  className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold underline px-1 py-0.5"
+                                >
+                                  View Members
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveEntity(entity.id)}
+                                className={`transition-colors p-1 ${theme === "light" ? "text-black/40 hover:text-red-600" : "text-white/40 hover:text-red-400"}`}
+                              >
+                                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
-                          <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider">Reference Active</span>
-                        </div>
-                      ))}
+                        ))}
+                        {selectedEntities.length === 0 && (
+                          <div className={`text-[10px] text-center py-4 italic ${theme === "light" ? "text-black/35" : "text-white/30"}`}>
+                            No group, department, or individual selected.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Selection Metrics Counters */}
+                      <div className={`flex items-center justify-between pt-2 border-t text-[8.5px] font-bold uppercase tracking-wider ${
+                        theme === "light" ? "border-black/[0.06] text-black/40" : "border-white/[0.04] text-white/30"
+                      }`}>
+                        <span>Selected Groups: {selectedGroupsCount}</span>
+                        <span>Total Participants: {totalParticipantsCount}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shareable Link Config Checkbox */}
+                  <div className="flex items-center gap-2.5 py-1 px-1">
+                    <input
+                      type="checkbox"
+                      id="generateShareLink"
+                      checked={generateShareLink}
+                      onChange={(e) => setGenerateShareLink(e.target.checked)}
+                      className={`rounded focus:ring-0 size-3.5 ${
+                        theme === "light" ? "border-black/20 text-cyan-600" : "border-white/10 text-cyan-400"
+                      }`}
+                    />
+                    <label htmlFor="generateShareLink" className={`text-[10px] font-bold cursor-pointer select-none ${theme === "light" ? "text-black/60" : "text-white/60"}`}>
+                      Generate Share Link (external guests)
+                    </label>
+                  </div>
+
+                  {generateShareLink ? (
+                    <div className={`rounded-lg border p-2.5 space-y-2 ${
+                      theme === "light" ? "bg-black/[0.01] border-black/[0.06]" : "bg-white/[0.02] border-white/[0.06]"
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${theme === "light" ? "text-black/45" : "text-white/45"}`}>Generated Share Link</span>
+                        <span className="text-[8px] text-emerald-400 font-bold">Guest access active</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={tempShareLink}
+                          className={`flex-1 text-[9px] font-mono rounded px-2 py-0.5 outline-none ${
+                            theme === "light" ? "bg-black/5 text-black/50 border border-black/10" : "bg-black/40 text-white/50 border border-white/5"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(tempShareLink);
+                            triggerToast("Temporary share link copied!");
+                          }}
+                          className={`rounded border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider transition-all shrink-0 ${
+                            theme === "light" ? "bg-black/5 border-black/10 text-black hover:bg-black/10" : "bg-white/10 border-white/5 text-white hover:bg-white/20"
+                          }`}
+                        >
+                          Copy
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-white/30 italic">No official files associated</p>
+                    <div className={`rounded-lg border p-3 text-center ${
+                      theme === "light" ? "bg-black/[0.01] border-black/[0.06]" : "bg-white/[0.02] border-white/[0.06]"
+                    }`}>
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider ${theme === "light" ? "text-black/60" : "text-white/60"}`}>
+                        Axis Secure Meeting Room Link
+                      </span>
+                      <span className={`block text-[9px] font-mono mt-1 ${theme === "light" ? "text-black/30" : "text-white/30"}`}>
+                        Generated: https://axis.ecosystem.virtual/room-secure
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-white/10 shrink-0">
-                  {selectedMeeting.status === "upcoming" && (
-                    <>
-                      <button
-                        onClick={() => {
-                          setMeetings(prev =>
-                            prev.map(m => m.id === selectedMeeting.id ? { ...m, status: "completed" as const, decisionsMade: ["Authorized review actions in agenda check."] } : m)
-                          );
-                          setSelectedMeeting(null);
-                          triggerToast("Sync session completed. Decisions archived.");
-                        }}
-                        className="flex-1 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold uppercase tracking-wider rounded-xl transition-all"
+                {/* Device Calibration Tools */}
+                <div className={`space-y-3.5 pt-4 border-t ${theme === "light" ? "border-black/[0.06]" : "border-white/[0.05]"}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-widest block ${theme === "light" ? "text-black/35" : "text-white/35"}`}>Live Device Calibration</span>
+                  
+                  <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
+                    {/* Camera mirror tile */}
+                    <div className={`rounded-xl border aspect-video flex flex-col justify-between p-2 relative overflow-hidden bg-black border-white/10`}>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        {cameraActive ? (
+                          <video
+                            ref={(el) => {
+                              if (el && localStream) {
+                                el.srcObject = localStream;
+                              }
+                            }}
+                            autoPlay
+                            playsInline
+                            muted
+                            className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${bgBlurActive ? "blur-sm opacity-50 scale-102" : "opacity-80"}`}
+                          />
+                        ) : (
+                          <span className="text-[8px] text-white/25">Camera Off</span>
+                        )}
+                      </div>
+                      <span className="text-[7px] text-white/35 uppercase tracking-widest z-10 leading-none font-bold">Self Mirror</span>
+                      
+                      <div className="flex gap-1 justify-center z-10">
+                        <button
+                          type="button"
+                          onClick={() => setCameraActive(!cameraActive)}
+                          className={`size-6 rounded-md flex items-center justify-center border transition-all ${
+                            cameraActive ? "bg-white/[0.04] border-white/10 text-white" : "bg-red-500/10 border-red-500/20 text-red-400"
+                          }`}
+                        >
+                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMicActive(!micActive)}
+                          className={`size-6 rounded-md flex items-center justify-center border transition-all ${
+                            micActive ? "bg-white/[0.04] border-white/10 text-white" : "bg-red-500/10 border-red-500/20 text-red-400"
+                          }`}
+                        >
+                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBgBlurActive(!bgBlurActive)}
+                          className={`size-6 rounded-md flex items-center justify-center border transition-all ${
+                            bgBlurActive ? "bg-white text-black border-transparent" : "bg-white/[0.04] border-white/10 text-white"
+                          }`}
+                        >
+                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mic selector routes */}
+                    <div className="flex flex-col justify-center space-y-1.5">
+                      <span className={`text-[7.5px] font-bold uppercase tracking-wider block ${theme === "light" ? "text-black/40" : "text-white/35"}`}>Audio Input Device</span>
+                      <select
+                        value={audioInputDevice}
+                        onChange={(e) => setAudioInputDevice(e.target.value)}
+                        className={`w-full rounded border px-2 py-1 text-[9px] focus:outline-none ${
+                          theme === "light"
+                            ? "bg-white border-black/10 text-black/80"
+                            : "bg-[#0E0E10] border-white/10 text-white/80"
+                        }`}
                       >
-                        Complete Session
-                      </button>
-                      <button
-                        onClick={() => {
-                          setMeetings(prev => prev.filter(m => m.id !== selectedMeeting.id));
-                          setSelectedMeeting(null);
-                          triggerToast("Meeting scheduled slot removed.");
-                        }}
-                        className="px-5 py-2.5 border border-red-500/20 bg-red-500/10 hover:bg-red-500/25 text-red-400 font-bold uppercase tracking-wider rounded-xl transition-all"
-                      >
-                        Remove
-                      </button>
-                    </>
-                  )}
+                        <option>System default mic</option>
+                        <option>Studio Bluetooth mic</option>
+                      </select>
+                      <div className={`text-[7.5px] font-bold mt-0.5 leading-none ${theme === "light" ? "text-black/30" : "text-white/20"}`}>
+                        {micActive ? "✓ Mic level synced" : "✗ Mic deactivated"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Availability Insight Block */}
+                <div className={`rounded-lg border p-3 text-[9.5px] leading-normal flex items-start gap-2 transition-all duration-300 ${
+                  contextLayerInsight.bgColor ? contextLayerInsight.bgColor : "bg-cyan-500/[0.02]"
+                } ${
+                  contextLayerInsight.borderColor ? contextLayerInsight.borderColor : "border-cyan-500/10"
+                } ${
+                  contextLayerInsight.textColor ? contextLayerInsight.textColor : "text-cyan-400"
+                }`}>
+                  <span className={`size-1.5 rounded-full mt-1.5 shrink-0 ${
+                    contextLayerInsight.iconColor ? contextLayerInsight.iconColor : "bg-cyan-400 animate-pulse"
+                  }`} />
+                  <div className="font-bold">
+                    {contextLayerInsight.text}
+                  </div>
+                </div>
+
+                {/* Scheduling controls footer */}
+                <div className={`flex items-center gap-4 pt-4 border-t ${theme === "light" ? "border-black/[0.06]" : "border-white/[0.06]"}`}>
                   <button
-                    onClick={() => setSelectedMeeting(null)}
-                    className="flex-1 py-2.5 border border-white/10 hover:bg-white/5 text-white font-bold uppercase tracking-wider rounded-xl transition-all text-center"
+                    type="button"
+                    onClick={handleScheduleFutureMeeting}
+                    disabled={isFormInvalid}
+                    className={`text-[10px] font-bold uppercase tracking-wider transition-colors px-2 py-2 ${
+                      isFormInvalid
+                        ? "text-white/20 cursor-not-allowed"
+                        : theme === "light" ? "text-black/40 hover:text-black" : "text-white/40 hover:text-white"
+                    }`}
                   >
-                    Close Records
+                    Schedule Slot
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLaunchInstantMeeting}
+                    disabled={isFormInvalid}
+                    className={`flex-1 rounded-xl font-extrabold uppercase tracking-widest text-[10px] py-3.5 transition-all text-center ${
+                      isFormInvalid
+                        ? theme === "light" ? "bg-black/5 text-black/20 cursor-not-allowed" : "bg-white/10 text-white/30 cursor-not-allowed"
+                        : theme === "light"
+                          ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+                          : "bg-white text-[#0A0A0C] hover:opacity-90 animate-pulse hover:animate-none"
+                    }`}
+                  >
+                    Start Room Call Now
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </div>
+
+              {/* Group Membership modal overlay */}
+              <AnimatePresence>
+                {viewingMembersEntityId && viewingMembers && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-50 rounded-2xl bg-[#0A0A0C]/80 backdrop-blur-sm flex items-center justify-center p-4"
+                  >
+                    <motion.div
+                      initial={{ scale: 0.95, y: 10 }}
+                      animate={{ scale: 1, y: 0 }}
+                      exit={{ scale: 0.95, y: 10 }}
+                      className={`border rounded-2xl w-full max-w-xs p-5 shadow-2xl space-y-4 ${
+                        theme === "light" ? "bg-white border-black/10 text-black" : "bg-[#0E0E10] border-white/10 text-white"
+                      }`}
+                    >
+                      <div className={`flex items-center justify-between pb-2 border-b ${theme === "light" ? "border-black/[0.06]" : "border-white/[0.06]"}`}>
+                        <div className="flex flex-col text-left">
+                          <h3 className="text-xs font-bold">{viewingMembers.entity?.name} Members</h3>
+                          <span className={`text-[9px] font-bold mt-0.5 ${theme === "light" ? "text-black/40" : "text-white/35"}`}>
+                            {viewingMembers.entity?.participantsCount} participants in scope
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setViewingMembersEntityId(null)}
+                          className={`p-1 rounded-lg transition-colors ${theme === "light" ? "text-black/40 hover:text-black" : "text-white/40 hover:text-white"}`}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1 scrollbar-none text-left">
+                        {viewingMembers.members.map((m, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex items-center justify-between p-2 rounded-lg border ${
+                              theme === "light" ? "bg-black/[0.01] border-black/[0.04]" : "bg-white/[0.02] border-white/[0.04]"
+                            }`}
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-bold">{m.name}</span>
+                              <span className={`text-[9px] ${theme === "light" ? "text-black/40" : "text-white/35"}`}>{m.role} · {m.section}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`size-1.5 rounded-full ${
+                                m.status === "Active" || m.status === "Available"
+                                  ? "bg-green-400"
+                                  : m.status === "In Meeting" || m.status === "Teaching"
+                                  ? "bg-cyan-400 animate-pulse"
+                                  : "bg-white/20"
+                              }`} />
+                              <span className={`text-[8px] font-bold ${theme === "light" ? "text-black/40" : "text-white/40"}`}>{m.status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className={`pt-2.5 border-t flex justify-end ${theme === "light" ? "border-black/[0.06]" : "border-white/[0.06]"}`}>
+                        <button
+                          type="button"
+                          onClick={() => setViewingMembersEntityId(null)}
+                          className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold transition-all ${
+                            theme === "light"
+                              ? "bg-black/5 hover:bg-black/10 border-black/10 text-black"
+                              : "bg-white/10 hover:bg-white/20 border-white/5 text-white"
+                          }`}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* COLUMN B: MY MEETINGS (Right Panel) */}
+            <div className="space-y-6">
+              {/* Scheduled Meetings list */}
+              <div className={`rounded-2xl border p-6 shadow-2xl backdrop-blur-xl ${
+                theme === "light" ? "bg-white border-black/10 text-black shadow-black/[0.04]" : "bg-[#0C0C0E]/40 border-white/[0.06] text-white shadow-black/[0.45]"
+              }`}>
+                <div className={`flex flex-col gap-1 pb-4 border-b mb-4 ${theme === "light" ? "border-black/[0.06]" : "border-white/[0.06]"}`}>
+                  <h2 className={`text-sm font-bold tracking-tight ${theme === "light" ? "text-black/90" : "text-white/90"}`}>My Meetings</h2>
+                  <p className={`text-[10px] font-medium leading-none ${theme === "light" ? "text-black/40" : "text-white/35"}`}>Your scheduled virtual rooms & coordination links</p>
+                </div>
+
+                <div className="space-y-3">
+                  {meetings.filter((m) => m.status === "scheduled").map((meet) => (
+                    <div
+                      key={meet.id}
+                      className={`rounded-xl border p-4 transition-all duration-300 flex flex-col gap-3 ${
+                        theme === "light"
+                          ? "bg-black/[0.005] border-black/[0.04] hover:border-black/10 hover:bg-black/[0.01]"
+                          : "bg-white/[0.01] border-white/[0.04] hover:border-white/10 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xs font-bold truncate">{meet.title}</h3>
+                            <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                              theme === "light"
+                                ? "bg-cyan-600/10 text-cyan-700 border border-cyan-500/20"
+                                : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                            }`}>
+                              Link Active
+                            </span>
+                          </div>
+                          <p className={`text-[10.5px] leading-relaxed truncate ${theme === "light" ? "text-black/50" : "text-white/45"}`}>{meet.purpose}</p>
+                          
+                          <div className={`flex items-center gap-2.5 text-[9px] font-bold ${theme === "light" ? "text-black/35" : "text-white/30"}`}>
+                            <span className="flex items-center gap-1">
+                              <svg className="size-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {meet.time}
+                            </span>
+                            <span className="size-1 rounded-full bg-white/10" />
+                            <span>Scope: {meet.classGroup}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          <button
+                            onClick={() => setSharingMeetingId(sharingMeetingId === meet.id ? null : meet.id)}
+                            className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold transition-all ${
+                              sharingMeetingId === meet.id
+                                ? theme === "light" ? "bg-black text-white border-black" : "bg-white text-black border-white"
+                                : theme === "light"
+                                  ? "bg-black/5 border-black/10 text-black hover:bg-black/10"
+                                  : "bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20 hover:text-white"
+                            }`}
+                          >
+                            Share Link
+                          </button>
+                          <button
+                            onClick={() => handleJoinExistingMeeting(meet)}
+                            className={`rounded-lg px-3 py-1.5 text-[10px] font-extrabold transition-all ${
+                              theme === "light"
+                                ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+                                : "bg-white text-black hover:opacity-90"
+                            }`}
+                          >
+                            Join Room
+                          </button>
+                        </div>
+                      </div>
+
+                      {sharingMeetingId === meet.id && (
+                        <div className={`pt-3 border-t space-y-2 text-left ${theme === "light" ? "border-black/[0.04]" : "border-white/[0.05]"}`}>
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[9px] font-bold uppercase tracking-wider ${theme === "light" ? "text-black/35" : "text-white/35"}`}>Shareable Meeting Link</span>
+                            <span className="text-[8px] text-emerald-400 font-bold">Guest access enabled</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              readOnly
+                              value={meet.shareLink || `http://localhost:3000/school/experience/demo?role=guest&meetingId=${meet.id}&title=${encodeURIComponent(meet.title)}`}
+                              className={`flex-1 text-[10px] font-mono rounded px-2.5 py-1 focus:outline-none ${
+                                theme === "light" ? "bg-black/5 text-black/50 border border-black/10" : "bg-black/40 text-white/60 border border-white/5"
+                              }`}
+                            />
+                            <button
+                              onClick={() => {
+                                const link = meet.shareLink || `http://localhost:3000/school/experience/demo?role=guest&meetingId=${meet.id}&title=${encodeURIComponent(meet.title)}`;
+                                navigator.clipboard.writeText(link);
+                                triggerToast("Share link copied to clipboard!");
+                              }}
+                              className={`rounded border px-2.5 py-1 text-[10px] font-bold transition-all shrink-0 ${
+                                theme === "light" ? "bg-black/5 border-black/10 text-black hover:bg-black/10" : "bg-white/10 border-white/5 text-white hover:bg-white/20"
+                              }`}
+                            >
+                              Copy
+                            </button>
+                            <button
+                              onClick={() => {
+                                const newId = `meet-reg-${Date.now()}`;
+                                const newLink = `http://localhost:3000/school/experience/demo?role=guest&meetingId=${newId}&title=${encodeURIComponent(meet.title)}`;
+                                setMeetings(prev => prev.map(m => m.id === meet.id ? { ...m, shareLink: newLink, isShareable: true } : m));
+                                triggerToast("Share link regenerated.");
+                              }}
+                              className={`rounded border px-2.5 py-1 text-[10px] font-bold transition-all shrink-0 ${
+                                theme === "light" ? "bg-black/5 border-black/10 text-black hover:bg-black/10" : "bg-white/10 border-white/5 text-white hover:bg-white/20"
+                              }`}
+                            >
+                              Regenerate
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pending Room Invites panel */}
+              <div className={`rounded-2xl border p-6 shadow-2xl backdrop-blur-xl ${
+                theme === "light" ? "bg-white border-black/10 text-black shadow-black/[0.04]" : "bg-[#0C0C0E]/40 border-white/[0.06] text-white shadow-black/[0.45]"
+              }`}>
+                <div className={`flex flex-col gap-1 pb-2.5 border-b mb-4 ${theme === "light" ? "border-black/[0.06]" : "border-white/[0.06]"}`}>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === "light" ? "text-black/45" : "text-white/40"}`}>Pending Room Invites</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {meetings.filter((m) => m.status === "invited").map((meet) => (
+                    <div
+                      key={meet.id}
+                      className={`rounded-xl border p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-left ${
+                        theme === "light" ? "bg-black/[0.005] border-black/[0.04]" : "bg-[#0E0E10]/50 border-white/[0.04]"
+                      }`}
+                    >
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <span className={`text-[9px] font-bold uppercase tracking-widest ${theme === "light" ? "text-black/35" : "text-white/30"}`}>From {meet.organizer}</span>
+                        <h4 className="text-xs font-bold mt-0.5">{meet.title}</h4>
+                        <p className={`text-[11px] leading-relaxed ${theme === "light" ? "text-black/50" : "text-white/50"}`}>{meet.purpose}</p>
+                        
+                        {meet.suggestedPrep && (
+                          <div className={`text-[9px] border rounded p-2 text-left mt-1 leading-snug font-medium ${
+                            theme === "light" ? "bg-black/[0.01] border-black/[0.06] text-black/50" : "bg-white/[0.02] border-white/[0.04] text-white/40"
+                          }`}>
+                            <strong>Prep suggestion:</strong> {meet.suggestedPrep}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start">
+                        <button
+                          onClick={() => handleInvitationResponse(meet.id, "decline")}
+                          className={`text-[10px] font-bold px-2.5 py-1 ${theme === "light" ? "text-black/40 hover:text-black" : "text-white/35 hover:text-white"}`}
+                        >
+                          Decline
+                        </button>
+                        <button
+                          onClick={() => handleInvitationResponse(meet.id, "accept")}
+                          className={`rounded border px-2.5 py-1 text-[10px] font-extrabold uppercase transition-all ${
+                            theme === "light" ? "bg-black/5 border-black/10 text-black hover:bg-black/10" : "bg-white/10 border-white/5 text-white hover:bg-white/20"
+                          }`}
+                        >
+                          Accept
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {meetings.filter((m) => m.status === "invited").length === 0 && (
+                    <div className={`text-xs text-center py-5 italic border border-dashed rounded-xl ${
+                      theme === "light" ? "border-black/10 text-black/35" : "border-white/5 text-white/20"
+                    }`}>
+                      No pending room invitations.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
         )}
+
+        {/* VIEW 2: IN-MEETING ENVIRONMENT */}
+        {currentView === "meeting" && selectedMeeting && (
+          <motion.div
+            key="meeting"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className={`fixed inset-0 z-50 flex flex-col justify-between ${
+              theme === "light"
+                ? "bg-[#F3F4F6] text-black"
+                : theme === "high-contrast"
+                ? "bg-black text-white border-2 border-white"
+                : theme === "axis"
+                ? "bg-[#050607] text-white"
+                : "bg-[#0A0A0C] text-white"
+            }`}
+          >
+            {/* Meeting Header */}
+            <div className={`h-16 border-b px-6 flex items-center justify-between ${
+              theme === "light" ? "bg-white border-black/[0.08] text-black" : "bg-[#0E0E10] border-white/[0.08] text-white"
+            }`}>
+              <div className="flex items-center gap-3">
+                {isRecording ? (
+                  <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 rounded-full">
+                    <span className="size-2 rounded-full bg-red-500 animate-ping shrink-0" />
+                    <span className="size-2 rounded-full bg-red-500 absolute shrink-0" />
+                    <span className="text-[9px] font-extrabold text-red-400 tracking-wider uppercase ml-1.5">REC</span>
+                  </div>
+                ) : (
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                )}
+                <div className="flex flex-col text-left">
+                  <h2 className="text-xs font-bold leading-tight">{selectedMeeting.title}</h2>
+                  <span className="text-[9px] text-white/40 mt-0.5 leading-none">{selectedMeeting.purpose}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-white/50 font-bold bg-white/5 px-2.5 py-1 rounded">
+                  {meetingDuration}
+                </span>
+                <button
+                  onClick={() => setCurrentView("overview")}
+                  className="rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500 hover:text-white hover:border-transparent px-3.5 py-1.5 text-[10px] font-bold text-red-400 transition-all uppercase tracking-wider shrink-0"
+                >
+                  Leave Room
+                </button>
+              </div>
+            </div>
+
+            {/* In-Call Workspace */}
+            <div className="flex-1 flex overflow-hidden relative">
+              {/* Videos Panel */}
+              <div className="flex-1 overflow-y-auto p-6 flex flex-col justify-center">
+                <div className="max-w-5xl mx-auto w-full space-y-6">
+                  <div className={`grid gap-6 w-full ${isScreenSharing ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1 md:grid-cols-2"}`}>
+                    
+                    {isScreenSharing && (
+                      <div className="lg:col-span-2 aspect-[16/10] rounded-2xl border border-cyan-500/30 bg-cyan-950/10 shadow-[0_0_30px_rgba(6,182,212,0.15)] flex flex-col justify-between p-4 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-[#0C0D10]/95 flex flex-col justify-center items-center p-6 border border-cyan-500/20 rounded-2xl">
+                          <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.05)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+                          
+                          <div className="w-full max-w-md bg-black/40 border border-white/5 rounded-xl p-4 space-y-3 z-10 text-left">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">DP Cohort Curricular Status</span>
+                              <span className="text-[9px] text-white/40 font-mono font-bold">Presenting Screen</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-[9px] text-white/60">
+                                <span>IB Extended Essay Rough Drafts Check</span>
+                                <span className="text-yellow-400 font-bold">72% Completed</span>
+                              </div>
+                              <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-yellow-400 rounded-full w-[72%]" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 pt-1 font-bold">
+                              <div className="bg-white/5 border border-white/5 rounded p-2 text-center">
+                                <span className="text-[8px] text-white/30 block">DP1 Candidates</span>
+                                <span className="text-xs text-white mt-1 block">48 Total</span>
+                              </div>
+                              <div className="bg-[#EF4444]/10 border border-[#EF4444]/20 rounded p-2 text-center text-red-400">
+                                <span className="text-[8px] text-red-400/50 block">Lagging Reviews</span>
+                                <span className="text-xs mt-1 block">12 Students</span>
+                              </div>
+                              <div className="bg-white/5 border border-white/5 rounded p-2 text-center">
+                                <span className="text-[8px] text-white/30 block">Deadline Lock</span>
+                                <span className="text-xs text-cyan-400 mt-1 block">Friday COB</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-start z-10 w-full font-bold">
+                          <span className="text-[9px] text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                            Ms. Sarah Thompson is presenting
+                          </span>
+                          <span className="text-[8px] bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded text-cyan-400 uppercase tracking-wider font-semibold">Screen</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`space-y-4 ${isScreenSharing ? "lg:col-span-1 flex flex-col justify-between gap-4 h-full" : "col-span-2 grid grid-cols-2 gap-6"}`}>
+                      
+                      {/* Webcam 1: Self */}
+                      <div className={`rounded-2xl border flex flex-col justify-between p-4 relative overflow-hidden bg-[#0E0E10] border-white/[0.08] text-white ${isScreenSharing ? "flex-1 min-h-[120px] aspect-video" : "aspect-video"}`}>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          {!isVideoMuted ? (
+                            <video
+                              ref={(el) => {
+                                if (el && localStream) {
+                                  el.srcObject = localStream;
+                                }
+                              }}
+                              autoPlay
+                              playsInline
+                              muted
+                              className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${bgBlurActive ? "blur-md opacity-50 scale-102" : "opacity-80"}`}
+                            />
+                          ) : (
+                            <div className="text-white/20 text-[10px] font-bold uppercase tracking-wider">Video Disabled</div>
+                          )}
+                        </div>
+
+                        <div className="flex justify-between items-start z-10 font-bold">
+                          <span className="text-[9px] text-white/35 uppercase tracking-wider">Sarah Thompson</span>
+                          {isHandRaised && (
+                            <span className="text-[8px] bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 rounded text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                              ✋ Hand Raised
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex justify-between items-center z-10 text-[8px] font-bold">
+                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-white/60">Self</span>
+                          {isAudioMuted && (
+                            <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded">Muted</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Webcam 2: Active participant */}
+                      <div className={`rounded-2xl border flex flex-col justify-between p-4 relative overflow-hidden bg-[#0E0E10] border-white/[0.08] text-white ${isScreenSharing ? "flex-1 min-h-[120px] aspect-video" : "aspect-video"}`}>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          {mutedAll ? (
+                            <div className="text-white/20 text-[10px] font-bold uppercase tracking-wider">Muted by host</div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <motion.span animate={{ height: [12, 32, 12] }} transition={{ repeat: Infinity, duration: 0.7 }} className="w-1 bg-white/20 rounded-full" />
+                              <motion.span animate={{ height: [18, 48, 18] }} transition={{ repeat: Infinity, duration: 0.5 }} className="w-1 bg-white/45 rounded-full" />
+                              <motion.span animate={{ height: [24, 12, 24] }} transition={{ repeat: Infinity, duration: 0.6 }} className="w-1 bg-white/30 rounded-full" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex justify-between items-start z-10 font-bold">
+                          <span className="text-[9px] text-white/35 uppercase tracking-wider">Marcus Vance</span>
+                          {mutedAll ? (
+                            <span className="text-[8px] bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded text-red-400 font-bold uppercase tracking-wider">Muted</span>
+                          ) : (
+                            <span className="text-[8px] text-[#0A0A0C] bg-white px-1.5 py-0.5 rounded font-extrabold uppercase tracking-wider animate-pulse">Speaking</span>
+                          )}
+                        </div>
+
+                        <div className="flex justify-between items-center z-10 text-[8px] font-bold">
+                          <span className="text-white/50">Science Head</span>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Subtitles caption overlay */}
+                  {captionsEnabled && activeCaption && (
+                    <div className="mt-4 rounded-xl border border-white/10 bg-black/75 px-5 py-3 text-center text-xs text-white max-w-2xl mx-auto shadow-lg backdrop-blur-md">
+                      <p className="leading-relaxed font-bold">
+                        {(() => {
+                          const colonIdx = activeCaption.indexOf("]:");
+                          if (colonIdx !== -1) {
+                            const speaker = activeCaption.slice(1, colonIdx);
+                            const text = activeCaption.slice(colonIdx + 2);
+                            return (
+                              <>
+                                <span className="text-cyan-400">[{speaker}]:</span>
+                                <span className="text-white ml-1.5">{text}</span>
+                              </>
+                            );
+                          }
+                          return activeCaption;
+                        })()}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Active call agenda task resolver card */}
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
+                    <div className="space-y-1 font-bold">
+                      <span className="text-[9px] text-white/35 uppercase tracking-widest font-mono">Active Coordination Agenda Item</span>
+                      <h4 className="text-xs text-white/95">Approve EE caseload reallocations</h4>
+                      <p className={`text-[10px] leading-snug font-medium text-white/40`}>
+                        Approve shifting 3 candidate portfolios from Marcus Vance to Aarav Chen due to workload balance conflicts.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const txt = "Approved Extended Essay candidate caseload reallocations: 3 student files moved to Aarav Chen supervisor roster.";
+                        const decItem: DecisionItem = {
+                          id: `dec-${Date.now()}`,
+                          text: txt,
+                          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        };
+                        setDecisions((prev) => [...prev, decItem]);
+                        triggerToast("Caseload reallocation resolution logged in Ledger.");
+                      }}
+                      className="rounded-lg bg-cyan-400 text-black px-4 py-2 text-[10px] font-extrabold uppercase tracking-wider hover:bg-cyan-300 transition-colors shrink-0"
+                    >
+                      Authorize Swap
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sidebar drawer */}
+              <AnimatePresence>
+                {isSidebarOpen && (
+                  <motion.div
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 320, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 33 }}
+                    className="border-l border-white/10 bg-[#0E0E10]/95 backdrop-blur-md flex flex-col overflow-hidden shrink-0 h-full relative"
+                  >
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      {/* Sidebar Header tabs */}
+                      <div className="flex border-b border-white/[0.08] bg-black/10 shrink-0 font-bold">
+                        {(["ledger", "chat", "participants"] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            onClick={() => setActiveSidebarTab(tab)}
+                            className={`flex-1 py-3 text-[9px] uppercase tracking-widest border-b-2 transition-all ${
+                              activeSidebarTab === tab
+                                ? "border-cyan-400 text-white font-extrabold"
+                                : "border-transparent text-white/40 hover:text-white/70"
+                            }`}
+                          >
+                            {tab}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Sidebar Panels content */}
+                      <div className="flex-grow overflow-y-auto p-4 scrollbar-none">
+                        
+                        {/* Chat Tab */}
+                        {activeSidebarTab === "chat" && (
+                          <div className="h-full flex flex-col justify-between">
+                            <div className="flex-grow overflow-y-auto space-y-3.5 pr-1 max-h-[calc(100vh-280px)] scrollbar-none text-left">
+                              {meetingMessages.map((msg) => (
+                                <div
+                                  key={msg.id}
+                                  className={`rounded-xl border p-3 flex flex-col ${
+                                    msg.sender === "coordinator" ? "bg-cyan-950/15 border-cyan-500/20" : "bg-white/[0.01] border-white/[0.04]"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between font-bold">
+                                    <span className="text-[10px] text-white/90 truncate">{msg.senderName}</span>
+                                    <span className="text-[8px] text-white/30 shrink-0">{msg.time}</span>
+                                  </div>
+                                  <span className="text-[9px] text-white/40 font-bold leading-none mt-0.5">{msg.role}</span>
+                                  <p className="text-xs text-white/70 leading-normal mt-2 whitespace-pre-wrap font-medium">{msg.text}</p>
+                                </div>
+                              ))}
+                              <div ref={chatBottomRef} />
+                            </div>
+
+                            <div className="flex gap-2 pt-3.5 border-t border-white/[0.06] mt-3">
+                              <input
+                                type="text"
+                                placeholder="Type chat message..."
+                                value={meetingChatInput}
+                                onChange={(e) => setMeetingChatInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSendMeetingMessage();
+                                }}
+                                className="flex-1 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-500"
+                              />
+                              <button
+                                onClick={handleSendMeetingMessage}
+                                className="rounded-xl bg-white hover:bg-white/95 px-3 py-2 text-xs font-bold text-black transition-colors"
+                              >
+                                Send
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Participants Tab */}
+                        {activeSidebarTab === "participants" && (
+                          <div className="space-y-3.5 text-left font-bold">
+                            <span className="text-[9px] text-white/35 uppercase tracking-widest block">Active in room ({selectedMeeting.participants.length})</span>
+                            <div className="space-y-2">
+                              {selectedMeeting.participants.map((name, idx) => {
+                                const details = getParticipantDetails(name);
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.01] border border-white/[0.04]"
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="size-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[10px] text-white/80 shrink-0 relative">
+                                        {details.avatar}
+                                        <span className={`absolute bottom-0 right-0 size-2 rounded-full border border-[#0E0E10] ${
+                                          details.status === "Speaking" ? "bg-green-400" : "bg-cyan-500"
+                                        }`} />
+                                      </div>
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="text-xs text-white/90 truncate">{name}</span>
+                                        <span className="text-[9px] text-white/35 truncate mt-0.5">{details.role}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {details.isMuted ? (
+                                        <span className="text-[8px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded uppercase">Muted</span>
+                                      ) : (
+                                        <span className="text-[8px] bg-green-500/10 text-green-400 border border-green-500/20 px-1.5 py-0.5 rounded uppercase animate-pulse">Active</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Decisions Ledger Tab */}
+                        {activeSidebarTab === "ledger" && (
+                          <div className="h-full flex flex-col justify-between text-left">
+                            <div className="space-y-4">
+                              <span className="text-[9px] font-bold text-white/35 uppercase tracking-widest block font-mono">Decisions Ledger</span>
+                              <div className="space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto scrollbar-none pr-1">
+                                {decisions.map((dec) => (
+                                  <div key={dec.id} className="rounded-lg border border-white/[0.04] bg-white/[0.01] p-3">
+                                    <p className="text-[10px] leading-relaxed text-white/80 font-bold">{dec.text}</p>
+                                    <span className="text-[8px] text-white/30 block mt-1">{dec.time}</span>
+                                  </div>
+                                ))}
+                                {decisions.length === 0 && (
+                                  <span className="text-[10px] text-white/20 italic block text-center py-4 border border-dashed border-white/5 rounded-lg">No decisions logged yet.</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="space-y-3.5 pt-3.5 border-t border-white/[0.06] mt-4 font-bold">
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Log decision..."
+                                  value={decisionInput}
+                                  onChange={(e) => setDecisionInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleAddDecision();
+                                  }}
+                                  className="flex-1 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2 text-[10px] text-white outline-none focus:border-cyan-500"
+                                />
+                                <button
+                                  onClick={handleAddDecision}
+                                  className="rounded-xl bg-white/10 hover:bg-white/20 px-3 py-2 text-[10px] text-white font-extrabold uppercase tracking-wider shrink-0"
+                                >
+                                  Log
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={handleGenerateRecap}
+                                className="w-full rounded-xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] text-[10px] font-extrabold uppercase tracking-wider py-2.5 transition-all text-center"
+                              >
+                                Generate Recap Summary
+                              </button>
+
+                              <AnimatePresence>
+                                {generatedRecap && (
+                                  <motion.pre
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="rounded-lg border border-white/[0.06] bg-white/[0.01] p-3 text-[9px] text-white/60 font-mono overflow-x-auto leading-normal whitespace-pre-wrap mt-2 max-h-48"
+                                  >
+                                    {generatedRecap}
+                                  </motion.pre>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+
+                      {/* Footer */}
+                      <div className="p-3 border-t border-white/[0.06] text-center bg-black/10">
+                        <span className="text-[9px] text-white/25 font-bold uppercase tracking-wider">Axis Virtual Coordination</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* In-Call controls footer */}
+            <div className={`h-20 border-t px-6 flex items-center justify-center gap-4 ${
+              theme === "light" ? "border-black/[0.08] bg-white text-zinc-900" : "border-white/[0.08] bg-[#0E0E10] text-white"
+            }`}>
+              
+              {/* Mic Toggle */}
+              <button
+                onClick={() => setIsAudioMuted(!isAudioMuted)}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none focus:ring-1 focus:ring-red-500/30 ${
+                  isAudioMuted 
+                    ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+                title={isAudioMuted ? "Unmute Mic" : "Mute Mic"}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  {isAudioMuted ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                  )}
+                </svg>
+              </button>
+
+              {/* Video Toggle */}
+              <button
+                onClick={() => setIsVideoMuted(!isVideoMuted)}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none focus:ring-1 focus:ring-red-500/30 ${
+                  isVideoMuted 
+                    ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+                title={isVideoMuted ? "Enable Camera" : "Disable Camera"}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  {isVideoMuted ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M12 18.75H4.5a2.25 2.25 0 01-2.25-2.25V9a2.25 2.25 0 012.25-2.25H12A2.25 2.25 0 0114.25 9v7.5A2.25 2.25 0 0112 18.75z" />
+                  )}
+                </svg>
+              </button>
+
+              {/* CC Toggle */}
+              <button
+                onClick={() => setCaptionsEnabled(!captionsEnabled)}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none focus:ring-1 focus:ring-cyan-500/30 ${
+                  captionsEnabled 
+                    ? "bg-cyan-500/10 border-cyan-500/35 text-cyan-400 font-bold" 
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+                title={captionsEnabled ? "Disable Captions" : "Enable Captions"}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h18v14H3V5zm5 5h2a1 1 0 011 1v2a1 1 0 01-1 1H8v-4zm7 0h2a1 1 0 011 1v2a1 1 0 01-1 1h-2v-4z" />
+                </svg>
+              </button>
+
+              {/* Screen Share Toggle */}
+              <button
+                onClick={() => setIsScreenSharing(!isScreenSharing)}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none focus:ring-1 focus:ring-cyan-500/30 ${
+                  isScreenSharing 
+                    ? "bg-cyan-500/10 border-cyan-500/35 text-cyan-400" 
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+                title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25V13m-18 0a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 13m-18 0V7.5A2.25 2.25 0 015.25 5.25h13.5A2.25 2.25 0 0121 7.5V13" />
+                </svg>
+              </button>
+
+              {/* Hand Raise Toggle */}
+              <motion.button
+                onClick={() => setIsHandRaised(!isHandRaised)}
+                animate={isHandRaised ? { y: -4, scale: 1.05 } : { y: 0, scale: 1 }}
+                className={`size-11 rounded-full border flex items-center justify-center transition-colors relative outline-none focus:ring-1 focus:ring-amber-500/50 ${
+                  isHandRaised 
+                    ? "bg-amber-500/10 border-amber-500/40 text-amber-400" 
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+                title={isHandRaised ? "Lower Hand" : "Raise Hand"}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0V14m-3-2.5H10m0 0V5a1.5 1.5 0 113 0v9m-3-2.5h3m0 0V7.5a1.5 1.5 0 113 0V14m-3-2.5h3m0 0V10a1.5 1.5 0 113 0v4a7 7 0 01-12 0v-2.5" />
+                </svg>
+                {isHandRaised && (
+                  <motion.span
+                    className="absolute inset-0 rounded-full border border-amber-400/30"
+                    animate={{ scale: [1, 1.25, 1], opacity: [0.6, 0, 0.6] }}
+                    transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+                  />
+                )}
+              </motion.button>
+
+              {/* Record Toggle */}
+              <button
+                onClick={() => setIsRecording(!isRecording)}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none focus:ring-1 focus:ring-red-500/30 ${
+                  isRecording 
+                    ? "bg-red-500/15 border-red-500/30 text-red-500" 
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+                title={isRecording ? "Stop Recording" : "Start Recording"}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="5" fill="currentColor" className={isRecording ? "animate-pulse text-red-500" : "text-white/40"} />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+              </button>
+
+              <span className="h-6 w-px bg-white/10 mx-1" />
+
+              {/* Participants Panel Toggle */}
+              <button
+                onClick={() => handleToggleSidebar("participants")}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none ${
+                  isSidebarOpen && activeSidebarTab === "participants"
+                    ? "bg-cyan-500/10 border-cyan-500/35 text-cyan-400"
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                </svg>
+              </button>
+
+              {/* Chat Panel Toggle */}
+              <button
+                onClick={() => handleToggleSidebar("chat")}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none ${
+                  isSidebarOpen && activeSidebarTab === "chat"
+                    ? "bg-cyan-500/10 border-cyan-500/35 text-cyan-400"
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025 4.486 4.486 0 00-.319-2.039C3.783 15.368 3 13.783 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                </svg>
+              </button>
+
+              {/* Ledger Toggle */}
+              <button
+                onClick={() => handleToggleSidebar("ledger")}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none ${
+                  isSidebarOpen && activeSidebarTab === "ledger"
+                    ? "bg-cyan-500/10 border-cyan-500/35 text-cyan-400"
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+              </button>
+
+              <span className="h-6 w-px bg-white/10 mx-1" />
+
+              {/* Host Mute All */}
+              <button
+                onClick={() => setMutedAll(!mutedAll)}
+                className={`size-11 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-105 outline-none ${
+                  mutedAll 
+                    ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                }`}
+                title={mutedAll ? "Unmute All" : "Mute All"}
+              >
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" className={mutedAll ? "block" : "hidden"} />
+                </svg>
+              </button>
+
+              {/* End Call button */}
+              <button
+                onClick={() => setCurrentView("overview")}
+                className="h-11 rounded-full bg-red-600/90 border border-red-500/20 hover:bg-red-500 text-white font-extrabold uppercase tracking-widest text-[10px] px-6 transition-all duration-200 hover:scale-105 outline-none ml-4"
+              >
+                End Call
+              </button>
+
+            </div>
+          </motion.div>
+        )}
+
       </AnimatePresence>
 
-      {/* Shared Picker dialog */}
       <ResourcePickerModal
         isOpen={isResourcePickerOpen}
         onClose={() => setIsResourcePickerOpen(false)}
-        onSelect={(doc) => {
-          if (!attachedFiles.includes(doc.title)) {
-            setAttachedFiles(prev => [...prev, doc.title]);
-            triggerToast(`Linked file "${doc.title}".`);
-          }
-        }}
+        onSelect={handleSelectResource}
         theme={theme}
       />
 
-      {/* Toast popup */}
+      {/* Floating Toast */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
             animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
             exit={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
-            transition={{ duration: 0.25 }}
-            className="fixed bottom-10 left-1/2 z-[250] bg-[#0E0E10] border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.15)] px-5 py-3 rounded-full text-xs text-white/90 flex items-center gap-2.5 backdrop-blur-md"
+            transition={{ duration: 0.22 }}
+            className={`fixed bottom-10 left-1/2 z-[250] border px-5 py-3 rounded-full text-xs flex items-center gap-2.5 backdrop-blur-md shadow-2xl ${
+              theme === "light"
+                ? "bg-white border-black/10 text-black shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+                : "bg-[#0E0E10] border-cyan-500/30 text-white/90 shadow-[0_10px_30px_rgba(6,182,212,0.15)]"
+            }`}
           >
             <span className="size-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-            <span className="font-medium tracking-tight">{toastMessage}</span>
+            <span className="font-extrabold tracking-tight">{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>

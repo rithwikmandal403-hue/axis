@@ -1,4 +1,4 @@
-export type RequestStatus = "new" | "in_progress" | "waiting" | "resolved" | "archived";
+export type RequestStatus = "pending" | "new" | "in_progress" | "approved" | "rejected" | "resolved" | "archived";
 export type RequestPriority = "low" | "medium" | "high" | "urgent";
 export type UserRole = "teacher" | "student" | "parent" | "coordinator";
 
