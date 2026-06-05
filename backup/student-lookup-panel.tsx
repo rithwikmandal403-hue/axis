@@ -244,6 +244,7 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [newNoteText, setNewNoteText] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "compact">("grid");
 
   const styles = useMemo(() => {
     return {
@@ -423,19 +424,38 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
             </button>
           ))}
         </div>
-        <span className={`text-xs font-mono ${styles.textSecondary}`}>
-          {filteredStudents.length} of {students.filter(s => activeProgram === "all" || s.program === activeProgram).length} students found
-        </span>
+
+        {/* Directory views selector */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] rounded-xl text-xs font-semibold text-white/30">
+            {(["grid", "list", "compact"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-2.5 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all ${
+                  viewMode === mode
+                    ? "bg-cyan-500 text-black shadow-[0_0_8px_rgba(6,182,212,0.25)]"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+          <span className={`text-xs font-mono ${styles.textSecondary}`}>
+            {filteredStudents.length} of {students.filter(s => activeProgram === "all" || s.program === activeProgram).length} students
+          </span>
+        </div>
       </div>
 
-      {/* Grid rendering */}
+      {/* View modes rendering */}
       {filteredStudents.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
           <span className="text-xl">🔍</span>
           <h4 className={`text-sm font-semibold mt-2 ${styles.textPrimary}`}>No students matching criteria</h4>
           <p className={`text-xs mt-1 ${styles.textSecondary}`}>Refine your search parameters or program context filters.</p>
         </div>
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStudents.map((student) => (
             <div
@@ -482,6 +502,87 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
               </div>
             </div>
           ))}
+        </div>
+      ) : viewMode === "list" ? (
+        <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.01]">
+          <table className="w-full text-left border-collapse min-w-[750px]">
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-white/[0.02] text-[9px] font-bold text-white/40 uppercase tracking-widest">
+                <th className="p-4">Student</th>
+                <th className="p-4">Grade & Prog</th>
+                <th className="p-4">Advisor</th>
+                <th className="p-4">Current Subject</th>
+                <th className="p-4">Room</th>
+                <th className="p-4 font-mono">GPA</th>
+                <th className="p-4 font-mono">Attendance</th>
+                <th className="p-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04] text-xs">
+              {filteredStudents.map((student) => (
+                <tr
+                  key={student.id}
+                  onClick={() => setSelectedStudent(student)}
+                  className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                >
+                  <td className="p-4 font-bold text-white flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-[9px] text-cyan-400">
+                      {student.avatar}
+                    </div>
+                    {student.name}
+                  </td>
+                  <td className="p-4 text-cyan-200/60 font-semibold">
+                    {student.grade} <span className="text-[9px] px-1 py-0.2 bg-white/5 rounded border border-white/10 ml-1 font-bold text-cyan-400">{student.program.toUpperCase()}</span>
+                  </td>
+                  <td className="p-4 text-white/70 font-medium">{student.advisor}</td>
+                  <td className="p-4 font-medium text-white/90">{student.currentClass}</td>
+                  <td className="p-4 font-mono font-bold text-cyan-400">{student.currentRoom}</td>
+                  <td className="p-4 font-mono text-cyan-300 font-bold">{student.gpa}</td>
+                  <td className="p-4 font-mono text-emerald-400 font-bold">{student.attendanceRate}</td>
+                  <td className="p-4 text-center">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-widest border ${styles.badge[student.status]}`}>
+                      {student.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.01]">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-white/[0.02] text-[8px] font-extrabold text-white/30 uppercase tracking-widest">
+                <th className="py-2.5 px-3">Name</th>
+                <th className="py-2.5 px-3">Grade</th>
+                <th className="py-2.5 px-3">Subject</th>
+                <th className="py-2.5 px-3">Room</th>
+                <th className="py-2.5 px-3 font-mono">GPA</th>
+                <th className="py-2.5 px-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.03] text-[11px] font-semibold text-white/70">
+              {filteredStudents.map((student) => (
+                <tr
+                  key={student.id}
+                  onClick={() => setSelectedStudent(student)}
+                  className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                >
+                  <td className="py-2 px-3 font-bold text-white">{student.name}</td>
+                  <td className="py-2 px-3 text-white/50">{student.grade} ({student.program.toUpperCase()})</td>
+                  <td className="py-2 px-3 truncate max-w-[180px]">{student.currentClass}</td>
+                  <td className="py-2 px-3 font-mono text-cyan-400/80">{student.currentRoom}</td>
+                  <td className="py-2 px-3 font-mono font-bold text-cyan-300">{student.gpa}</td>
+                  <td className="py-2 px-3 text-center">
+                    <span className={`px-1.5 py-0.2 rounded text-[7px] font-black uppercase tracking-wider border ${styles.badge[student.status]}`}>
+                      {student.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -627,7 +728,7 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
 
                 {/* Notes and logs */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Ecosystem Activity Notes</h4>
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Activity Notes</h4>
                   
                   {/* Note Input */}
                   <div className="flex gap-2">

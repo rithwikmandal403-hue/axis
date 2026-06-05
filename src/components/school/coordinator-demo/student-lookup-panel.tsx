@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type StudentStatus = "present" | "absent" | "infirmary" | "counselor" | "library" | "leave";
+
+export type Guardian = {
+  name: string;
+  relationship: string;
+  email: string;
+  phone: string;
+  isPrimary?: boolean;
+};
 
 export type Student = {
   id: string;
@@ -15,10 +23,8 @@ export type Student = {
   status: StudentStatus;
   currentClass: string;
   currentRoom: string;
-  program: "dp" | "myp";
-  parentName: string;
-  parentEmail: string;
-  parentPhone: string;
+  program: "dp" | "myp" | "cp";
+  guardians: Guardian[];
   emergencyContact: string;
   emergencyPhone: string;
   notes: string[];
@@ -39,9 +45,10 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Grade 11 Physics (B)",
     currentRoom: "Lab 3",
     program: "dp",
-    parentName: "Marcus Vance",
-    parentEmail: "m.vance@family.com",
-    parentPhone: "+1 (555) 012-9844",
+    guardians: [
+      { name: "Marcus Vance", relationship: "Father", email: "m.vance@family.com", phone: "+1 (555) 012-9844", isPrimary: true },
+      { name: "Elena Vance", relationship: "Mother", email: "e.vance@family.com", phone: "+1 (555) 012-9845" }
+    ],
     emergencyContact: "Elena Vance (Mother)",
     emergencyPhone: "+1 (555) 012-9845",
     notes: ["Chloe checked into counseling regarding IB workload stress.", "Physics IA proposal approved."],
@@ -59,9 +66,10 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Library Study (Self)",
     currentRoom: "Infirmary Room",
     program: "dp",
-    parentName: "Sarah Gray",
-    parentEmail: "s.gray@family.com",
-    parentPhone: "+1 (555) 234-9081",
+    guardians: [
+      { name: "Sarah Gray", relationship: "Mother", email: "s.gray@family.com", phone: "+1 (555) 234-9081", isPrimary: true },
+      { name: "Robert Gray", relationship: "Father", email: "r.gray@family.com", phone: "+1 (555) 234-9082" }
+    ],
     emergencyContact: "Robert Gray (Father)",
     emergencyPhone: "+1 (555) 234-9082",
     specialStatus: "Fever checking. Checked in 10:15 AM by Nurse Linda.",
@@ -80,9 +88,9 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Independent Research",
     currentRoom: "Main Library",
     program: "dp",
-    parentName: "Rajesh Patel",
-    parentEmail: "r.patel@family.com",
-    parentPhone: "+1 (555) 345-0987",
+    guardians: [
+      { name: "Rajesh Patel", relationship: "Father", email: "r.patel@family.com", phone: "+1 (555) 345-0987", isPrimary: true }
+    ],
     emergencyContact: "Rajesh Patel (Father)",
     emergencyPhone: "+1 (555) 345-0987",
     notes: ["Syllabus checklist for DP Chemistry completed.", "Library workspace reserved for EE research."],
@@ -100,9 +108,10 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Pastoral Review",
     currentRoom: "Room 102 (Guidance)",
     program: "dp",
-    parentName: "John Watson",
-    parentEmail: "j.watson@family.com",
-    parentPhone: "+1 (555) 456-1234",
+    guardians: [
+      { name: "John Watson", relationship: "Father", email: "j.watson@family.com", phone: "+1 (555) 456-1234", isPrimary: true },
+      { name: "Mary Watson", relationship: "Mother", email: "m.watson@family.com", phone: "+1 (555) 456-1235" }
+    ],
     emergencyContact: "Mary Watson (Mother)",
     emergencyPhone: "+1 (555) 456-1235",
     specialStatus: "IB Core Extended Essay consultation in progress.",
@@ -121,9 +130,9 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Advanced Calculus",
     currentRoom: "Room 204",
     program: "dp",
-    parentName: "Alfred Pennyworth",
-    parentEmail: "alfred@wayne.corp",
-    parentPhone: "+1 (555) 900-1939",
+    guardians: [
+      { name: "Alfred Pennyworth", relationship: "Legal Guardian", email: "alfred@wayne.corp", phone: "+1 (555) 900-1939", isPrimary: true }
+    ],
     emergencyContact: "Alfred Pennyworth (Guardian)",
     emergencyPhone: "+1 (555) 900-1939",
     notes: ["Late arrival logged due to family commitments.", "Leadership program approval granted."],
@@ -141,9 +150,10 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "MYP Language & Lit",
     currentRoom: "Room 3A",
     program: "myp",
-    parentName: "Lenny Kravitz",
-    parentEmail: "lenny@kravitz.net",
-    parentPhone: "+1 (555) 789-0123",
+    guardians: [
+      { name: "Lenny Kravitz", relationship: "Father", email: "lenny@kravitz.net", phone: "+1 (555) 789-0123", isPrimary: true },
+      { name: "Lisa Bonet", relationship: "Mother", email: "lisa@bonet.net", phone: "+1 (555) 789-0124" }
+    ],
     emergencyContact: "Lisa Bonet (Mother)",
     emergencyPhone: "+1 (555) 789-0124",
     notes: ["Active participation in MYP drama showcase.", "Personal project proposal review complete."],
@@ -161,9 +171,9 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Algebra II",
     currentRoom: "Room 4B",
     program: "myp",
-    parentName: "May Parker",
-    parentEmail: "may@parker.org",
-    parentPhone: "+1 (555) 500-1962",
+    guardians: [
+      { name: "May Parker", relationship: "Grandparent", email: "may@parker.org", phone: "+1 (555) 500-1962", isPrimary: true }
+    ],
     emergencyContact: "May Parker (Aunt)",
     emergencyPhone: "+1 (555) 500-1962",
     notes: ["Chemistry lab reports are exceptional.", "Frequent tardiness noted for Period 1."],
@@ -181,9 +191,10 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Physical Education",
     currentRoom: "Gymnasium",
     program: "myp",
-    parentName: "Jefferson Davis",
-    parentEmail: "j.davis@family.com",
-    parentPhone: "+1 (555) 488-2011",
+    guardians: [
+      { name: "Jefferson Davis", relationship: "Father", email: "j.davis@family.com", phone: "+1 (555) 488-2011", isPrimary: true },
+      { name: "Rio Morales", relationship: "Mother", email: "r.morales@family.com", phone: "+1 (555) 488-2012" }
+    ],
     emergencyContact: "Rio Morales (Mother)",
     emergencyPhone: "+1 (555) 488-2012",
     notes: ["Excellence in athletic agility tests.", "Personal Project focuses on city murals."],
@@ -201,9 +212,9 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Physical Education",
     currentRoom: "Gymnasium",
     program: "myp",
-    parentName: "George Stacy",
-    parentEmail: "g.stacy@family.com",
-    parentPhone: "+1 (555) 616-1965",
+    guardians: [
+      { name: "George Stacy", relationship: "Father", email: "g.stacy@family.com", phone: "+1 (555) 616-1965", isPrimary: true }
+    ],
     emergencyContact: "George Stacy (Father)",
     emergencyPhone: "+1 (555) 616-1965",
     notes: ["MYP Science design cycle outstanding.", "Student Council rep."],
@@ -221,9 +232,9 @@ const INITIAL_STUDENTS: Student[] = [
     currentClass: "Dismissed (Parent Picked)",
     currentRoom: "Checked Out",
     program: "myp",
-    parentName: "Norman Osborn",
-    parentEmail: "norman@oscorp.com",
-    parentPhone: "+1 (555) 100-3940",
+    guardians: [
+      { name: "Norman Osborn", relationship: "Father", email: "norman@oscorp.com", phone: "+1 (555) 100-3940", isPrimary: true }
+    ],
     emergencyContact: "Norman Osborn (Father)",
     emergencyPhone: "+1 (555) 100-3940",
     specialStatus: "Authorized Early Dismissal. Picked up by Norman Osborn.",
@@ -231,19 +242,116 @@ const INITIAL_STUDENTS: Student[] = [
     gpa: "3.10",
     attendanceRate: "89.4%",
   },
+  {
+    id: "std-11",
+    name: "Clark Kent",
+    avatar: "CK",
+    grade: "Grade 12-B",
+    homeroom: "Homeroom 12-H",
+    advisor: "Marcus Vance",
+    status: "present",
+    currentClass: "CP Agricultural Science",
+    currentRoom: "Greenhouse B",
+    program: "cp",
+    guardians: [
+      { name: "Martha Kent", relationship: "Mother", email: "martha@kentfarm.org", phone: "+1 (555) 762-1938", isPrimary: true },
+      { name: "Jonathan Kent", relationship: "Father", email: "jonathan@kentfarm.org", phone: "+1 (555) 762-1939" }
+    ],
+    emergencyContact: "Martha Kent (Mother)",
+    emergencyPhone: "+1 (555) 762-1938",
+    notes: ["Clark is coordinating the school agricultural expo project.", "Excellent leadership skills logged in Career Portfolio."],
+    gpa: "3.92",
+    attendanceRate: "99.4%",
+  },
+  {
+    id: "std-12",
+    name: "Bruce Banner",
+    avatar: "BB",
+    grade: "Grade 11-A",
+    homeroom: "Homeroom 11-F",
+    advisor: "Ananya Rao",
+    status: "present",
+    currentClass: "CP Bio-Technology",
+    currentRoom: "Lab 5",
+    program: "cp",
+    guardians: [
+      { name: "Rebecca Banner", relationship: "Caregiver", email: "rebecca@banner.org", phone: "+1 (555) 284-1962", isPrimary: true }
+    ],
+    emergencyContact: "Rebecca Banner (Aunt)",
+    emergencyPhone: "+1 (555) 284-1962",
+    notes: ["Bruce requested library access for research projects.", "Safety briefing completed for chemistry lab."],
+    gpa: "3.78",
+    attendanceRate: "94.5%",
+  }
 ];
 
 type StudentLookupPanelProps = {
   theme: string;
   activeProgram: "dp" | "myp" | "all";
   searchQuery: string;
+  selectedStudentId?: string | null;
+  onClearSelectedStudent?: () => void;
 };
 
-export function StudentLookupPanel({ theme, activeProgram, searchQuery }: StudentLookupPanelProps) {
+export function StudentLookupPanel({ 
+  theme, 
+  searchQuery,
+  selectedStudentId,
+  onClearSelectedStudent
+}: StudentLookupPanelProps) {
   const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [programFilter, setProgramFilter] = useState<string>("dp1");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [newNoteText, setNewNoteText] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "compact">("grid");
+
+  // Handle outside selection from Universal Search
+  useEffect(() => {
+    if (selectedStudentId) {
+      const found = students.find((s) => s.id === selectedStudentId);
+      if (found) {
+        setSelectedStudent(found);
+        onClearSelectedStudent?.();
+      }
+    }
+  }, [selectedStudentId, students, onClearSelectedStudent]);
+
+  const [activeChatGuardian, setActiveChatGuardian] = useState<Guardian | null>(null);
+  const [chatInput, setChatInput] = useState("");
+  const [mockMessages, setMockMessages] = useState<string[]>([]);
+  const [activeCallGuardian, setActiveCallGuardian] = useState<Guardian | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const handleEmailGuardian = (guardian: Guardian) => {
+    if (typeof window !== "undefined") {
+      const win = window as typeof window & {
+        pendingComposeEmail?: { to: string; subject: string; body: string };
+      };
+      win.pendingComposeEmail = {
+        to: guardian.email,
+        subject: "",
+        body: ""
+      };
+    }
+    window.dispatchEvent(new CustomEvent("axis-compose-email", {
+      detail: {
+        to: guardian.email,
+        subject: "",
+        body: ""
+      }
+    }));
+    window.dispatchEvent(new CustomEvent("axis-navigate-tab", {
+      detail: { tab: "email" }
+    }));
+  };
 
   const styles = useMemo(() => {
     return {
@@ -335,29 +443,37 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
   }, [theme]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
-      // 1. Program filter
-      if (activeProgram !== "all" && student.program !== activeProgram) {
-        return false;
-      }
-      // 2. Status filter
-      if (statusFilter !== "all" && student.status !== statusFilter) {
-        return false;
-      }
-      // 3. Search query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        return (
-          student.name.toLowerCase().includes(query) ||
-          student.grade.toLowerCase().includes(query) ||
-          student.currentClass.toLowerCase().includes(query) ||
-          student.currentRoom.toLowerCase().includes(query) ||
-          student.advisor.toLowerCase().includes(query)
-        );
-      }
-      return true;
-    });
-  }, [students, activeProgram, statusFilter, searchQuery]);
+    return students
+      .filter((student) => {
+        // 1. Program filter
+        if (programFilter === "dp1") {
+          if (student.program !== "dp" || !student.grade.includes("Grade 11")) return false;
+        } else if (programFilter === "dp2") {
+          if (student.program !== "dp" || !student.grade.includes("Grade 12")) return false;
+        } else if (programFilter === "cp1") {
+          if (student.program !== "cp" || !student.grade.includes("Grade 11")) return false;
+        } else if (programFilter === "cp2") {
+          if (student.program !== "cp" || !student.grade.includes("Grade 12")) return false;
+        }
+        // 2. Status filter
+        if (statusFilter !== "all" && student.status !== statusFilter) {
+          return false;
+        }
+        // 3. Search query
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          return (
+            student.name.toLowerCase().includes(query) ||
+            student.grade.toLowerCase().includes(query) ||
+            student.currentClass.toLowerCase().includes(query) ||
+            student.currentRoom.toLowerCase().includes(query) ||
+            student.advisor.toLowerCase().includes(query)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [students, programFilter, statusFilter, searchQuery]);
 
   const handleAddNote = (studentId: string) => {
     if (!newNoteText.trim()) return;
@@ -399,11 +515,38 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
 
   return (
     <div className="space-y-6">
+      {/* Program Cohort Filters */}
+      <div className="flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
+        {[
+          { id: "dp1", label: "DP1" },
+          { id: "dp2", label: "DP2" },
+          { id: "cp1", label: "CP1" },
+          { id: "cp2", label: "CP2" },
+          { id: "all", label: "All Students" }
+        ].map((prog) => (
+          <button
+            key={prog.id}
+            onClick={() => setProgramFilter(prog.id)}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+              programFilter === prog.id
+                ? theme === "light"
+                  ? "bg-cyan-600 text-white border-cyan-600 shadow-sm"
+                  : "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                : theme === "light"
+                  ? "bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50"
+                  : "bg-white/5 border-white/5 text-white/50 hover:bg-white/10"
+            }`}
+          >
+            {prog.label}
+          </button>
+        ))}
+      </div>
+
       {/* Search status filters */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {[
-            { id: "all", label: "All Students" },
+            { id: "all", label: "All Statuses" },
             { id: "present", label: "In Classroom" },
             { id: "infirmary", label: "Infirmary" },
             { id: "counselor", label: "Counseling Office" },
@@ -423,19 +566,38 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
             </button>
           ))}
         </div>
-        <span className={`text-xs font-mono ${styles.textSecondary}`}>
-          {filteredStudents.length} of {students.filter(s => activeProgram === "all" || s.program === activeProgram).length} students found
-        </span>
+
+        {/* Directory views selector */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] rounded-xl text-xs font-semibold text-white/30">
+            {(["grid", "list", "compact"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-2.5 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all ${
+                  viewMode === mode
+                    ? "bg-cyan-500 text-black shadow-[0_0_8px_rgba(6,182,212,0.25)]"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+          <span className={`text-xs font-mono ${styles.textSecondary}`}>
+            {filteredStudents.length} of {students.length} students
+          </span>
+        </div>
       </div>
 
-      {/* Grid rendering */}
+      {/* View modes rendering */}
       {filteredStudents.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
           <span className="text-xl">🔍</span>
           <h4 className={`text-sm font-semibold mt-2 ${styles.textPrimary}`}>No students matching criteria</h4>
           <p className={`text-xs mt-1 ${styles.textSecondary}`}>Refine your search parameters or program context filters.</p>
         </div>
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStudents.map((student) => (
             <div
@@ -482,6 +644,87 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
               </div>
             </div>
           ))}
+        </div>
+      ) : viewMode === "list" ? (
+        <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.01]">
+          <table className="w-full text-left border-collapse min-w-[750px]">
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-white/[0.02] text-[9px] font-bold text-white/40 uppercase tracking-widest">
+                <th className="p-4">Student</th>
+                <th className="p-4">Grade & Prog</th>
+                <th className="p-4">Advisor</th>
+                <th className="p-4">Current Subject</th>
+                <th className="p-4">Room</th>
+                <th className="p-4 font-mono">GPA</th>
+                <th className="p-4 font-mono">Attendance</th>
+                <th className="p-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04] text-xs">
+              {filteredStudents.map((student) => (
+                <tr
+                  key={student.id}
+                  onClick={() => setSelectedStudent(student)}
+                  className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                >
+                  <td className="p-4 font-bold text-white flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-[9px] text-cyan-400">
+                      {student.avatar}
+                    </div>
+                    {student.name}
+                  </td>
+                  <td className="p-4 text-cyan-200/60 font-semibold">
+                    {student.grade} <span className="text-[9px] px-1 py-0.2 bg-white/5 rounded border border-white/10 ml-1 font-bold text-cyan-400">{student.program.toUpperCase()}</span>
+                  </td>
+                  <td className="p-4 text-white/70 font-medium">{student.advisor}</td>
+                  <td className="p-4 font-medium text-white/90">{student.currentClass}</td>
+                  <td className="p-4 font-mono font-bold text-cyan-400">{student.currentRoom}</td>
+                  <td className="p-4 font-mono text-cyan-300 font-bold">{student.gpa}</td>
+                  <td className="p-4 font-mono text-emerald-400 font-bold">{student.attendanceRate}</td>
+                  <td className="p-4 text-center">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-widest border ${styles.badge[student.status]}`}>
+                      {student.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.01]">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-white/[0.02] text-[8px] font-extrabold text-white/30 uppercase tracking-widest">
+                <th className="py-2.5 px-3">Name</th>
+                <th className="py-2.5 px-3">Grade</th>
+                <th className="py-2.5 px-3">Subject</th>
+                <th className="py-2.5 px-3">Room</th>
+                <th className="py-2.5 px-3 font-mono">GPA</th>
+                <th className="py-2.5 px-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.03] text-[11px] font-semibold text-white/70">
+              {filteredStudents.map((student) => (
+                <tr
+                  key={student.id}
+                  onClick={() => setSelectedStudent(student)}
+                  className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                >
+                  <td className="py-2 px-3 font-bold text-white">{student.name}</td>
+                  <td className="py-2 px-3 text-white/50">{student.grade} ({student.program.toUpperCase()})</td>
+                  <td className="py-2 px-3 truncate max-w-[180px]">{student.currentClass}</td>
+                  <td className="py-2 px-3 font-mono text-cyan-400/80">{student.currentRoom}</td>
+                  <td className="py-2 px-3 font-mono font-bold text-cyan-300">{student.gpa}</td>
+                  <td className="py-2 px-3 text-center">
+                    <span className={`px-1.5 py-0.2 rounded text-[7px] font-black uppercase tracking-wider border ${styles.badge[student.status]}`}>
+                      {student.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -578,33 +821,52 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
                   </div>
                 </div>
 
-                {/* Parent & Emergency Contacts */}
+                {/* Guardians & Emergency Contacts */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Family & Emergency Contacts</h4>
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Guardians & Emergency Contacts</h4>
                   <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-4 text-xs">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className={`font-semibold ${styles.textPrimary}`}>Parent: {selectedStudent.parentName}</span>
-                        <span className={styles.textSecondary}>{selectedStudent.parentPhone}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className={`text-[10px] ${styles.textSecondary}`}>{selectedStudent.parentEmail}</span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => alert(`Initiating mock SMS message to parent ${selectedStudent.parentName} (${selectedStudent.parentPhone})...`)}
-                            className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold uppercase hover:bg-white/10 text-white/80 hover:text-white"
-                          >
-                            SMS
-                          </button>
-                          <button
-                            onClick={() => alert(`Initiating call simulation to parent ${selectedStudent.parentName} (${selectedStudent.parentPhone})...`)}
-                            className="px-2 py-1 rounded bg-cyan-400/10 border border-cyan-400/20 text-[9px] font-bold uppercase text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all"
-                          >
-                            Call
-                          </button>
+                    {selectedStudent.guardians.map((guardian, index) => (
+                      <div key={index} className="space-y-2.5">
+                        {index > 0 && <div className="h-px bg-white/[0.05] my-2" />}
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className={`font-semibold ${styles.textPrimary} block`}>
+                              {guardian.name}
+                            </span>
+                            <span className="text-[10px] text-white/40 block mt-0.5 font-medium">
+                              {guardian.relationship}
+                            </span>
+                          </div>
+                          <span className={`${styles.textSecondary} font-mono`}>{guardian.phone}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className={`text-[10px] ${styles.textSecondary}`}>{guardian.email}</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleEmailGuardian(guardian)}
+                              className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold uppercase hover:bg-white/10 text-white/80 hover:text-white"
+                            >
+                              Email
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMockMessages([]);
+                                setActiveChatGuardian(guardian);
+                              }}
+                              className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold uppercase hover:bg-white/10 text-white/80 hover:text-white"
+                            >
+                              Message
+                            </button>
+                            <button
+                              onClick={() => setActiveCallGuardian(guardian)}
+                              className="px-2 py-1 rounded bg-cyan-400/10 border border-cyan-400/20 text-[9px] font-bold uppercase text-cyan-400 hover:bg-cyan-400 hover:text-black transition-all"
+                            >
+                              Call
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
 
                     <div className="h-px bg-white/[0.05]" />
 
@@ -613,21 +875,13 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
                         <span className="font-semibold text-red-400">Emergency: {selectedStudent.emergencyContact}</span>
                         <span className={styles.textSecondary}>{selectedStudent.emergencyPhone}</span>
                       </div>
-                      <div className="flex justify-end">
-                        <button
-                          onClick={() => alert(`ALERT: Simulating emergency contact phone trigger to ${selectedStudent.emergencyContact}...`)}
-                          className="px-3.5 py-1 rounded bg-red-500/10 border border-red-500/30 text-[9px] font-bold uppercase text-red-400 hover:bg-red-500 hover:text-white transition-all animate-pulse"
-                        >
-                          Trigger Emergency Call
-                        </button>
-                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Notes and logs */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Ecosystem Activity Notes</h4>
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Activity Notes</h4>
                   
                   {/* Note Input */}
                   <div className="flex gap-2">
@@ -667,6 +921,147 @@ export function StudentLookupPanel({ theme, activeProgram, searchQuery }: Studen
                 </button>
               </div>
             </motion.div>
+
+            {/* Contextual Messaging Slide-Out Panel */}
+            <AnimatePresence>
+              {activeChatGuardian && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.2 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setActiveChatGuardian(null)}
+                    className="fixed inset-0 z-45 bg-black"
+                  />
+                  <motion.div
+                    initial={{ x: "100%", opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: "100%", opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 35 }}
+                    className={`fixed right-[448px] top-0 bottom-0 z-50 w-full max-w-sm p-5 border-r border-white/10 flex flex-col justify-between ${styles.panelBg}`}
+                    style={{ boxShadow: "-10px 0 30px rgba(0, 0, 0, 0.5)" }}
+                  >
+                    <div className="flex flex-col h-full justify-between">
+                      {/* Header */}
+                      <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 shrink-0">
+                        <div>
+                          <span className="text-[8px] font-mono font-bold text-cyan-400 uppercase tracking-widest block">Direct Channel</span>
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">{activeChatGuardian.name} ({activeChatGuardian.relationship})</h4>
+                        </div>
+                        <button
+                          onClick={() => setActiveChatGuardian(null)}
+                          className="text-white/40 hover:text-white text-xs px-2 py-1 bg-white/5 rounded-lg"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Chat History */}
+                      <div className="flex-1 overflow-y-auto py-4 space-y-3.5 pr-1 select-none scrollbar-none">
+                        <div className="text-[10px] text-white/35 font-bold uppercase tracking-widest text-center py-2">Beginning of Conversation regarding {selectedStudent.name}</div>
+                        <div className="flex flex-col gap-1.5 items-end">
+                          <div className="p-3 rounded-2xl bg-cyan-500 text-black text-xs font-medium max-w-[85%] rounded-tr-sm">
+                            Hi {activeChatGuardian.name}, just wanted to check in regarding {selectedStudent.name}&apos;s progress this week.
+                          </div>
+                          <span className="text-[8px] text-white/30 font-bold uppercase font-mono mr-1">Delivered</span>
+                        </div>
+                        {/* Mock sent message */}
+                        {mockMessages.map((m, idx) => (
+                          <div key={idx} className="flex flex-col gap-1.5 items-end">
+                            <div className="p-3 rounded-2xl bg-cyan-500 text-black text-xs font-medium max-w-[85%] rounded-tr-sm">
+                              {m}
+                            </div>
+                            <span className="text-[8px] text-white/30 font-bold uppercase font-mono mr-1">Sent</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Message Input Form */}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (chatInput.trim()) {
+                            setMockMessages(prev => [...prev, chatInput.trim()]);
+                            setChatInput("");
+                          }
+                        }}
+                        className="flex gap-2 pt-3 border-t border-white/[0.06] shrink-0"
+                      >
+                        <input
+                          type="text"
+                          placeholder="Type message..."
+                          value={chatInput}
+                          onChange={e => setChatInput(e.target.value)}
+                          className={`flex-1 px-3 py-2 text-xs rounded-xl border bg-black/45 border-white/[0.08] text-white outline-none focus:border-cyan-500/50`}
+                        />
+                        <button
+                          type="submit"
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold ${styles.button}`}
+                        >
+                          Send
+                        </button>
+                      </form>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* Call Option Modal */}
+            <AnimatePresence>
+              {activeCallGuardian && (
+                <div className="fixed inset-0 z-[260] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm select-none">
+                  <div className="fixed inset-0" onClick={() => setActiveCallGuardian(null)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="relative bg-[#0E0E10] border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl z-10 text-white"
+                  >
+                    <div className="flex justify-between items-center border-b border-white/[0.08] pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-cyan-400 animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">Communication Link</span>
+                      </div>
+                      <button onClick={() => setActiveCallGuardian(null)} className="text-white/40 hover:text-white">✕</button>
+                    </div>
+                    
+                    <div className="text-center space-y-2 py-2">
+                      <h4 className="text-sm font-black text-white">{activeCallGuardian.name}</h4>
+                      <p className="text-[11px] text-white/45 uppercase tracking-wider font-semibold">{activeCallGuardian.relationship}</p>
+                      <p className="text-lg font-mono font-bold text-cyan-400 tracking-wide mt-1.5">{activeCallGuardian.phone}</p>
+                    </div>
+
+                    <div className="flex flex-col gap-2.5">
+                      <button
+                        onClick={() => {
+                          alert(`Initiating encrypted Axis Audio Call to ${activeCallGuardian.name}...`);
+                          setActiveCallGuardian(null);
+                        }}
+                        className="w-full py-2.5 bg-cyan-400 hover:bg-cyan-300 text-black font-extrabold uppercase tracking-wider text-[10px] rounded-xl transition-all shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                      >
+                        Axis Call
+                      </button>
+                      {isMobile && (
+                        <a
+                          href={`tel:${activeCallGuardian.phone}`}
+                          onClick={() => setActiveCallGuardian(null)}
+                          className="w-full py-2.5 text-center bg-white/5 hover:bg-white/10 text-white font-extrabold uppercase tracking-wider text-[10px] rounded-xl transition-all border border-white/10"
+                        >
+                          Phone Call
+                        </a>
+                      )}
+                      <button
+                        onClick={() => setActiveCallGuardian(null)}
+                        className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-extrabold uppercase tracking-wider text-[10px] rounded-xl transition-all border border-white/5"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </>
         )}
       </AnimatePresence>

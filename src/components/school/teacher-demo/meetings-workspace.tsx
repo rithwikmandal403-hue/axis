@@ -1729,7 +1729,7 @@ Follow-ups Generated:
                                 onClick={handleGenerateRecap}
                                 className="w-full rounded-xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] text-[10px] font-semibold text-white/90 py-safe-sm transition-all text-center"
                               >
-                                Generate Operational Recap
+                                Generate Meeting Summary
                               </button>
 
                               <AnimatePresence>
@@ -1752,7 +1752,7 @@ Follow-ups Generated:
 
                       {/* Sidebar Footer */}
                       <div className="p-safe-md border-t border-white/[0.06] text-center bg-black/10">
-                        <span className="text-[9px] text-white/25 leading-none">Axis Ecosystem Meetings</span>
+                        <span className="text-[9px] text-white/25 leading-none">Axis School Meetings</span>
                       </div>
                     </div>
                   </motion.div>

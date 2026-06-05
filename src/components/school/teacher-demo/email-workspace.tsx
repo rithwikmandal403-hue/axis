@@ -628,7 +628,7 @@ export function EmailWorkspace() {
       preview: `Your email account ${newEmail} has been successfully connected to Axis. You can now view messages...`,
       body: `Hello Aarav,
 
-Your email account (${newEmail}) has been successfully integrated into the Axis Teacher Portal workspace.
+Your email account (${newEmail}) has been successfully integrated into the Axis Teacher Portal.
 
 This connection allows you to view updates and link keywords (like "Lab 3" or "Physics IA") directly to your planning resources, classes, and schedules in real-time.
 
@@ -957,7 +957,7 @@ Axis Admin System`,
               className="border-l border-white/10 bg-zinc-950/80 backdrop-blur-md flex flex-col overflow-hidden shrink-0"
             >
               <div className="p-safe-md border-b border-white/10 flex items-center justify-between bg-white/[0.01]">
-                <span className="text-xs font-semibold text-white/90">Ecosystem Context</span>
+                <span className="text-xs font-semibold text-white/90">Related Context</span>
                 <button
                   onClick={() => setContextOverlay(null)}
                   className="p-1 hover:bg-white/10 text-white/40 hover:text-white rounded transition-all"

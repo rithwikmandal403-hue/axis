@@ -334,10 +334,10 @@ export function ProfileManager({
                   className={`rounded-xl border ${styling.inputBg} bg-[#0A0A0B]/85 px-3 py-2 text-xs text-white focus:outline-none cursor-pointer hover:bg-white/[0.02] transition-colors`}
                   title="Who can see your phone number"
                 >
-                  <option value="Only Me">🔒 Only Me</option>
-                  <option value="Staff Members">👥 Staff Members</option>
-                  <option value="Department Members">🏢 Department Members</option>
-                  <option value="Everyone">🌐 Everyone</option>
+                  <option value="Only Me">Only Me</option>
+                  <option value="Staff Members">Staff Members</option>
+                  <option value="Department Members">Department Members</option>
+                  <option value="Everyone">Everyone</option>
                 </select>
               </div>
               <span className="text-[8px] text-white/30 block">

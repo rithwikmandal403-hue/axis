@@ -47,7 +47,7 @@ export function EcosystemVisualization() {
         className="pointer-events-none absolute inset-[8%] rounded-full"
         style={{
           background:
-            "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(247,247,245,0.6) 45%, transparent 72%)",
+            "radial-gradient(circle, rgba(99,102,241,0.04) 0%, rgba(59,130,246,0.01) 50%, transparent 72%)",
         }}
       />
 
@@ -73,9 +73,9 @@ export function EcosystemVisualization() {
               cy={CENTER}
               r={ring.r}
               fill="none"
-              stroke="#B8B8B2"
+              stroke="rgba(255, 255, 255, 0.15)"
               strokeWidth={ring.strokeWidth}
-              opacity={ring.opacity}
+              opacity={ring.opacity * 0.7}
               strokeDasharray={ring.dash ? "4 8" : undefined}
             />
             {ringDots(ring.r).map((dot) => (
@@ -84,8 +84,8 @@ export function EcosystemVisualization() {
                 cx={dot.x}
                 cy={dot.y}
                 r={index === RINGS.length - 1 ? 2 : 1.5}
-                fill="#0F1115"
-                opacity={index < 2 ? 0.28 : 0.2}
+                fill="#FFFFFF"
+                opacity={index < 2 ? 0.35 : 0.25}
               />
             ))}
           </motion.g>
@@ -94,7 +94,7 @@ export function EcosystemVisualization() {
 
       {/* Center halo behind logo */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="size-[46%] rounded-full border border-axis-text/[0.08] bg-gradient-to-b from-white via-white to-axis-bg/40 shadow-[0_0_0_1px_rgba(15,17,21,0.04),0_12px_40px_-16px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.9)]" />
+        <div className="size-[46%] rounded-full border border-white/10 bg-gradient-to-b from-[#121214]/85 to-[#0A0A0B]/95 shadow-[0_12px_40px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md" />
       </div>
 
       {/* Center logo */}
@@ -109,7 +109,7 @@ export function EcosystemVisualization() {
             width={200}
             height={250}
             priority
-            className="block h-auto w-[140px] object-contain object-center md:w-[160px]"
+            className="block h-auto w-[140px] object-contain object-center md:w-[160px] invert brightness-200"
           />
         </motion.div>
       </div>
@@ -135,10 +135,10 @@ export function EcosystemVisualization() {
               delay: node.delay,
             }}
           >
-            <div className="grid size-12 place-items-center rounded-full border border-axis-text/10 bg-white text-sm shadow-soft md:size-14">
+            <div className="grid size-12 place-items-center rounded-full border border-white/10 bg-[#121214]/90 text-sm shadow-[0_4px_20px_rgba(0,0,0,0.6)] backdrop-blur-sm md:size-14">
               <span aria-hidden>{node.icon}</span>
             </div>
-            <span className="text-[11px] font-medium tracking-[0.02em] text-axis-text/85 md:text-xs">
+            <span className="text-[11px] font-medium tracking-[0.02em] text-zinc-400 md:text-xs">
               {node.label}
             </span>
           </motion.div>

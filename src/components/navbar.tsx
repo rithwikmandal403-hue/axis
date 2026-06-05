@@ -15,7 +15,7 @@ export function Navbar() {
       className="relative mx-auto flex w-full max-w-[1360px] items-center justify-center px-6 py-6 md:px-10"
     >
       <div className="absolute right-6 top-1/2 -translate-y-1/2 md:right-10">
-        <SignInButton />
+        <SignInButton className="border-white/10 bg-white/[0.02] text-zinc-100 hover:bg-white/10 hover:border-white/20 focus-visible:ring-white/30 shadow-[0_1px_2px_rgba(255,255,255,0.02)]" />
       </div>
 
       <Link href="/" className="transition-opacity hover:opacity-80">
@@ -25,7 +25,7 @@ export function Navbar() {
           width={160}
           height={200}
           priority
-          className="h-[72px] w-auto object-contain md:h-[80px]"
+          className="h-[72px] w-auto object-contain md:h-[80px] invert brightness-200"
         />
       </Link>
     </motion.header>

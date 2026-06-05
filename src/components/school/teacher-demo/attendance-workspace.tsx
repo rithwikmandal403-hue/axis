@@ -151,7 +151,7 @@ export function AttendanceWorkspace({
         <div className="flex flex-col gap-safe-md md:flex-row md:items-center md:justify-between">
           <div>
             <span className="text-[10px] font-semibold text-white/35 uppercase tracking-wider">
-              Ecosystem Presence
+              Student Attendance
             </span>
             <h3 className="text-xl font-medium tracking-tight text-white mt-1">Attendance Workspace</h3>
           </div>
@@ -239,7 +239,7 @@ export function AttendanceWorkspace({
             disabled={submitting}
             className="rounded-xl bg-white text-black px-5 py-2.5 text-xs font-bold shadow-soft hover:opacity-90 transition-all disabled:opacity-50"
           >
-            {submitting ? "Submitting Broadcast..." : "Submit Roster Broadcast"}
+            {submitting ? "Submitting Attendance..." : "Submit Attendance"}
           </button>
         </div>
 
@@ -324,7 +324,7 @@ export function AttendanceWorkspace({
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-semibold tracking-tight text-white">Roster Broadcast Sent</span>
-              <span className="text-[10px] text-white/40 mt-0.5">Presence logs synced to Coordinator and Student devices.</span>
+              <span className="text-[10px] text-white/40 mt-0.5">Presence logs synced to school office and student profiles.</span>
             </div>
           </motion.div>
         )}

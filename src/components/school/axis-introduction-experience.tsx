@@ -243,10 +243,10 @@ function BeatEcosystemNetwork() {
         className="mb-12 flex flex-col items-center gap-2"
       >
         <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-[0.3em]">
-          A living operational network
+          A connected school system
         </p>
         <p className="text-[10px] text-white/50 tracking-widest uppercase">
-          Watch how components work together
+          Watch how all components work together
         </p>
       </motion.div>
 
@@ -737,9 +737,9 @@ function BeatSchoolMap() {
 
 function BeatPersonalization() {
   const stats = [
-    { value: "1", label: "Ecosystem" },
-    { value: "4", label: "Perspectives" },
-    { value: "0", label: "Friction" },
+    { value: "1", label: "Platform" },
+    { value: "4", label: "School Views" },
+    { value: "0", label: "Lost Info" },
   ];
 
   return (
@@ -870,7 +870,7 @@ function BeatTransition() {
           transition={{ duration: 0.6, delay: 2.5, ease: EASE }}
           className="text-[10px] text-white/25 tracking-widest uppercase"
         >
-          Enter the ecosystem
+          Explore Axis
         </motion.p>
       </motion.div>
     </motion.div>

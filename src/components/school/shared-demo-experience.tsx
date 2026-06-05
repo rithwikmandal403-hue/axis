@@ -266,13 +266,13 @@ export function SharedDemoExperience() {
 
   return (
     <ExperienceEntrance>
-      {role.id === "coordinator" ? (
-        <CoordinatorDemoShell />
-      ) : (
-        <DemoTutorialProvider>
+      <DemoTutorialProvider>
+        {role.id === "coordinator" ? (
+          <CoordinatorDemoShell />
+        ) : (
           <TeacherDemoShell perspectiveLabel={role.label} perspectiveId={role.id} />
-        </DemoTutorialProvider>
-      )}
+        )}
+      </DemoTutorialProvider>
     </ExperienceEntrance>
   );
 }

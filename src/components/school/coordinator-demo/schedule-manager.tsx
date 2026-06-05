@@ -103,7 +103,7 @@ export function ScheduleManager({ theme, onRoomOverride, onScheduleCutApplied }:
     e.preventDefault();
     if (!selectedClass || !oldRoom || !newRoom) return;
     onRoomOverride(selectedClass, oldRoom, newRoom);
-    alert(`Ecosystem Override: ${selectedClass} has been re-routed from Room ${oldRoom} to Room ${newRoom}. Notifications broadcasted.`);
+    alert(`Override Applied: ${selectedClass} has been re-routed from Room ${oldRoom} to Room ${newRoom}. Notifications broadcasted.`);
   };
 
   return (
@@ -270,7 +270,7 @@ export function ScheduleManager({ theme, onRoomOverride, onScheduleCutApplied }:
                 <span>Refraction Lab B</span>
                 <span>Lab 3 → Lab 4</span>
               </div>
-              <p className={`text-[9px] ${styles.textSecondary}`}>Period 2 block · Synced 10 minutes ago by Coordinator</p>
+              <p className={`text-[9px] ${styles.textSecondary}`}>Period 2 block · Synced 10 minutes ago by School Office</p>
             </div>
           </div>
         </div>

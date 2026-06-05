@@ -44,8 +44,8 @@ export function SelectionCard({
       onClick={handleClick}
       className={`group flex min-h-[148px] w-full flex-col items-start justify-between rounded-2xl border px-7 py-7 text-left transition-all duration-300 ease-out md:min-h-[168px] md:px-8 md:py-8 ${
         selected
-          ? "border-axis-text bg-axis-text text-white shadow-soft"
-          : "border-axis-line bg-axis-card hover:-translate-y-1 hover:border-axis-text/25 hover:shadow-soft"
+          ? "border-white bg-white text-[#0A0A0B] shadow-[0_8px_30px_rgba(255,255,255,0.1)]"
+          : "border-white/10 bg-white/[0.02] hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.04] text-white"
       }`}
       whileHover={{ y: selected ? 0 : -4 }}
       whileTap={{ scale: 0.995 }}
@@ -54,15 +54,15 @@ export function SelectionCard({
         <span
           className={`flex size-9 shrink-0 items-center justify-center rounded-xl border transition-colors duration-300 ${
             selected
-              ? "border-white/20 bg-white/10 text-white"
-              : "border-axis-line bg-axis-bg text-axis-text/70"
+              ? "border-black/15 bg-black/5 text-black"
+              : "border-white/5 bg-white/5 text-zinc-300"
           }`}
         >
           {icon}
         </span>
         <span
           className={`text-xl font-medium tracking-tight md:text-2xl ${
-            selected ? "text-white" : "text-axis-text"
+            selected ? "text-[#0A0A0B]" : "text-white"
           }`}
         >
           {label}
@@ -70,7 +70,7 @@ export function SelectionCard({
       </div>
       <span
         className={`mt-4 text-sm leading-relaxed ${
-          selected ? "text-white/75" : "text-axis-muted"
+          selected ? "text-[#0A0A0B]/75" : "text-zinc-400"
         }`}
       >
         {description}

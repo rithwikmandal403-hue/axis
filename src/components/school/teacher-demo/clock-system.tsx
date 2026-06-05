@@ -66,7 +66,7 @@ export function ClockSystem() {
             <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
           </span>
           <span className="text-[10px] font-medium text-white/50 tracking-wider uppercase">
-            Ecosystem Connected
+            System Connected
           </span>
         </div>
       </div>

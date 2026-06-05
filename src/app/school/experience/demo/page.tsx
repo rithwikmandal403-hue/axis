@@ -4,8 +4,8 @@ import { Suspense } from "react";
 import { SharedDemoExperience } from "@/components/school/shared-demo-experience";
 
 export const metadata: Metadata = {
-  title: "Axis Ecosystem Demo",
-  description: "Shared operational demo preview across school roles.",
+  title: "Axis School Demo",
+  description: "Shared demo preview across school roles.",
 };
 
 export default function SharedDemoPage() {

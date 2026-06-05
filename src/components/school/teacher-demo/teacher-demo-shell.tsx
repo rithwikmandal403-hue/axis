@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -13,7 +12,6 @@ import { CurrentClassCard, type ReminderItem } from "./current-class";
 import { AdaptiveTimetable } from "./adaptive-timetable";
 import { AttendanceWorkspace } from "./attendance-workspace";
 import { SettingsWorkspace } from "./settings-workspace";
-import { NotificationsSystem } from "./notifications-system";
 import { ContextLayer } from "./context-layer";
 import { CaptureLayer, type CapturedItem } from "./capture-layer";
 import { MessagesWorkspace } from "./messages-workspace";
@@ -21,12 +19,13 @@ import { MeetingsWorkspace } from "./meetings-workspace";
 import { CalendarWorkspace } from "./calendar-workspace";
 import { EmailWorkspace } from "./email-workspace";
 import { ClassSpaceWorkspace } from "./class-space-workspace";
-import { AnnouncementsPanel } from "./announcements-panel";
+import { SharedDemoHeader } from "../shared-demo-header";
 import { DeviceCalibration } from "./device-calibration";
 import { ConnectedResources } from "./connected-resources-workspace";
 import { playNotificationSound } from "./audio-system";
 import { EssentialSpaceWorkspace } from "./essential-space-workspace";
 import { WorkspaceWorkspace, type WorkspaceItem } from "./workspace-workspace";
+import { getAxisTheme, type Theme } from "@/lib/theme-utils";
 
 type TeacherDemoShellProps = {
   perspectiveLabel?: string;
@@ -94,7 +93,7 @@ export function TeacherDemoShell({
 }: TeacherDemoShellProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("home");
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   // Invisible engagement score system
   const [engagement, setEngagement] = useState<{
@@ -190,10 +189,10 @@ export function TeacherDemoShell({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setTheme(localStorage.getItem("axis-theme") || "dark");
+      setTheme((localStorage.getItem("axis-theme") as Theme) || "dark");
       
       const handleThemeChange = () => {
-        setTheme(localStorage.getItem("axis-theme") || "dark");
+        setTheme((localStorage.getItem("axis-theme") as Theme) || "dark");
       };
       window.addEventListener("axis-theme-change", handleThemeChange);
       return () => window.removeEventListener("axis-theme-change", handleThemeChange);
@@ -208,7 +207,7 @@ export function TeacherDemoShell({
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [hasRunTour, setHasRunTour] = useState(true);
   const [isWelcomeScreenOpen, setIsWelcomeScreenOpen] = useState(false);
-  const [showCoachMark, setShowCoachMark] = useState(false);
+  const [, setShowCoachMark] = useState(false);
 
 
 
@@ -250,17 +249,7 @@ export function TeacherDemoShell({
     }
   };
 
-  const handleDismissCoachMark = () => {
-    setShowCoachMark(false);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("axis-tour-coach-mark-dismissed", "true");
-    }
-  };
 
-  const handleStartTourManual = () => {
-    setShowCoachMark(false);
-    startTutorial();
-  };
 
   const handleContinueTourFromWarning = () => {
     setShowSkipWarning(false);
@@ -752,62 +741,7 @@ export function TeacherDemoShell({
   }, [workspaceItems, selectedClass, contextItems, dismissedWsContextIds]);
 
   const cardStyles = useMemo(() => {
-    return {
-      dark: {
-        bg: "bg-[#0E0E10]/95 border-white/[0.08]",
-        textPrimary: "text-white",
-        textSecondary: "text-white/60",
-        buttonPrimary: "bg-[#22d3ee] text-black hover:bg-[#22d3ee]/90 font-bold",
-        buttonSecondary: "border-white/[0.08] hover:bg-white/5 text-white/70",
-        buttonTertiary: "text-white/40 hover:text-white/80",
-        badge: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-        plansBg: "bg-white/[0.02] border-white/[0.04]",
-        accentGlow: "rgba(34,211,238,0.15)",
-      },
-      light: {
-        bg: "bg-white border-black/[0.08]",
-        textPrimary: "text-black",
-        textSecondary: "text-black/60",
-        buttonPrimary: "bg-cyan-600 text-white hover:bg-cyan-500 font-bold",
-        buttonSecondary: "border-black/[0.08] hover:bg-black/5 text-black/70",
-        buttonTertiary: "text-black/40 hover:text-black/80",
-        badge: "bg-cyan-500/10 text-cyan-700 border-cyan-500/20",
-        plansBg: "bg-black/[0.02] border-black/[0.04]",
-        accentGlow: "rgba(14,165,233,0.1)",
-      },
-      "high-contrast": {
-        bg: "bg-black border-2 border-white",
-        textPrimary: "text-white",
-        textSecondary: "text-white/80",
-        buttonPrimary: "bg-white text-black hover:bg-zinc-200 border border-white font-bold",
-        buttonSecondary: "border border-white bg-black hover:bg-zinc-950 text-white",
-        buttonTertiary: "text-white underline hover:text-zinc-200",
-        badge: "border-white border text-white",
-        plansBg: "border border-white bg-black",
-        accentGlow: "rgba(255,255,255,0)",
-      },
-      axis: {
-        bg: "bg-[#050607]/95 border-cyan-400/20",
-        textPrimary: "text-cyan-50",
-        textSecondary: "text-cyan-200/60",
-        buttonPrimary: "bg-cyan-400 text-black hover:bg-cyan-300 font-bold shadow-[0_0_15px_rgba(34,211,238,0.4)]",
-        buttonSecondary: "border-cyan-400/20 hover:bg-cyan-400/5 text-cyan-300",
-        buttonTertiary: "text-violet-400 hover:text-violet-300",
-        badge: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-        plansBg: "bg-cyan-950/10 border-cyan-500/10",
-        accentGlow: "rgba(6,182,212,0.25)",
-      },
-    }[theme as "dark" | "light" | "high-contrast" | "axis"] || {
-      bg: "bg-[#0E0E10]/95 border-white/[0.08]",
-      textPrimary: "text-white",
-      textSecondary: "text-white/60",
-      buttonPrimary: "bg-[#22d3ee] text-black hover:bg-[#22d3ee]/90 font-bold",
-      buttonSecondary: "border-white/[0.08] hover:bg-white/5 text-white/70",
-      buttonTertiary: "text-white/40 hover:text-white/80",
-      badge: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-      plansBg: "bg-white/[0.02] border-white/[0.04]",
-      accentGlow: "rgba(34,211,238,0.15)",
-    };
+    return getAxisTheme(theme);
   }, [theme]);
 
   useEffect(() => {
@@ -1442,149 +1376,31 @@ export function TeacherDemoShell({
           <div className="flex-1 flex flex-col h-screen pl-[72px] overflow-hidden transition-all duration-300">
         
         {/* Top Header Bar */}
-        <header className="relative z-20 flex h-24 items-center justify-between border-b border-white/[0.05] px-safe-lg md:px-safe-xl">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/school/experience"
-                className="text-xs text-white/40 hover:text-white transition-colors"
-              >
-                ← Exit console
-              </Link>
-              <span className="size-1 rounded-full bg-white/20" />
-              <span className="text-[10px] font-semibold text-white/40 tracking-widest uppercase">
-                {perspectiveLabel} Mode ({perspectiveId})
-              </span>
-            </div>
-            
-            <div className="mt-2 flex items-baseline gap-2.5">
-              <h1 className="text-sm font-semibold tracking-tight text-white/90">
-                Welcome back, Mr. Aarav Chen.
-              </h1>
-              <span className="text-xs text-white/35 font-normal tracking-tight">
-                Monday, August 28 · 2 coordination updates
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Announcements & Notifications Popovers */}
-            <div className={`flex items-center gap-3 p-1 rounded-xl transition-all duration-300 ${isTutorialActive && activeStepIndex === 14 ? "tour-highlight bg-white/5" : ""}`}>
-              <div className={`p-0.5 rounded-lg transition-all ${isTutorialActive && activeStepIndex === 15 ? "tour-highlight bg-white/5" : ""}`}>
-                <AnnouncementsPanel 
-                  forceOpen={isTutorialActive && activeStepIndex === 15}
-                  onOpenChange={(open) => {
-                    if (open) {
-                      updateEngagement((prev) => ({
-                        ...prev,
-                        announcementsViewed: prev.announcementsViewed + 1,
-                      }));
-                    }
-                  }}
-                />
-              </div>
-              <div className={`p-0.5 rounded-lg transition-all ${isTutorialActive && activeStepIndex === 16 ? "tour-highlight bg-white/5" : ""}`}>
-                <NotificationsSystem 
-                  forceOpen={isTutorialActive && activeStepIndex === 16}
-                  onOpenChange={(open) => {
-                    if (open) {
-                      updateEngagement((prev) => ({
-                        ...prev,
-                        notificationsViewed: prev.notificationsViewed + 1,
-                      }));
-                    }
-                  }}
-                />
-              </div>
-              {/* Profile icon */}
-              <div className="size-8 rounded-full bg-[#08080A] border border-white/10 flex items-center justify-center text-[10px] font-bold text-white/55 select-none">
-                AC
-              </div>
-            </div>
-
-            <span className="h-4 w-px bg-white/10" />
-
-            {/* Bring Axis To Your School button */}
-            <button
-              type="button"
-              onClick={() => {
-                setIsQuickContextOpen(false);
-                handleTransitionToAdopt();
-              }}
-              className="rounded-full border px-4 py-1.5 text-xs font-semibold tracking-tight transition-all duration-300 hover:scale-102 flex items-center gap-1.5 bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20 hover:text-white"
-            >
-              <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span>Bring Axis To Your School</span>
-            </button>
-
-            <span className="h-4 w-px bg-white/10" />
-
-            {/* Guided tour button wrapper */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={isTutorialActive ? handleSkipOrExit : handleStartTourManual}
-                className={`rounded-full border px-4 py-1.5 text-xs font-semibold tracking-tight transition-all duration-300 ${
-                  isTutorialActive
-                    ? "bg-white text-black border-white hover:bg-white/95"
-                    : !hasRunTour
-                      ? "bg-cyan-950/20 border-cyan-400/40 text-cyan-400 hover:border-cyan-400 hover:text-white guided-tour-pulse-btn"
-                      : "bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20 hover:text-white"
-                }`}
-              >
-                {isTutorialActive ? "Exit Tour" : "Guided Tour"}
-                {!hasRunTour && !isTutorialActive && (
-                  <span className="absolute -top-1.5 -right-1 px-1.5 py-0.5 rounded-full bg-cyan-400 text-[7px] font-black text-black uppercase tracking-wider scale-90 border border-[#050607]">
-                    Recommended
-                  </span>
-                )}
-              </button>
-
-              {/* First-Time User Coach Mark Callout */}
-              <AnimatePresence>
-                {showCoachMark && !isTutorialActive && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="absolute right-0 top-full mt-3.5 z-50 w-72 rounded-2xl border border-cyan-400/30 bg-[#0E0E10]/95 p-safe-md shadow-[0_16px_48px_rgba(0,0,0,0.95)] backdrop-blur-xl text-left"
-                  >
-                    {/* Arrow pointing up */}
-                    <div className="absolute right-8 -top-1.5 size-3 rotate-45 border-l border-t border-cyan-400/30 bg-[#0E0E10]" />
-                    
-                    <div className="relative space-y-3">
-                      <div className="flex justify-between items-start gap-2">
-                        <p className="text-[11px] leading-relaxed text-white/90 font-medium">
-                          Start here for a quick walkthrough of Axis.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleDismissCoachMark}
-                          className="text-white/40 hover:text-white transition-colors p-0.5 text-xs shrink-0 select-none"
-                          title="Dismiss"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCoachMark(false);
-                          startTutorial();
-                        }}
-                        className="w-full text-center py-2 px-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black text-[10px] font-bold transition-all uppercase tracking-widest shadow-[0_4px_12px_rgba(34,211,238,0.2)]"
-                      >
-                        Start Guided Tour
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <SharedDemoHeader
+          perspectiveLabel={perspectiveLabel}
+          perspectiveId={perspectiveId}
+          userName="Mr. Aarav Chen"
+          userAvatar="AC"
+          dateInfo="Monday, August 28"
+          updatesInfo="2 coordination updates"
+          theme={theme}
+          onAdoptClick={() => {
+            setIsQuickContextOpen(false);
+            handleTransitionToAdopt();
+          }}
+          onAnnouncementView={() => {
+            updateEngagement((prev) => ({
+              ...prev,
+              announcementsViewed: prev.announcementsViewed + 1,
+            }));
+          }}
+          onNotificationView={() => {
+            updateEngagement((prev) => ({
+              ...prev,
+              notificationsViewed: prev.notificationsViewed + 1,
+            }));
+          }}
+        />
 
         {/* Scrollable Dashboard Grid Content */}
         <main className="relative z-10 flex-1 overflow-y-auto px-safe-lg py-safe-lg md:px-safe-xl md:py-safe-xl scrollbar-none">

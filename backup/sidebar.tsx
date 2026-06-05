@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
+import { NavigationItem } from "@/components/school/navigation-item";
 
 type SidebarItem = {
   id: string;
@@ -124,8 +125,8 @@ export function LeftSidebar({
     },
     {
       id: "essential-space",
-      label: "Essential Space",
-      subLabel: "Personal knowledge & captures",
+      label: "My Tasks & Notes",
+      subLabel: "Private task list & notes",
       icon: (
         <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925-3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 002.25 12c0 2.071 1.679 3.75 3.75 3.75a3.75 3.75 0 003.75-3.75M12 18a3.75 3.75 0 003.75-3.75m0 0a3.75 3.75 0 013.75-3.75A3.75 3.75 0 0012 18z" />
@@ -137,7 +138,7 @@ export function LeftSidebar({
     {
       id: "workspace",
       label: "Workspace",
-      subLabel: "Ecosystem creation layer",
+      subLabel: "Co-authoring drafts",
       icon: (
         <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.7c0-.621-.504-1.125-1.125-1.125H4.875C4.254 7.575 3.75 8.079 3.75 8.7v3.79c0 .668.324 1.294.87 1.66l1.245.833a2.18 2.18 0 002.006.18h8.258c.7 0 1.365-.371 1.745-.968l1.245-.833zM9 7.5v-1.5a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v1.5m-6 3h6" />
@@ -147,8 +148,8 @@ export function LeftSidebar({
     },
     {
       id: "connected-resources",
-      label: "Connected Resources",
-      subLabel: "Operational knowledge hub",
+      label: "Resources",
+      subLabel: "Shared files & integration",
       icon: (
         <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875V16.5m-1.05 2.25a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.05-11.25V7.5m-1.05-2.25a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm10.5 6V12m-1.05-2.25a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zM3.621 8.73A9 9 0 0110.5 2.25M12 21.75a9 9 0 01-6.879-3.02M20.379 15.27a9 9 0 01-6.879 3.02m0-12a9 9 0 016.879 3.02" />
@@ -245,85 +246,29 @@ export function LeftSidebar({
         };
         const highlightId = getHighlightId(activeStepIndex);
 
-        const isLight = theme === "light";
-        const isHC = theme === "high-contrast";
-        const isAxis = theme === "axis";
-
-        const navStyles = {
-          button: "group relative flex w-full items-center h-10 px-2 rounded-xl text-left transition-all duration-200 outline-none select-none border border-transparent",
-          active: isLight
-            ? "bg-cyan-50/70 border-cyan-200/50 text-cyan-900 shadow-[0_2px_8px_rgba(6,182,212,0.04)]"
-            : isHC
-              ? "bg-white text-black border-white font-bold"
-              : isAxis
-                ? "bg-cyan-950/25 border-cyan-400/20 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.12)]"
-                : "bg-zinc-900/60 border-zinc-800 text-zinc-100 shadow-[0_2px_10px_rgba(0,0,0,0.4)]",
-          inactive: isLight
-            ? "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-            : isHC
-              ? "text-white/70 hover:bg-white/10 hover:text-white"
-              : isAxis
-                ? "text-cyan-200/50 hover:bg-cyan-950/10 hover:text-cyan-200"
-                : "text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-100",
-          iconContainer: "size-8 flex items-center justify-center shrink-0 relative transition-transform duration-200 group-hover:scale-102",
-        };
-
         return (
           <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto overflow-x-hidden scrollbar-none">
             {items.map((item) => {
               const isActive = activeTab === item.id;
               const isItemHighlighted = isTutorialActive && highlightId === item.id;
               return (
-                <button
+                <NavigationItem
                   key={item.id}
-                  onClick={() => item.enabled && setActiveTab(item.id)}
-                  disabled={!item.enabled}
-                  className={`${navStyles.button} ${
-                    isActive ? navStyles.active : navStyles.inactive
-                  } ${!item.enabled ? "opacity-20 cursor-not-allowed" : ""} ${
-                    isItemHighlighted ? "tour-highlight" : ""
-                  }`}
-                >
-                  {isActive && (
-                    <motion.div
-                      layoutId="sidebarActiveIndicator"
-                      className={`absolute left-[3px] top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full ${
-                        isLight
-                          ? "bg-cyan-600 shadow-[0_0_8px_rgba(6,182,212,0.6)]"
-                          : isHC
-                            ? "bg-white"
-                            : "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]"
-                      }`}
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-
-                  <div className={navStyles.iconContainer}>
-                    {item.icon}
-                  </div>
-
-                  {isHovered && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ delay: 0.05, duration: 0.18 }}
-                      className="flex flex-col min-w-0 ml-3"
-                    >
-                      <span className="text-[13px] font-medium tracking-tight leading-none text-inherit">{item.label}</span>
-                      {item.subLabel && (
-                        <span className="mt-1 text-[9px] font-normal tracking-wide leading-none opacity-45 truncate">
-                          {item.subLabel}
-                        </span>
-                      )}
-                    </motion.div>
-                  )}
-
-                  {/* Status dot for active notifications */}
-                  {item.id === "connected-resources" && !isHovered && (
+                  id={item.id}
+                  label={item.label}
+                  subLabel={item.subLabel}
+                  icon={item.icon}
+                  badge={item.id === "connected-resources" && !isHovered && (
                     <span className="absolute right-2 top-2 size-1.5 rounded-full bg-white/60 animate-pulse" />
                   )}
-                </button>
+                  isActive={isActive}
+                  onClick={() => item.enabled && setActiveTab(item.id)}
+                  disabled={!item.enabled}
+                  isCollapsed={!isHovered}
+                  layoutId="sidebarActiveHighlight"
+                  theme={theme}
+                  isHighlighted={isItemHighlighted}
+                />
               );
             })}
           </nav>

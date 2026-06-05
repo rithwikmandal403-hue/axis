@@ -1,8 +1,166 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { type CapturedItem } from "./capture-layer";
+import { NavigationItem } from "@/components/school/navigation-item";
+
+function ContextTrigger({
+  text,
+  contextTitle,
+  contextType,
+  actions,
+}: {
+  text: string;
+  contextTitle: string;
+  contextType: string;
+  actions: { label: string; onAction: () => void }[];
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const updateCoords = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!isHovered) return;
+    updateCoords();
+
+    window.addEventListener("scroll", updateCoords, { capture: true });
+    window.addEventListener("resize", updateCoords);
+    return () => {
+      window.removeEventListener("scroll", updateCoords, { capture: true });
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [isHovered]);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    updateCoords();
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 150);
+  };
+
+  return (
+    <span
+      ref={triggerRef}
+      className="relative inline-block cursor-help z-20"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <span className="border-b border-dashed border-cyan-400/80 hover:bg-cyan-500/15 hover:border-cyan-400 transition-all duration-200 px-0.5 rounded-sm font-bold text-cyan-400">
+        {text}
+      </span>
+      {mounted && typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isHovered && coords ? (
+            <motion.span
+              key="context-panel"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              transition={{ duration: 0.15 }}
+              onMouseEnter={() => {
+                if (timeoutRef.current) clearTimeout(timeoutRef.current);
+              }}
+              onMouseLeave={handleMouseLeave}
+              className="fixed z-[9999] p-4 rounded-xl border border-cyan-500/30 bg-[#0E0E10] shadow-2xl w-60 text-left flex flex-col gap-2 pointer-events-auto"
+              style={{
+                left: `${coords.left + coords.width / 2}px`,
+                top: `${coords.top}px`,
+                transform: "translate(-50%, -100%)",
+                marginTop: "-8px",
+                filter: "drop-shadow(0 10px 25px rgba(0,0,0,0.6))",
+              }}
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400">Context Detected</span>
+                <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20 uppercase tracking-widest leading-none">
+                  {contextType}
+                </span>
+              </span>
+              <p className="text-[10px] text-white/70 leading-normal">{contextTitle}</p>
+              <div className="flex flex-col gap-1.5 mt-1">
+                {actions.map((act, idx) => (
+                  <button
+                    key={idx}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      act.onAction();
+                      setIsHovered(false);
+                    }}
+                    className="w-full px-3 py-1.5 rounded bg-cyan-500 text-black text-[9px] font-extrabold hover:bg-cyan-400 transition-colors uppercase tracking-wider text-center cursor-pointer"
+                  >
+                    {act.label}
+                  </button>
+                ))}
+              </div>
+            </motion.span>
+          ) : null}
+        </AnimatePresence>,
+        document.body
+      )}
+    </span>
+  );
+}
+
+function NoteBodyWithContext({
+  note,
+  onAction,
+}: {
+  note: NoteItem;
+  onAction: (actionType: string) => void;
+}) {
+  if (note.body === "Need to discuss CAS exhibition planning next week.") {
+    return (
+      <span>
+        Need to{" "}
+        <ContextTrigger
+          text="discuss CAS exhibition planning next week"
+          contextType="Meeting Mentioned"
+          contextTitle="Need to discuss CAS exhibition planning next week."
+          actions={[
+            {
+              label: "Create Meeting",
+              onAction: () => onAction("create-meeting"),
+            },
+            {
+              label: "Add to Calendar",
+              onAction: () => onAction("add-calendar"),
+            },
+          ]}
+        />
+        .
+      </span>
+    );
+  }
+  return <span>{note.body}</span>;
+}
 
 type EssentialSpaceProps = {
   theme?: string;
@@ -57,6 +215,12 @@ export function EssentialSpaceWorkspace({
   // Local state for Notes
   const [notes, setNotes] = useState<NoteItem[]>([
     {
+      id: "note-cas",
+      title: "CAS Exhibition planning",
+      body: "Need to discuss CAS exhibition planning next week.",
+      date: "Today",
+    },
+    {
       id: "note-1",
       title: "Optics lesson concepts",
       body: "Need to prepare refraction prism kits and light source alignment templates for grade 11 B.",
@@ -71,6 +235,13 @@ export function EssentialSpaceWorkspace({
   ]);
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteBody, setNewNoteBody] = useState("");
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // Local state for Saved Resources
   const [resources, setResources] = useState<ResourceItem[]>([
@@ -292,20 +463,22 @@ export function EssentialSpaceWorkspace({
           ].map((seg) => {
             const isActive = activeSegment === seg.id;
             return (
-              <button
+              <NavigationItem
                 key={seg.id}
+                id={seg.id}
+                label={seg.label}
+                badge={(
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none ${isActive ? "bg-black/10 text-inherit" : styling.badgeBg}`}>
+                    {seg.badge}
+                  </span>
+                )}
+                isActive={isActive}
                 onClick={() => setActiveSegment(seg.id as typeof activeSegment)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs transition-all ${
-                  isActive
-                    ? styling.btnActive
-                    : `text-inherit/60 ${styling.itemHoverBg}`
-                }`}
-              >
-                <span>{seg.label}</span>
-                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${isActive ? "bg-black/10 text-inherit" : styling.badgeBg}`}>
-                  {seg.badge}
-                </span>
-              </button>
+                isCollapsed={false}
+                layoutId="essentialActiveHighlight"
+                theme={theme}
+                height="h-10"
+              />
             );
           })}
         </nav>
@@ -435,7 +608,96 @@ export function EssentialSpaceWorkspace({
                         <h4 className="text-xs font-bold leading-snug">{n.title}</h4>
                         <span className="text-[8px] text-inherit/30 shrink-0">{n.date}</span>
                       </div>
-                      <p className="text-[11px] text-inherit/60 leading-relaxed">{n.body}</p>
+                      <p className="text-[11px] text-inherit/60 leading-relaxed">
+                        <NoteBodyWithContext
+                          note={n}
+                          onAction={(actionType) => {
+                            if (actionType === "create-meeting") {
+                               const win = window as typeof window & {
+                                  pendingContextMeeting?: {
+                                    id: string;
+                                    title: string;
+                                    description: string;
+                                    date: string;
+                                    time: string;
+                                    duration: string;
+                                    type: string;
+                                    attendees: string[];
+                                    location: string;
+                                    priority: string;
+                                  };
+                                };
+                                win.pendingContextMeeting = {
+                                  id: "meet-cas-planning",
+                                  title: "CAS Exhibition Planning",
+                                  description: "CAS Exhibition planning meeting initiated from Essential Space.",
+                                  date: "2026-06-11",
+                                  time: "14:00",
+                                  duration: "1h",
+                                  type: "in-person",
+                                  attendees: ["Ms. Sarah Thompson", "IB Coordinators"],
+                                  location: "Central Courtyard",
+                                  priority: "medium"
+                                };
+                              window.dispatchEvent(new CustomEvent("axis-context-create-meeting", {
+                                detail: {
+                                  meeting: {
+                                    id: "meet-cas-planning",
+                                    title: "CAS Exhibition Planning",
+                                    description: "CAS Exhibition planning meeting initiated from Essential Space.",
+                                    date: "2026-06-11",
+                                    time: "14:00",
+                                    duration: "1h",
+                                    type: "in-person",
+                                    attendees: ["Ms. Sarah Thompson", "IB Coordinators"],
+                                    location: "Central Courtyard",
+                                    priority: "medium"
+                                  }
+                                }
+                              }));
+                              window.dispatchEvent(new CustomEvent("axis-navigate-tab", { detail: { tab: "meetings" } }));
+                              triggerToast("Meeting details pre-filled. Switched to meetings.");
+                            } else if (actionType === "add-calendar") {
+                              const win = window as typeof window & {
+                                  pendingContextEvent?: {
+                                    id: string;
+                                    title: string;
+                                    description: string;
+                                    date: string;
+                                    type: string;
+                                    category: string;
+                                    location: string;
+                                  };
+                                };
+                                win.pendingContextEvent = {
+                                  id: "evt-cas-planning",
+                                  title: "CAS Exhibition Planning",
+                                  description: "CAS Exhibition planning session.",
+                                  date: "2026-06-11",
+                                  type: "event",
+                                  category: "school",
+                                  location: "Central Courtyard"
+                                };
+                              
+                              window.dispatchEvent(new CustomEvent("axis-context-create-event", {
+                                detail: {
+                                  event: {
+                                    id: "evt-cas-planning",
+                                    title: "CAS Exhibition Planning",
+                                    description: "CAS Exhibition planning session.",
+                                    date: "2026-06-11",
+                                    type: "event",
+                                    category: "school",
+                                    location: "Central Courtyard"
+                                  }
+                                }
+                              }));
+                              window.dispatchEvent(new CustomEvent("axis-navigate-tab", { detail: { tab: "events" } }));
+                              triggerToast("Event details pre-filled. Switched to calendar.");
+                            }
+                          }}
+                        />
+                      </p>
                     </div>
                     <div className="flex justify-end pt-safe-sm mt-safe-sm border-t border-white/[0.03]">
                       <button
@@ -463,11 +725,11 @@ export function EssentialSpaceWorkspace({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-safe-md">
                 {[
-                  { title: "DP1 Physics", count: "14 items", icon: "⚛️", color: "from-cyan-500/20 to-blue-500/10" },
-                  { title: "Assessment Ideas", count: "8 ideas", icon: "📝", color: "from-purple-500/20 to-pink-500/10" },
-                  { title: "Department Planning", count: "5 logs", icon: "📁", color: "from-amber-500/20 to-orange-500/10" },
-                  { title: "Lab Activities", count: "9 references", icon: "🧪", color: "from-emerald-500/20 to-teal-500/10" },
-                  { title: "IB Resources", count: "12 guides", icon: "📘", color: "from-blue-500/20 to-sky-500/10" },
+                  { title: "DP1 Physics", count: "14 items", icon: "ATOM", color: "from-cyan-500/20 to-blue-500/10" },
+                  { title: "Assessment Ideas", count: "8 ideas", icon: "NOTES", color: "from-purple-500/20 to-pink-500/10" },
+                  { title: "Department Planning", count: "5 logs", icon: "FOLDER", color: "from-amber-500/20 to-orange-500/10" },
+                  { title: "Lab Activities", count: "9 references", icon: "LAB", color: "from-emerald-500/20 to-teal-500/10" },
+                  { title: "IB Resources", count: "12 guides", icon: "GUIDE", color: "from-blue-500/20 to-sky-500/10" },
                 ].map((col, idx) => (
                   <div
                     key={idx}
@@ -673,7 +935,7 @@ export function EssentialSpaceWorkspace({
               <div className="space-y-safe-sm">
                 {resources.map((res) => {
                   const typeIcon =
-                    res.type === "pdf" ? "📕" : res.type === "link" ? "🔗" : res.type === "video" ? "🎬" : "📄";
+                    res.type === "pdf" ? "PDF" : res.type === "link" ? "LINK" : res.type === "video" ? "VIDEO" : "DOC";
                   return (
                     <div
                       key={res.id}
@@ -801,6 +1063,22 @@ export function EssentialSpaceWorkspace({
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating toast notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
+            animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
+            transition={{ duration: 0.25 }}
+            className="fixed bottom-10 left-1/2 z-50 bg-[#0E0E10] border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.15)] px-5 py-3 rounded-full text-xs text-white/90 flex items-center gap-2.5 backdrop-blur-md"
+          >
+            <span className="size-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+            <span className="font-medium tracking-tight">{toastMessage}</span>
+          </motion.div>
         )}
       </AnimatePresence>
 

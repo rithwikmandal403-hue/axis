@@ -214,7 +214,7 @@ export function ConnectedResources({ fullPage = false }: ConnectedResourcesProps
         <div className="flex flex-col gap-1.5">
           <h2 className="text-xl font-bold tracking-tight">Connected Resources</h2>
           <p className="text-xs text-white/50 leading-relaxed max-w-2xl">
-            The operational memory of the school. Manage cloud integrations, pin vital guides, retrieve shared department catalogs, and access school hub parameters from a single connected surface.
+            The shared resource library of the school. Manage integrations, pin vital guides, retrieve shared department catalogs, and access school handbook documents from a single connected surface.
           </p>
         </div>
 
@@ -286,7 +286,7 @@ export function ConnectedResources({ fullPage = false }: ConnectedResourcesProps
 
                   {searchResults.future.length > 0 && (
                     <div className="space-y-2">
-                      <span className="text-[9px] font-bold text-white/30 uppercase tracking-wider block">Ecosystem Connections (Classes, Rooms & Contacts)</span>
+                      <span className="text-[9px] font-bold text-white/30 uppercase tracking-wider block">School Connections (Classes, Rooms & Contacts)</span>
                       <div className="grid gap-2">
                         {searchResults.future.map((item) => (
                           <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-white/[0.02] border border-white/5">

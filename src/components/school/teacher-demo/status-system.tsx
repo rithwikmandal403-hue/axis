@@ -412,7 +412,7 @@ export function StatusSystem() {
         {/* Live Diagnostics Grid (Shows sensor inputs) */}
         <div className="rounded-xl border border-white/[0.03] bg-black/20 p-3">
           <span className="text-[9px] font-bold text-white/30 uppercase tracking-wider block mb-2">
-            Ecosystem Signals
+            Status Signals
           </span>
           <div className="grid grid-cols-2 gap-2 text-[10px]">
             {/* Timetable Sync */}

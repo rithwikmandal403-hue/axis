@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -21,7 +21,7 @@ export function AttendanceModeUI() {
           </span>
           <h3 className="text-xl font-medium tracking-tight text-white mt-1">Attendance Verification</h3>
           <p className="mt-1.5 text-xs text-white/45">
-            Configure how student presence is tracked and broadcasted into the school ecosystem.
+            Configure how student presence is tracked and updated in the school system.
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export function AttendanceModeUI() {
               className="space-y-4"
             >
               <p className="text-xs text-white/60 leading-relaxed">
-                Future-facing proximity verification. Student presence is automatically verified by cross-referencing locations with zero manual overhead.
+                Automated proximity verification. Student presence is automatically noted when they enter the classroom, with no manual entry required.
               </p>
 
               {/* Dynamic toggle switches */}
@@ -123,8 +123,8 @@ export function AttendanceModeUI() {
                 {/* Switch 2 */}
                 <div className="flex items-center justify-between rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
                   <div className="flex flex-col pr-4">
-                    <span className="text-xs font-semibold text-white/80">Proximity Awareness</span>
-                    <span className="text-[10px] text-white/35 mt-0.5 leading-snug">Trigger auto-presence check inside 5m classroom radius</span>
+                    <span className="text-xs font-semibold text-white/80">Bluetooth Attendance Sync</span>
+                    <span className="text-[10px] text-white/35 mt-0.5 leading-snug">Detect presence using Bluetooth beacons within the classroom</span>
                   </div>
                   <button
                     onClick={() => setProximityConfirm(!proximityConfirm)}
@@ -163,8 +163,8 @@ export function AttendanceModeUI() {
                 {/* Switch 4 */}
                 <div className="flex items-center justify-between rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
                   <div className="flex flex-col pr-4">
-                    <span className="text-xs font-semibold text-white/80">Coordinator Override</span>
-                    <span className="text-[10px] text-white/35 mt-0.5 leading-snug">Allow administrative panel to verify isolated cases</span>
+                    <span className="text-xs font-semibold text-white/80">Administrator Override</span>
+                    <span className="text-[10px] text-white/35 mt-0.5 leading-snug">Allow school staff to manually verify attendance for isolated cases</span>
                   </div>
                   <button
                     onClick={() => setCoordinatorOverride(!coordinatorOverride)}

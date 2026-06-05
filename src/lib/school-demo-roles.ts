@@ -14,26 +14,26 @@ export const schoolDemoRoles: SchoolDemoRole[] = [
     id: "teacher",
     label: "Teacher",
     description:
-      "Operational continuity across teaching, communication, and coordination.",
+      "Manage classes, schedules, and messages in one quiet workspace.",
     previewVariant: "schedule",
   },
   {
     id: "coordinator",
     label: "Coordinator",
     description:
-      "Real-time awareness across schedules, workflows, and institutional operations.",
+      "Overview campus schedules, rooms, and daily updates in a single view.",
     previewVariant: "operations",
   },
   {
     id: "student",
     label: "Student",
-    description: "Context-aware learning, scheduling, and communication.",
+    description: "View classes, complete tasks, and message your teachers.",
     previewVariant: "learning",
   },
   {
     id: "parent",
     label: "Parent",
-    description: "Connected visibility into progress, communication, and school operations.",
+    description: "Stay updated on your child's classes, attendance, and school announcements.",
     previewVariant: "visibility",
   },
 ];

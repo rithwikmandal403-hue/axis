@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DeviceCalibration } from "./device-calibration";
 import { ProfileManager } from "./profile-manager";
+import { NavigationItem } from "@/components/school/navigation-item";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -371,23 +372,20 @@ export function SettingsWorkspace() {
           {categories.map((cat) => {
             const isActive = activeCategory === cat.id;
             return (
-              <button
+              <NavigationItem
                 key={cat.id}
+                id={cat.id}
+                label={cat.label}
+                subLabel={cat.desc}
+                badge={cat.id === "notifications" && unreadCount > 0 && (
+                  <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                )}
+                isActive={isActive}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`w-full text-left rounded-xl px-3.5 py-2.5 transition-all flex flex-col gap-0.5 ${
-                  isActive
-                    ? "bg-white/[0.06] text-white"
-                    : "text-white/45 hover:bg-white/[0.02] hover:text-white/70"
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-semibold tracking-tight">{cat.label}</span>
-                  {cat.id === "notifications" && unreadCount > 0 && (
-                    <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  )}
-                </div>
-                <span className="text-[9px] opacity-40 line-clamp-1">{cat.desc}</span>
-              </button>
+                isCollapsed={false}
+                layoutId="settingsActiveHighlight"
+                theme={activeTheme}
+              />
             );
           })}
         </div>
@@ -710,7 +708,7 @@ export function SettingsWorkspace() {
                 </div>
 
                 <div className="flex flex-col gap-1.5 max-w-sm pt-2 border-t border-white/[0.04]">
-                  <label className="text-[9px] font-bold text-white/35 uppercase tracking-wider">Ecosystem Message Visibility</label>
+                  <label className="text-[9px] font-bold text-white/35 uppercase tracking-wider">School-Wide Message Visibility</label>
                   <select
                     value={commVisibility}
                     onChange={(e) => setCommVisibility(e.target.value)}

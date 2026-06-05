@@ -22,7 +22,7 @@ export function IntroductionBlock() {
         viewport={{ once: true, margin: "-80px" }}
         className="text-2xl leading-[1.45] tracking-tight text-axis-text md:text-[32px] md:leading-[1.4]"
       >
-        Modern environments weren&apos;t designed to work together.
+        School software shouldn&apos;t make coordination harder.
       </motion.p>
 
       <motion.div
@@ -33,10 +33,10 @@ export function IntroductionBlock() {
         viewport={{ once: true, margin: "-80px" }}
         className="my-12 space-y-3 text-lg leading-relaxed text-axis-muted md:my-16 md:text-xl"
       >
-        <p>Communication lives in one place.</p>
-        <p>Tasks in another.</p>
-        <p>Schedules somewhere else.</p>
-        <p>Context disappears between systems.</p>
+        <p>Attendance lives in one app.</p>
+        <p>Lesson plans in another.</p>
+        <p>Parent messages somewhere else.</p>
+        <p>Important details get lost between systems.</p>
       </motion.div>
 
       <motion.p
@@ -47,7 +47,7 @@ export function IntroductionBlock() {
         viewport={{ once: true, margin: "-80px" }}
         className="text-lg leading-relaxed text-axis-muted md:text-xl"
       >
-        The more organizations grow, the more fragmented operations become.
+        The more systems a school runs, the more time teachers spend on admin.
       </motion.p>
 
       <motion.div
@@ -67,8 +67,7 @@ export function IntroductionBlock() {
         viewport={{ once: true, margin: "-80px" }}
         className="text-xl leading-[1.55] tracking-tight text-axis-text md:text-2xl md:leading-[1.5]"
       >
-        Axis brings workflows, communication, coordination, and organization into one connected
-        ecosystem — designed to reduce friction and restore operational clarity.
+        Axis connects your daily school tasks, calendars, and communications into a single, cohesive system — designed to reduce daily admin and restore focus to teaching and learning.
       </motion.p>
 
       <motion.div
@@ -80,10 +79,10 @@ export function IntroductionBlock() {
         className="mt-16 space-y-4 md:mt-20"
       >
         <p className="text-2xl font-medium tracking-tight text-axis-text md:text-3xl">
-          Not another platform.
+          Not another admin database.
         </p>
         <p className="text-2xl font-medium tracking-tight text-axis-text md:text-3xl">
-          A system where everything works together.
+          A calm workspace where everything works together.
         </p>
       </motion.div>
     </section>

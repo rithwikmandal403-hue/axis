@@ -252,7 +252,7 @@ export function NotificationsSystem({ forceOpen, onOpenChange }: { forceOpen?: b
               {/* Header */}
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-safe-sm mb-safe-sm">
                 <div className="flex flex-col">
-                  <h3 className="text-xs font-bold text-white/95 uppercase tracking-wider">Ecosystem Center</h3>
+                  <h3 className="text-xs font-bold text-white/95 uppercase tracking-wider">Notifications Center</h3>
                   <span className="text-[10px] text-white/40 mt-0.5">{unreadCount} active updates</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -387,7 +387,7 @@ export function NotificationsSystem({ forceOpen, onOpenChange }: { forceOpen?: b
               {/* Sound Audio Synthesis Simulator Panel */}
               <div className="mt-safe-md pt-safe-sm border-t border-white/[0.06]">
                 <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest block mb-2">
-                  Simulate Ecosystem Audios (Functioning Web Audio Synth)
+                  Test Audio Alerts (Synthesized Chimes)
                 </span>
                 <div className="grid grid-cols-3 gap-1">
                   <button

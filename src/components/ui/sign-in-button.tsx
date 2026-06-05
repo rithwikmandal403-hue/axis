@@ -21,15 +21,19 @@ function DoorIcon({ className }: { className?: string }) {
   );
 }
 
-export function SignInButton() {
+export function SignInButton({ 
+  className = "border-axis-line bg-axis-card/90 text-axis-text hover:bg-white hover:border-axis-text/20 focus-visible:ring-black/30" 
+}: { 
+  className?: string; 
+}) {
   return (
     <button
       type="button"
       aria-label="Sign in"
-      className="group grid h-9 grid-cols-[36px_0fr] items-center overflow-hidden rounded-full border border-axis-line bg-axis-card/90 text-axis-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-sm transition-[grid-template-columns,background-color,border-color,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:grid-cols-[36px_1fr] hover:border-axis-text/20 hover:bg-white focus-visible:grid-cols-[36px_1fr] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30"
+      className={`group grid h-9 grid-cols-[36px_0fr] items-center overflow-hidden rounded-full border backdrop-blur-sm transition-[grid-template-columns,background-color,border-color,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:grid-cols-[36px_1fr] focus-visible:grid-cols-[36px_1fr] focus-visible:outline-none ${className}`}
     >
       <span className="grid size-9 place-items-center">
-        <DoorIcon className="size-[17px] text-axis-text/85" />
+        <DoorIcon className="size-[17px] text-current opacity-85" />
       </span>
 
       <span className="min-w-0 overflow-hidden">
@@ -40,3 +44,4 @@ export function SignInButton() {
     </button>
   );
 }
+

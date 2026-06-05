@@ -109,7 +109,7 @@ export function RoleSelection() {
         </div>
 
         <p className="mt-3 shrink-0 text-center text-[10px] tracking-[0.14em] text-white/28 uppercase md:text-[11px]">
-          Select a perspective to enter the shared ecosystem preview
+          Select a role to enter the shared school environment demo
         </p>
       </main>
 

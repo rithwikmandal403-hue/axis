@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type TeacherStatus = "available" | "teaching" | "meeting" | "away";
@@ -17,6 +17,7 @@ export type Teacher = {
   phone: string;
   assignedClasses: string[];
   designation: string;
+  leadershipRole?: string;
 };
 
 const INITIAL_TEACHERS: Teacher[] = [
@@ -32,6 +33,7 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2834",
     assignedClasses: ["Grade 11 Physics (B)", "Grade 12 Adv Physics (A)"],
     designation: "Subject Lead & Advisor",
+    leadershipRole: "CAS Coordinator",
   },
   {
     id: "tch-2",
@@ -45,6 +47,7 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2835",
     assignedClasses: ["Grade 11 Chemistry (A)", "Grade 12 DP Chemistry"],
     designation: "Science Department Lead",
+    leadershipRole: "Science Department Lead",
   },
   {
     id: "tch-3",
@@ -58,6 +61,7 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2836",
     assignedClasses: ["Grade 12 Calculus", "Grade 10 Algebra II"],
     designation: "Head of Math & Grade Lead",
+    leadershipRole: "Head of Mathematics & Grade Level Lead",
   },
   {
     id: "tch-4",
@@ -71,6 +75,7 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2837",
     assignedClasses: ["Pastoral review 11-F", "Workload Counseling"],
     designation: "Pastoral Lead Coordinator",
+    leadershipRole: "DP Coordinator & EE Coordinator",
   },
   {
     id: "tch-5",
@@ -84,6 +89,7 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2838",
     assignedClasses: ["MYP PE Grade 10", "DP Sports Science"],
     designation: "Sports Activities Lead",
+    leadershipRole: "MYP Coordinator & PE Lead",
   },
   {
     id: "tch-6",
@@ -97,6 +103,7 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2839",
     assignedClasses: ["MYP Language & Lit Grade 10", "DP English A1"],
     designation: "Subject Lead English",
+    leadershipRole: "English Department Lead",
   },
   {
     id: "tch-7",
@@ -110,6 +117,7 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2840",
     assignedClasses: ["MYP History Grade 9", "DP History Grade 12"],
     designation: "Humanities Advisor",
+    leadershipRole: "Grade Level Lead (Grade 12)",
   },
 ];
 
@@ -117,12 +125,31 @@ type TeacherLookupPanelProps = {
   theme: string;
   searchQuery: string;
   onTriggerSubstitution: (teacherName: string, classCoverName: string) => void;
+  selectedTeacherId?: string | null;
+  onClearSelectedTeacher?: () => void;
 };
 
-export function TeacherLookupPanel({ theme, searchQuery, onTriggerSubstitution }: TeacherLookupPanelProps) {
+export function TeacherLookupPanel({ 
+  theme, 
+  searchQuery, 
+  onTriggerSubstitution,
+  selectedTeacherId,
+  onClearSelectedTeacher 
+}: TeacherLookupPanelProps) {
   const [teachers, setTeachers] = useState<Teacher[]>(INITIAL_TEACHERS);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+
+  // Handle outside selection from Universal Search
+  useEffect(() => {
+    if (selectedTeacherId) {
+      const found = teachers.find((t) => t.id === selectedTeacherId);
+      if (found) {
+        setSelectedTeacher(found);
+        onClearSelectedTeacher?.();
+      }
+    }
+  }, [selectedTeacherId, teachers, onClearSelectedTeacher]);
 
   // Communications Dialog state
   const [commType, setCommType] = useState<"message" | "call" | "designation" | null>(null);
@@ -331,9 +358,16 @@ export function TeacherLookupPanel({ theme, searchQuery, onTriggerSubstitution }
                 </div>
                 <div>
                   <h4 className={`text-sm font-bold tracking-tight ${styles.textPrimary}`}>{teacher.name}</h4>
-                  <span className={`text-[10px] font-semibold text-cyan-400 uppercase`}>
-                    {teacher.role}
-                  </span>
+                  <div className="flex flex-col items-start gap-1 mt-0.5">
+                    <span className={`text-[10px] font-semibold text-cyan-400 uppercase`}>
+                      {teacher.role}
+                    </span>
+                    {teacher.leadershipRole && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-400/10 border border-cyan-400/20 text-[8px] font-black uppercase tracking-wider text-cyan-300">
+                        👑 {teacher.leadershipRole}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -414,6 +448,16 @@ export function TeacherLookupPanel({ theme, searchQuery, onTriggerSubstitution }
                     </span>
                   </div>
                 </div>
+
+                {selectedTeacher.leadershipRole && (
+                  <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-400/25 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest block">Leadership Role</span>
+                      <span className="text-sm font-black text-cyan-100">{selectedTeacher.leadershipRole}</span>
+                    </div>
+                    <div className="size-8 rounded-xl bg-cyan-400/15 flex items-center justify-center text-base">👑</div>
+                  </div>
+                )}
 
                 {/* Details layout */}
                 <div className="space-y-3">

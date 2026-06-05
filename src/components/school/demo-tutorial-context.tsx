@@ -83,7 +83,7 @@ const defaultTeacherSteps: TutorialStep[] = [
   {
     id: "essential-space",
     title: "Essential Space",
-    description: "Your personal knowledge space. Track captures, collections, notes, saved resources, mind maps, and drafts in one private playground.",
+    description: "Your private space for tracking tasks, notes, saved files, and drafts.",
   },
   {
     id: "capture",
@@ -92,38 +92,38 @@ const defaultTeacherSteps: TutorialStep[] = [
   },
   {
     id: "workspace-intro",
-    title: "Axis Workspace: The Creation Layer",
-    description: "Workspace is the primary creative layer of Axis where you create, access, organize, and manage Documents, Presentations, Spreadsheets, PDFs, Notes, and Mind Maps inside Axis. It keeps your work inside the ecosystem, avoiding external distractions.",
+    title: "Axis Workspace",
+    description: "Workspace is where you create and manage lesson plans, documents, presentations, and draft resources.",
   },
   {
     id: "workspace-demo",
     title: "Interactive Workspace Actions",
-    description: "Let's interact with the Workspace. Explore the Quick Create panel, Recent files, Pinned items, and template configurations. Try clicking the buttons or starting a Document creation directly!",
+    description: "Try out the Workspace. Explore the Quick Create panel, recent files, and templates. Try starting a new document!",
   },
   {
     id: "connected-resources",
     title: "Connected Resources",
-    description: "Connected Resources connects you to Teaching Resources, the School Hub, Connected Platforms, and Department Libraries. While Essential Space is personal, Connected Resources is your organization's structured knowledge database.",
+    description: "Connected Resources connects you to shared school folders, department files, and external integrations.",
   },
   {
     id: "top-right-awareness",
-    title: "Top Right Operational Awareness",
-    description: "Look at the top-right communication area. This is your operational awareness center. It houses Announcements, Notifications, Context status, and your Profile configurations.",
+    title: "Top Right Navigation",
+    description: "The top-right header houses announcements, personal notifications, status signals, and profile configurations.",
   },
   {
     id: "announcements",
     title: "Announcements",
-    description: "Announcements are broadcast communications for the whole school—updates, exam dates, room changes, department notices, assemblies, and policies. Click the megaphone icon to open the panel.",
+    description: "Announcements are broadcast updates for the whole school—such as scheduling changes, room updates, and department notices. Click the megaphone icon to open the panel.",
   },
   {
     id: "notifications",
     title: "Notifications",
-    description: "Notifications are personal updates—direct messages, meeting invites, assignment submissions, reminders, and context alerts. Explore the bell icon to mark read, archive, pin, or dismiss alerts.",
+    description: "Notifications are personal updates—direct messages, meeting invites, student requests, and system alerts. Explore the bell icon to pin, snooze, or archive alerts.",
   },
   {
     id: "context",
-    title: "Context",
-    description: "Context is your live operational awareness. It quietly monitors schedules, room state, upcoming opportunities, and resource needs. It suggests helpful recommendations without ever getting in your way.",
+    title: "Attention",
+    description: "Attention displays daily updates, alerts, and opportunities. It quietly monitors schedules, room bookings, and class needs to give you relevant recommendations.",
   },
   {
     id: "settings",

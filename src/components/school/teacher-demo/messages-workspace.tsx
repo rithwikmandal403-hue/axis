@@ -45,7 +45,7 @@ type StudentRequest = {
   officeHours?: string;
 };
 
-// Initial data representing the school ecosystem
+// Initial data representing the school platform
 const INITIAL_CONVERSATIONS: Conversation[] = [
   {
     id: "conv-1",
@@ -322,7 +322,7 @@ export function MessagesWorkspace() {
       details: [
         "Current Status: Available",
         "Location: Room 102",
-        "Ecosystem Role: Student Workload & Support Coordination",
+        "Role: Student Workload & Support Coordination",
         "Active schedules: Available for consultation now",
       ],
       actionLabel: "Request Counselor Attendance",
@@ -353,7 +353,7 @@ export function MessagesWorkspace() {
       details: [
         "Time Frame: 12:45 PM - 1:30 PM",
         "Aarav Chen Status: Free Period / Coordination Duty",
-        "Ecosystem Gaps: 1 coverage request pending in Grade 10 Science",
+        "Staffing Needs: 1 coverage request pending in Grade 10 Science",
       ],
       actionLabel: "Volunteer for Coverage",
     },
@@ -520,7 +520,7 @@ export function MessagesWorkspace() {
           {/* Section 1: Pinned Channels & DMs */}
           <div>
             <span className="px-safe-sm text-[9px] font-bold text-white/25 uppercase tracking-wider block mb-safe-sm">
-              Ecosystem Coordination
+              School Coordination
             </span>
             <div className="space-y-0.5">
               {filteredConversations.map((conv) => {
@@ -948,7 +948,7 @@ export function MessagesWorkspace() {
           </div>
         ) : (
           <div className="text-xs text-white/20 text-center py-6">
-            Select a thread to view operational intelligence.
+            Select a conversation to view related context.
           </div>
         )}
       </div>

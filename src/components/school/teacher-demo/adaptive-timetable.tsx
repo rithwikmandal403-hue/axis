@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -6,16 +6,12 @@ import type { ReminderItem } from "./current-class";
 
 type TimelineEvent = {
   id: string;
+  block: number;
   time: string;
   durationMin: number;
-  subject: string;
-  room: string;
   type: "class" | "sync" | "free" | "break";
   adjustment?: string;
   details?: string;
-  occupancy?: string;
-  opportunity?: string;
-  section?: string;
 };
 
 type TimelineSchedule = {
@@ -26,92 +22,84 @@ const WEEK_SCHEDULE: TimelineSchedule = {
   Monday: [
     {
       id: "ev-1",
+      block: 1,
       time: "08:00  -  08:30",
       durationMin: 30,
-      subject: "Homeroom Advisory Roster",
-      room: "Room 102",
       type: "class",
-      section: "11-F",
-      occupancy: "18/22 Synced",
-      details: "Routine morning announcement sync & roster broadcast. Wi-Fi AP is tracking proximity verification.",
+      details: "Homeroom Advisory Roster - Routine morning announcement sync & roster broadcast",
     },
     {
       id: "ev-2",
+      block: 2,
       time: "08:30  -  09:50",
       durationMin: 80,
-      subject: "Grade 11 Physics (IB DP)",
-      room: "Lab 3",
       type: "class",
-      section: "DP1-B",
-      adjustment: "Room reassigned (original: Lab 1)",
-      occupancy: "22/22 Occupied",
-      details: "Topic: Refraction & wave index principles. Laser refraction equipment is prepped in Lab 3.",
+      details: "Block 2 - Academic period",
     },
     {
       id: "ev-3",
+      block: 3,
       time: "10:05  -  11:20",
       durationMin: 75,
-      subject: "Counselor Sync & Timetable Prep",
-      room: "Faculty Hub 4",
-      type: "sync",
-      section: "Coordination",
-      opportunity: "Counselor Sarah Chen is available nearby in Room 102.",
-      details: "Open workspace layer. Available for parent-teacher coordination or curriculum planning.",
+      type: "class",
+      details: "Block 3 - Academic period",
     },
     {
       id: "ev-4",
+      block: 4,
       time: "11:30  -  12:50",
       durationMin: 80,
-      subject: "Grade 12 Advanced Physics",
-      room: "Lab 3",
       type: "class",
-      section: "DP2-A",
-      details: "Topic: Quantum mechanics & photo-electric variables. Workspace assignment checklist submission is active.",
+      details: "Block 4 - Academic period",
     },
     {
       id: "ev-5",
+      block: 5,
       time: "12:50  -  13:40",
       durationMin: 50,
-      subject: "Ecosystem Lunch Interval",
-      room: "Faculty Lounge",
       type: "break",
-      details: "Central school assembly adjustments active. Extended advisory schedule overlays will follow.",
+      details: "Lunch Block",
     },
     {
       id: "ev-6",
+      block: 6,
       time: "13:40  -  15:00",
       durationMin: 80,
-      subject: "Free Operational Window",
-      room: "Room 4B",
-      type: "free",
-      section: "Self-study",
-      adjustment: "Essential Space Available",
-      opportunity: "Physics lab nearby is currently unused. 3 students are waiting for IA drafting feedback.",
-      details: "No class assigned. Axis has released Room 4B as an 'Essential Space' to the student dashboard.",
+      type: "class",
+      details: "Block 6 - Academic period",
     },
   ],
   Tuesday: [
-    { id: "ev-7", time: "08:00  -  08:30", durationMin: 30, subject: "Homeroom Advisory Roster", room: "Room 102", type: "class", section: "11-F" },
-    { id: "ev-8", time: "08:30  -  09:50", durationMin: 80, subject: "Grade 12 Advanced Physics", room: "Lab 3", type: "class", section: "DP2-A" },
-    { id: "ev-9", time: "10:05  -  11:20", durationMin: 75, subject: "Free Operational Window", room: "Lab 3", type: "free", section: "Self-study" },
-    { id: "ev-10", time: "11:30  -  12:50", durationMin: 80, subject: "Grade 11 Physics", room: "Lab 3", type: "class", section: "DP1-B" },
-    { id: "ev-11", time: "12:50  -  13:40", durationMin: 50, subject: "Ecosystem Lunch Interval", room: "Faculty Lounge", type: "break" },
+    { id: "ev-7", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
+    { id: "ev-8", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
+    { id: "ev-9", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
+    { id: "ev-10", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
+    { id: "ev-11", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
+    { id: "ev-12", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
   ],
   Wednesday: [
-    { id: "ev-12", time: "08:00  -  08:30", durationMin: 30, subject: "Homeroom Advisory Roster", room: "Room 102", type: "class", section: "11-F" },
-    { id: "ev-13", time: "08:30  -  09:50", durationMin: 80, subject: "Grade 11 Physics", room: "Lab 3", type: "class", section: "DP1-B" },
-    { id: "ev-14", time: "10:05  -  11:20", durationMin: 75, subject: "Counselor Sync & Prep", room: "Prep Room 4", type: "sync", section: "Coordination" },
-    { id: "ev-15", time: "11:30  -  12:50", durationMin: 80, subject: "Grade 12 Advanced Physics", room: "Lab 3", type: "class", section: "DP2-A" },
+    { id: "ev-13", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
+    { id: "ev-14", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
+    { id: "ev-15", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
+    { id: "ev-16", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
+    { id: "ev-17", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
+    { id: "ev-18", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
   ],
   Thursday: [
-    { id: "ev-16", time: "08:00  -  08:30", durationMin: 30, subject: "Homeroom Advisory Roster", room: "Room 102", type: "class", section: "11-F" },
-    { id: "ev-17", time: "08:30  -  09:50", durationMin: 80, subject: "Grade 12 Advanced Physics", room: "Lab 3", type: "class", section: "DP2-A" },
-    { id: "ev-18", time: "10:05  -  11:20", durationMin: 75, subject: "Free Operational Window", room: "Room 4B", type: "free", section: "Self-study" },
+    { id: "ev-19", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
+    { id: "ev-20", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
+    { id: "ev-21", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
+    { id: "ev-22", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
+    { id: "ev-23", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
+    { id: "ev-24", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
   ],
   Friday: [
-    { id: "ev-19", time: "08:00  -  08:30", durationMin: 30, subject: "Homeroom Advisory Roster", room: "Room 102", type: "class", section: "11-F" },
-    { id: "ev-20", time: "08:30  -  09:50", durationMin: 80, subject: "Grade 11 Physics", room: "Lab 3", type: "class", section: "DP1-B" },
-    { id: "ev-21", time: "10:05  -  11:20", durationMin: 75, subject: "Staff Council assembly Sync", room: "Faculty Hub 4", type: "sync", section: "Coordination" },
+    { id: "ev-25", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
+    { id: "ev-26", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
+    { id: "ev-27", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
+    { id: "ev-28", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
+    { id: "ev-29", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
+    { id: "ev-30", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
   ],
 };
 
@@ -122,6 +110,8 @@ type AdaptiveTimetableProps = {
   onArchiveReminder: (id: string) => void;
 };
 
+const GRADES = ["PYP Grade 1", "PYP Grade 2", "PYP Grade 3", "PYP Grade 4", "PYP Grade 5", "MYP Grade 6", "MYP Grade 7", "MYP Grade 8", "MYP Grade 9", "MYP Grade 10", "DP Grade 11", "DP Grade 12", "CP Grade 11", "CP Grade 12"];
+
 export function AdaptiveTimetable({
   reminders,
   onAddReminder,
@@ -129,11 +119,14 @@ export function AdaptiveTimetable({
   onArchiveReminder,
 }: AdaptiveTimetableProps) {
   const [selectedDay, setSelectedDay] = useState("Monday");
-  const [expandedId, setExpandedId] = useState<string | null>("ev-2"); // Default expand Period 2
+  const [viewMode, setViewMode] = useState<"day" | "week">("day");
+  const [selectedGrade, setSelectedGrade] = useState("DP Grade 11");
+  const [expandedId, setExpandedId] = useState<string | null>("ev-2");
   const [activeAddingId, setActiveAddingId] = useState<string | null>(null);
   const [reminderText, setReminderText] = useState("");
   const [reminderScope, setReminderScope] = useState<"class" | "room" | "slot">("class");
   const [showExportSuccess, setShowExportSuccess] = useState(false);
+  const [showGradeDropdown, setShowGradeDropdown] = useState(false);
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -145,18 +138,15 @@ export function AdaptiveTimetable({
     return "future";
   };
 
-  const handleAddReminder = (evId: string, eventSubject: string, eventRoom: string) => {
+  const handleAddReminder = (evId: string, eventBlock: number) => {
     if (!reminderText.trim()) return;
 
     let targetType: ReminderItem["targetType"] = "class";
-    let targetName = eventSubject;
+    let targetName = `Block ${eventBlock}`;
 
-    if (reminderScope === "room") {
-      targetType = "room";
-      targetName = eventRoom;
-    } else if (reminderScope === "slot") {
+    if (reminderScope === "slot") {
       targetType = "slot";
-      targetName = evId === "ev-2" ? "Period 2" : evId === "ev-3" ? "Period 3" : "Timetable Slot";
+      targetName = `Block ${eventBlock}`;
     }
 
     onAddReminder(reminderText.trim(), targetType, targetName);
@@ -171,6 +161,11 @@ export function AdaptiveTimetable({
     }, 3200);
   };
 
+  const getBlockLabel = (block: number): string => {
+    if (block === 5) return "Lunch Block";
+    return `Block ${block}`;
+  };
+
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-[#0C0C0E]/30 p-6 shadow-[0_12px_64px_rgba(0,0,0,0.7)] backdrop-blur-md md:p-8">
       <div className="flex flex-col gap-6">
@@ -180,316 +175,390 @@ export function AdaptiveTimetable({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-semibold text-white/35 uppercase tracking-wider">
-                Ecosystem Chronometer
+                School Schedule
               </span>
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-medium text-emerald-400">Horizontal Flow Active</span>
+              <span className="text-[9px] font-medium text-emerald-400">Universal Time Blocks</span>
             </div>
-            <h3 className="text-xl font-medium tracking-tight text-white mt-1">Spatial Timetable</h3>
+            <h3 className="text-xl font-medium tracking-tight text-white mt-1">School Timetable</h3>
           </div>
 
-          <button
-            onClick={triggerPDFExport}
-            className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3.5 py-2.5 text-xs text-white/80 hover:bg-white/[0.04] transition-all self-start sm:self-auto"
-          >
-            <svg
-              className="size-4 text-white/40"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-            </svg>
-            Export Flow Ledgers
-          </button>
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex rounded-xl bg-white/[0.02] border border-white/[0.05] p-1">
+              <button
+                onClick={() => setViewMode("day")}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+                  viewMode === "day"
+                    ? "bg-white/[0.06] text-white"
+                    : "text-white/40 hover:text-white"
+                }`}
+              >
+                Day View
+              </button>
+              <button
+                onClick={() => setViewMode("week")}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+                  viewMode === "week"
+                    ? "bg-white/[0.06] text-white"
+                    : "text-white/40 hover:text-white"
+                }`}
+              >
+                Week View
+              </button>
+            </div>
+
+            {/* Grade Selector for PDF */}
+            <div className="relative">
+              <button
+                onClick={() => setShowGradeDropdown(!showGradeDropdown)}
+                className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3.5 py-2.5 text-xs text-white/80 hover:bg-white/[0.04] transition-all"
+              >
+                <svg
+                  className="size-4 text-white/40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Download PDF
+              </button>
+
+              {showGradeDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-[#0A0A0B] border border-white/[0.08] rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="p-2">
+                    <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider block mb-2">Select Grade</span>
+                    {GRADES.map((grade) => (
+                      <button
+                        key={grade}
+                        onClick={() => {
+                          setSelectedGrade(grade);
+                          setShowGradeDropdown(false);
+                          triggerPDFExport();
+                        }}
+                        className="w-full px-3 py-2 text-left text-[10px] text-white/80 hover:bg-white/[0.05] rounded-lg transition-all"
+                      >
+                        {grade}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Day Navigator */}
-        <div className="flex rounded-xl bg-white/[0.02] border border-white/[0.05] p-1 select-none">
-          {days.map((day) => {
-            const isSelected = selectedDay === day;
-            return (
-              <button
-                key={day}
-                onClick={() => {
-                  setSelectedDay(day);
-                  setExpandedId(null);
-                }}
-                className="relative flex-1 py-2.5 text-xs font-semibold tracking-tight text-center rounded-lg focus:outline-none"
-              >
-                {isSelected && (
-                  <motion.div
-                    layoutId="timelineDayBG"
-                    className="absolute inset-0 rounded-lg bg-white/[0.06] border border-white/[0.06] shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                  />
-                )}
-                <span className={`relative z-10 ${isSelected ? "text-white" : "text-white/45 hover:text-white/80"}`}>
-                  {day}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Day Navigator - Only show in day view */}
+        {viewMode === "day" && (
+          <div className="flex rounded-xl bg-white/[0.02] border border-white/[0.05] p-1 select-none">
+            {days.map((day) => {
+              const isSelected = selectedDay === day;
+              return (
+                <button
+                  key={day}
+                  onClick={() => {
+                    setSelectedDay(day);
+                    setExpandedId(null);
+                  }}
+                  className="relative flex-1 py-2.5 text-xs font-semibold tracking-tight text-center rounded-lg focus:outline-none"
+                >
+                  {isSelected && (
+                    <motion.div
+                      layoutId="timelineDayBG"
+                      className="absolute inset-0 rounded-lg bg-white/[0.06] border border-white/[0.06] shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className={`relative z-10 ${isSelected ? "text-white" : "text-white/45 hover:text-white/80"}`}>
+                    {day}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Horizontal Spatial Timetable List */}
         <div className="space-y-4">
           <AnimatePresence mode="wait">
             <motion.div
-              key={selectedDay}
+              key={viewMode === "day" ? selectedDay : "week"}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               className="space-y-4"
             >
-              {WEEK_SCHEDULE[selectedDay].map((item) => {
-                const isExpanded = expandedId === item.id;
-                const isAdding = activeAddingId === item.id;
-                const state = getPeriodState(selectedDay, item.id);
+              {viewMode === "day" ? (
+                // Day View
+                WEEK_SCHEDULE[selectedDay].map((item) => {
+                  const isExpanded = expandedId === item.id;
+                  const isAdding = activeAddingId === item.id;
+                  const state = getPeriodState(selectedDay, item.id);
 
-                // Fetch reminders attached to this class or room or slot
-                const eventReminders = reminders.filter(
-                  (r) =>
-                    (r.targetName === item.subject ||
-                      r.targetName === item.room ||
-                      (item.id === "ev-2" && r.targetName === "Period 2")) &&
-                    r.status !== "archived"
-                );
+                  // Fetch reminders attached to this block
+                  const eventReminders = reminders.filter(
+                    (r) =>
+                      (r.targetName === `Block ${item.block}` ||
+                        r.targetName === getBlockLabel(item.block)) &&
+                      r.status !== "archived"
+                  );
 
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                    className={`relative rounded-2xl border transition-all duration-500 overflow-hidden cursor-pointer select-none ${
-                      state === "past"
-                        ? "opacity-45 border-white/[0.02] bg-white/[0.005] hover:opacity-60"
-                        : state === "current"
-                        ? "border-white/20 bg-gradient-to-r from-white/[0.04] to-white/[0.01] shadow-[0_8px_32px_-6px_rgba(0,0,0,0.6)] scale-[1.008]"
-                        : "border-white/[0.04] bg-white/[0.01] hover:border-white/[0.08]"
-                    }`}
-                  >
-                    {/* Subtle Breathing Glow for Current Active Period */}
-                    {state === "current" && (
-                      <motion.div
-                        className="absolute inset-0 pointer-events-none rounded-2xl border border-white/20"
-                        animate={{ opacity: [0.2, 0.6, 0.2] }}
-                        transition={{ duration: 3.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-                      />
-                    )}
-
-                    {/* Main Split Layout: Left Info Block, Right Venue block */}
-                    <div className="flex flex-col md:flex-row md:items-stretch min-h-[80px]">
-                      
-                      {/* Left Block (Time, Subject, Group) */}
-                      <div className="flex-1 p-5 flex flex-col justify-between gap-3">
-                        <div className="flex flex-wrap items-baseline gap-3">
-                          <span className="font-mono text-xs font-semibold text-white/35">
-                            {item.time}
-                          </span>
-                          <span className="text-[10px] text-white/20">({item.durationMin}m)</span>
-                          {item.section && (
-                            <span className="text-[9px] font-semibold text-white/55 bg-white/[0.05] px-1.5 py-0.5 rounded">
-                              {item.section}
-                            </span>
-                          )}
-                          <h4 className="text-sm font-semibold tracking-tight text-white/90">
-                            {item.subject}
-                          </h4>
-                        </div>
-
-                        {/* Middle Info & Indicators */}
-                        <div className="flex flex-wrap items-center gap-3">
-                          {item.adjustment && (
-                            <span className="rounded bg-amber-500/[0.06] border border-amber-500/20 px-2 py-0.5 text-[8px] font-semibold text-amber-400">
-                              {item.adjustment}
-                            </span>
-                          )}
-                          {eventReminders.length > 0 && (
-                            <span className="text-[9px] text-sky-400/80 font-medium">
-                              • {eventReminders.length} Active Reminders
-                            </span>
-                          )}
-                          {item.opportunity && (
-                            <span className="text-[9px] text-emerald-400/80 font-medium truncate max-w-sm">
-                              Opportunity: {item.opportunity.slice(0, 50)}...
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Current Period visual timeline progression marker */}
-                        {state === "current" && (
-                          <div className="mt-3 space-y-1.5 pr-6">
-                            <div className="flex items-center justify-between text-[8px] font-semibold text-white/30 uppercase tracking-widest leading-none">
-                              <span>Active Period Progression</span>
-                              <span>~52% Elapsed (42m remaining)</span>
-                            </div>
-                            <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                              <motion.div
-                                className="h-full bg-white"
-                                initial={{ width: "0%" }}
-                                animate={{ width: "52%" }}
-                                transition={{ duration: 1.5, ease: "easeOut" }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Right Venue Block (Visually separated) */}
-                      <div className="w-full md:w-44 shrink-0 border-t md:border-t-0 md:border-l border-white/[0.05] bg-white/[0.005] p-5 flex flex-col justify-center items-start md:items-end">
-                        <span className="text-[9px] text-white/30 uppercase font-bold tracking-wider mb-1">
-                          Room/Venue
-                        </span>
-                        <span className="text-lg font-medium text-white/95">{item.room}</span>
-                        {item.occupancy && (
-                          <span className="text-[10px] text-white/40 mt-1 leading-none">
-                            {item.occupancy}
-                          </span>
-                        )}
-                      </div>
-
-                    </div>
-
-                    {/* Expandable Context/Reminder Editor */}
-                    <AnimatePresence>
-                      {isExpanded && (
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                      className={`relative rounded-2xl border transition-all duration-500 overflow-hidden cursor-pointer select-none ${
+                        state === "past"
+                          ? "opacity-45 border-white/[0.02] bg-white/[0.005] hover:opacity-60"
+                          : state === "current"
+                          ? "border-white/20 bg-gradient-to-r from-white/[0.04] to-white/[0.01] shadow-[0_8px_32px_-6px_rgba(0,0,0,0.6)] scale-[1.008]"
+                          : "border-white/[0.04] bg-white/[0.01] hover:border-white/[0.08]"
+                      }`}
+                    >
+                      {/* Subtle Breathing Glow for Current Active Period */}
+                      {state === "current" && (
                         <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                          className="overflow-hidden border-t border-white/[0.05] bg-black/[0.15] p-5 space-y-4"
-                          onClick={(e) => e.stopPropagation()} // Prevent closing card on click
-                        >
-                          <p className="text-xs text-white/50 leading-relaxed max-w-2xl">
-                            {item.details || "No additional workflow specs registered for this event."}
-                          </p>
+                          className="absolute inset-0 pointer-events-none rounded-2xl border border-white/20"
+                          animate={{ opacity: [0.2, 0.6, 0.2] }}
+                          transition={{ duration: 3.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                        />
+                      )}
 
-                          {item.opportunity && (
-                            <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/[0.02] p-3 text-xs text-emerald-400/90 leading-relaxed max-w-2xl">
-                              <span className="text-[8px] font-bold text-emerald-400 block uppercase tracking-widest mb-1.5">
-                                Ambient Opportunity
+                      {/* Main Split Layout: Left Info Block, Right Venue block */}
+                      <div className="flex flex-col md:flex-row md:items-stretch min-h-[80px]">
+                        
+                        {/* Left Block (Time, Block) */}
+                        <div className="flex-1 p-5 flex flex-col justify-between gap-3">
+                          <div className="flex flex-wrap items-baseline gap-3">
+                            <span className="font-mono text-xs font-semibold text-white/35">
+                              {item.time}
+                            </span>
+                            <span className="text-[10px] text-white/20">({item.durationMin}m)</span>
+                            <span className="text-[9px] font-semibold text-white/55 bg-white/[0.05] px-1.5 py-0.5 rounded">
+                              {getBlockLabel(item.block)}
+                            </span>
+                            <h4 className="text-sm font-semibold tracking-tight text-white/90">
+                              {item.type === "break" ? "Break" : "Academic Period"}
+                            </h4>
+                          </div>
+
+                          {/* Middle Info & Indicators */}
+                          <div className="flex flex-wrap items-center gap-3">
+                            {item.adjustment && (
+                              <span className="rounded bg-amber-500/[0.06] border border-amber-500/20 px-2 py-0.5 text-[8px] font-semibold text-amber-400">
+                                {item.adjustment}
                               </span>
-                              {item.opportunity}
+                            )}
+                            {eventReminders.length > 0 && (
+                              <span className="text-[9px] text-sky-400/80 font-medium">
+                                • {eventReminders.length} Active Reminders
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Current Period visual timeline progression marker */}
+                          {state === "current" && (
+                            <div className="mt-3 space-y-1.5 pr-6">
+                              <div className="flex items-center justify-between text-[8px] font-semibold text-white/30 uppercase tracking-widest leading-none">
+                                <span>Active Period Progression</span>
+                                <span>~52% Elapsed (42m remaining)</span>
+                              </div>
+                              <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                                <motion.div
+                                  className="h-full bg-white"
+                                  initial={{ width: "0%" }}
+                                  animate={{ width: "52%" }}
+                                  transition={{ duration: 1.5, ease: "easeOut" }}
+                                />
+                              </div>
                             </div>
                           )}
+                        </div>
 
-                          {/* Reminders section with full lifecycles */}
-                          <div className="space-y-3 max-w-2xl">
-                            <span className="text-[8px] text-white/35 font-bold uppercase tracking-widest block">
-                              Timetable Slot Reminders
-                            </span>
+                        {/* Right Block (Block Number) */}
+                        <div className="w-full md:w-44 shrink-0 border-t md:border-t-0 md:border-l border-white/[0.05] bg-white/[0.005] p-5 flex flex-col justify-center items-start md:items-end">
+                          <span className="text-[9px] text-white/30 uppercase font-bold tracking-wider mb-1">
+                            Block
+                          </span>
+                          <span className="text-3xl font-bold text-white/95">{item.block}</span>
+                          <span className="text-[10px] text-white/40 mt-1 leading-none">
+                            {item.type === "break" ? "Lunch" : "Class"}
+                          </span>
+                        </div>
 
-                            {eventReminders.length > 0 && (
-                              <div className="space-y-2">
-                                {eventReminders.map((rem) => (
-                                  <div
-                                    key={rem.id}
-                                    className={`flex items-center justify-between text-xs px-3 py-2.5 rounded-lg border ${
-                                      rem.status === "snoozed"
-                                        ? "bg-white/[0.005] border-white/5 text-white/30"
-                                        : "bg-white/[0.01] border-white/10 text-white/70"
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className={`size-1 rounded-full ${rem.status === "snoozed" ? "bg-white/20" : "bg-sky-400"}`} />
-                                      <span className={rem.status === "snoozed" ? "line-through" : ""}>
-                                        {rem.text}
-                                      </span>
-                                      {rem.status === "snoozed" && (
-                                        <span className="text-[8px] text-white/25 italic border border-white/5 px-1 rounded">
-                                          Snoozed
+                      </div>
+
+                      {/* Expandable Context/Reminder Editor */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                            className="overflow-hidden border-t border-white/[0.05] bg-black/[0.15] p-5 space-y-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <p className="text-xs text-white/50 leading-relaxed max-w-2xl">
+                              {item.details || "No additional details for this block."}
+                            </p>
+
+                            {/* Reminders section with full lifecycles */}
+                            <div className="space-y-3 max-w-2xl">
+                              <span className="text-[8px] text-white/35 font-bold uppercase tracking-widest block">
+                                Block Reminders
+                              </span>
+
+                              {eventReminders.length > 0 && (
+                                <div className="space-y-2">
+                                  {eventReminders.map((rem) => (
+                                    <div
+                                      key={rem.id}
+                                      className={`flex items-center justify-between text-xs px-3 py-2.5 rounded-lg border ${
+                                        rem.status === "snoozed"
+                                          ? "bg-white/[0.005] border-white/5 text-white/30"
+                                          : "bg-white/[0.01] border-white/10 text-white/70"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className={`size-1 rounded-full ${rem.status === "snoozed" ? "bg-white/20" : "bg-sky-400"}`} />
+                                        <span className={rem.status === "snoozed" ? "line-through" : ""}>
+                                          {rem.text}
                                         </span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      {rem.status !== "snoozed" && (
+                                        {rem.status === "snoozed" && (
+                                          <span className="text-[8px] text-white/25 italic border border-white/5 px-1 rounded">
+                                            Snoozed
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        {rem.status !== "snoozed" && (
+                                          <button
+                                            onClick={() => onSnoozeReminder(rem.id)}
+                                            className="rounded bg-white/5 hover:bg-white/10 px-2 py-0.5 text-[9px] text-white/50"
+                                          >
+                                            Snooze
+                                          </button>
+                                        )}
                                         <button
-                                          onClick={() => onSnoozeReminder(rem.id)}
-                                          className="rounded bg-white/5 hover:bg-white/10 px-2 py-0.5 text-[9px] text-white/50"
+                                          onClick={() => onArchiveReminder(rem.id)}
+                                          className="rounded bg-white/10 hover:bg-white/25 px-2 py-0.5 text-[9px] text-white"
                                         >
-                                          Snooze
+                                          Resolve
                                         </button>
-                                      )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {isAdding ? (
+                                <div className="space-y-3 border border-white/5 rounded-xl p-3 bg-black/40">
+                                  <input
+                                    type="text"
+                                    placeholder="Type task or reminder note..."
+                                    value={reminderText}
+                                    onChange={(e) => setReminderText(e.target.value)}
+                                    className="w-full rounded-lg border border-white/[0.08] bg-black/40 px-3 py-1.5 text-xs text-white placeholder-white/20 focus:border-white/30 focus:outline-none"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") handleAddReminder(item.id, item.block);
+                                    }}
+                                  />
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex gap-2">
+                                      {(["class", "slot"] as const).map((scope) => (
+                                        <button
+                                          key={scope}
+                                          type="button"
+                                          onClick={() => setReminderScope(scope)}
+                                          className={`px-2 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+                                            reminderScope === scope
+                                              ? "bg-white text-black"
+                                              : "bg-white/[0.02] border border-white/5 text-white/40 hover:text-white"
+                                          }`}
+                                        >
+                                          {scope}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <div className="flex gap-2">
                                       <button
-                                        onClick={() => onArchiveReminder(rem.id)}
-                                        className="rounded bg-white/10 hover:bg-white/25 px-2 py-0.5 text-[9px] text-white"
+                                        onClick={() => handleAddReminder(item.id, item.block)}
+                                        className="rounded-lg bg-white px-3 py-1 text-[10px] font-bold text-black hover:opacity-90"
                                       >
-                                        Resolve
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => setActiveAddingId(null)}
+                                        className="rounded-lg border border-white/[0.08] px-3 py-1 text-[10px] text-white/60 hover:text-white"
+                                      >
+                                        Cancel
                                       </button>
                                     </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {isAdding ? (
-                              <div className="space-y-3 border border-white/5 rounded-xl p-3 bg-black/40">
-                                <input
-                                  type="text"
-                                  placeholder="Type task or reminder note..."
-                                  value={reminderText}
-                                  onChange={(e) => setReminderText(e.target.value)}
-                                  className="w-full rounded-lg border border-white/[0.08] bg-black/40 px-3 py-1.5 text-xs text-white placeholder-white/20 focus:border-white/30 focus:outline-none"
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleAddReminder(item.id, item.subject, item.room);
-                                  }}
-                                />
-                                <div className="flex items-center justify-between">
-                                  <div className="flex gap-2">
-                                    {(["class", "room", "slot"] as const).map((scope) => (
-                                      <button
-                                        key={scope}
-                                        type="button"
-                                        onClick={() => setReminderScope(scope)}
-                                        className={`px-2 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-colors ${
-                                          reminderScope === scope
-                                            ? "bg-white text-black"
-                                            : "bg-white/[0.02] border border-white/5 text-white/40 hover:text-white"
-                                        }`}
-                                      >
-                                        {scope}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => handleAddReminder(item.id, item.subject, item.room)}
-                                      className="rounded-lg bg-white px-3 py-1 text-[10px] font-bold text-black hover:opacity-90"
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={() => setActiveAddingId(null)}
-                                      className="rounded-lg border border-white/[0.08] px-3 py-1 text-[10px] text-white/60 hover:text-white"
-                                    >
-                                      Cancel
-                                    </button>
                                   </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setActiveAddingId(item.id);
-                                  setReminderText("");
-                                  setReminderScope("class");
-                                }}
-                                className="text-[9px] font-bold text-white/30 hover:text-white transition-colors uppercase tracking-widest"
-                              >
-                                + Attach Reminder
-                              </button>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setActiveAddingId(item.id);
+                                    setReminderText("");
+                                    setReminderScope("class");
+                                  }}
+                                  className="text-[9px] font-bold text-white/30 hover:text-white transition-colors uppercase tracking-widest"
+                                >
+                                  + Attach Reminder
+                                </button>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })
+              ) : (
+                // Week View
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-white/[0.06]">
+                        <th className="text-left p-3 text-white/40 font-semibold">Block</th>
+                        {days.map((day) => (
+                          <th key={day} className="text-center p-3 text-white/40 font-semibold">{day}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[1, 2, 3, 4, 5, 6].map((block) => (
+                        <tr key={block} className="border-b border-white/[0.04]">
+                          <td className="p-3 font-semibold text-white/90">
+                            {getBlockLabel(block)}
+                          </td>
+                          {days.map((day) => {
+                            const event = WEEK_SCHEDULE[day].find((e) => e.block === block);
+                            return (
+                              <td key={day} className="p-3 text-center">
+                                {event ? (
+                                  <div className="text-white/70">
+                                    <span className="font-mono text-[10px] text-white/40 block">{event.time}</span>
+                                    <span className="text-[9px]">{event.type === "break" ? "Lunch" : "Class"}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-white/20">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -509,8 +578,8 @@ export function AdaptiveTimetable({
               ✓
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-semibold tracking-tight text-white">Flow Ledgers Exported</span>
-              <span className="text-[10px] text-white/40 mt-0.5">Timetable flow ledgers successfully compiled to PDF.</span>
+              <span className="text-xs font-semibold tracking-tight text-white">Timetable Exported</span>
+              <span className="text-[10px] text-white/40 mt-0.5">{selectedGrade} timetable compiled to PDF.</span>
             </div>
           </motion.div>
         )}

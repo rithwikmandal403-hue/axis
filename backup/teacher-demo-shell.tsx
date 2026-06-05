@@ -1036,12 +1036,12 @@ export function TeacherDemoShell({
                     "Meetings",
                     "Class Space",
                     "Calendar",
-                    "Essential Space",
+                    "My Tasks & Notes",
                     "Workspace",
-                    "Connected Resources",
+                    "Resources",
                     "Notifications",
                     "Announcements",
-                    "Context"
+                    "Attention"
                   ].map((item) => (
                     <div key={item} className="flex items-center gap-2">
                       <span className="size-1.5 rounded-full bg-cyan-500/80 shrink-0" />
@@ -2084,7 +2084,7 @@ export function TeacherDemoShell({
                       >
                         <div className="flex items-center gap-3">
                           <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${cardStyles.badge}`}>
-                            Ecosystem Invitation
+                            Interactive Demo Tour
                           </span>
                           <span className="size-1 rounded-full bg-white/20" />
                           <span className="text-[10px] text-white/40 tracking-wider uppercase">
@@ -2101,7 +2101,7 @@ export function TeacherDemoShell({
                             Want to see how everything connects across the entire school?
                           </p>
                           <p className={`text-sm leading-relaxed ${cardStyles.textSecondary}`}>
-                            Teachers, students, coordinators, and families all operate within the same ecosystem.
+                            Teachers, students, coordinators, and families all stay in sync on a single platform.
                           </p>
                         </div>
 
@@ -2120,7 +2120,7 @@ export function TeacherDemoShell({
                             }}
                             className={`flex-1 rounded-xl font-bold text-xs py-3.5 px-5 text-center transition-all ${cardStyles.buttonPrimary}`}
                           >
-                            Explore The Ecosystem
+                            Explore All Roles
                           </button>
                           
                           <button
@@ -2369,12 +2369,12 @@ export function TeacherDemoShell({
                   {/* Top opportunities category */}
                   <div>
                     <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest block mb-2">
-                      Ecosystem Reminders & Opportunities
+                      Daily Attention & Updates
                     </span>
                     <div className="space-y-2">
                       {derivedContextItems.filter(i => i.active).length === 0 ? (
                         <div className="text-center py-4 border border-dashed border-white/10 rounded-xl text-[10px] text-white/30">
-                          Ecosystem state quiet. No active alerts.
+                          No active alerts or updates right now.
                         </div>
                       ) : (
                         derivedContextItems.filter(i => i.active).map(item => (

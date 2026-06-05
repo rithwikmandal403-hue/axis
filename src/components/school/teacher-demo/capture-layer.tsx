@@ -387,8 +387,8 @@ export function CaptureLayer({ onSaveCapture }: CaptureLayerProps) {
 
                     {/* Auto-Contextual sensing indicator */}
                     <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
-                      <div className="text-[8px] font-bold text-white/30 uppercase tracking-widest">
-                        Ecosystem Auto-Context Linked
+                      <div className="text-[8px] font-bold text-white/35 uppercase tracking-widest">
+                        Auto-Context Linked
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <span className="rounded bg-white/[0.04] border border-white/[0.05] px-2 py-0.5 text-[9px] text-white/50">

@@ -196,15 +196,15 @@ export function WorkspaceWorkspace({
   // Type Icons Helper
   const getTypeIcon = (type: WorkspaceItem["type"]) => {
     switch (type) {
-      case "document": return "📄";
-      case "presentation": return "🎬";
-      case "spreadsheet": return "📊";
-      case "pdf": return "📕";
-      case "note": return "💡";
-      case "mindmap": return "🧠";
-      case "folder": return "📁";
-      case "link": return "🔗";
-      default: return "📄";
+      case "document": return "DOC";
+      case "presentation": return "PPT";
+      case "spreadsheet": return "XLS";
+      case "pdf": return "PDF";
+      case "note": return "NOTE";
+      case "mindmap": return "MAP";
+      case "folder": return "FOLDER";
+      case "link": return "LINK";
+      default: return "DOC";
     }
   };
 
@@ -263,7 +263,7 @@ export function WorkspaceWorkspace({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Axis Workspace</h2>
-          <p className="text-xs opacity-50 mt-1">Operational hub to create, read, and connect curricular assets.</p>
+          <p className="text-xs opacity-50 mt-1">Documents, presentations & collaboration through your school&apos;s Microsoft 365 integration.</p>
         </div>
         {activeFile && (
           <button
@@ -277,7 +277,7 @@ export function WorkspaceWorkspace({
 
       <AnimatePresence mode="wait">
         {!activeFile ? (
-          
+
           // ─── DASHBOARD HOME VIEW ──────────────────────────────────────────────────
           <motion.div
             key="dashboard"
@@ -286,18 +286,35 @@ export function WorkspaceWorkspace({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-safe-lg"
           >
+            {/* MICROSOFT 365 INTEGRATION BANNER */}
+            <div className={`rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-cyan-950/30 to-blue-950/30 p-safe-lg flex flex-col sm:flex-row items-center justify-between gap-4`}>
+              <div className="flex items-center gap-4">
+                <div className="text-3xl">LINK</div>
+                <div>
+                  <h3 className="text-sm font-bold text-cyan-400">Microsoft 365 Integration</h3>
+                  <p className="text-xs opacity-70 mt-0.5">Access Word, PowerPoint, Excel & OneDrive through your school Microsoft account</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-semibold opacity-60">
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">Word</span>
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">PowerPoint</span>
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">Excel</span>
+                <span className="px-2 py-1 rounded bg-white/5 border border-white/10">OneDrive</span>
+              </div>
+            </div>
+
             {/* QUICK CREATE GRID */}
             <div className={`rounded-2xl border ${styling.panelBg} p-safe-lg space-y-4`}>
               <h3 className="text-xs font-bold uppercase tracking-wider opacity-40">Quick Create</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
                 {[
-                  { type: "document", label: "Document", icon: "📄", color: "hover:border-blue-500/40 hover:bg-blue-500/5" },
-                  { type: "presentation", label: "Slides", icon: "🎬", color: "hover:border-amber-500/40 hover:bg-amber-500/5" },
-                  { type: "spreadsheet", label: "Sheet", icon: "📊", color: "hover:border-emerald-500/40 hover:bg-emerald-500/5" },
-                  { type: "pdf", label: "PDF Workspace", icon: "📕", color: "hover:border-red-500/40 hover:bg-red-500/5" },
-                  { type: "note", label: "Sticky Note", icon: "💡", color: "hover:border-purple-500/40 hover:bg-purple-500/5" },
-                  { type: "mindmap", label: "Mind Map", icon: "🧠", color: "hover:border-cyan-500/40 hover:bg-cyan-500/5" },
-                  { type: "folder", label: "Folder", icon: "📁", color: "hover:border-zinc-500/40 hover:bg-zinc-500/5" },
+                  { type: "document", label: "New Document", icon: "DOC", color: "hover:border-blue-500/40 hover:bg-blue-500/5" },
+                  { type: "presentation", label: "New Presentation", icon: "PPT", color: "hover:border-amber-500/40 hover:bg-amber-500/5" },
+                  { type: "spreadsheet", label: "New Spreadsheet", icon: "XLS", color: "hover:border-emerald-500/40 hover:bg-emerald-500/5" },
+                  { type: "pdf", label: "PDF Workspace", icon: "PDF", color: "hover:border-red-500/40 hover:bg-red-500/5" },
+                  { type: "note", label: "Sticky Note", icon: "NOTE", color: "hover:border-purple-500/40 hover:bg-purple-500/5" },
+                  { type: "mindmap", label: "Mind Map", icon: "MAP", color: "hover:border-cyan-500/40 hover:bg-cyan-500/5" },
+                  { type: "folder", label: "Folder", icon: "FOLDER", color: "hover:border-zinc-500/40 hover:bg-zinc-500/5" },
                 ].map((item) => (
                   <button
                     key={item.type}
@@ -321,7 +338,7 @@ export function WorkspaceWorkspace({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={`w-full rounded-xl border ${styling.inputBg} pl-9 pr-4 py-2.5 text-xs text-inherit bg-transparent focus:outline-none placeholder-inherit/30`}
                 />
-                <span className="absolute left-3.5 top-3.5 opacity-30 text-xs">🔍</span>
+                <span className="absolute left-3.5 top-3.5 opacity-30 text-xs">Search</span>
               </div>
               <div className="flex gap-2 w-full md:w-auto shrink-0 overflow-x-auto">
                 <select
@@ -727,7 +744,7 @@ export function WorkspaceWorkspace({
                           }}
                           className="px-3 py-1 rounded bg-[#06b6d4]/10 hover:bg-[#06b6d4]/20 border border-[#06b6d4]/20 text-[#06b6d4] text-[9px] font-bold uppercase tracking-wider"
                         >
-                          📷 Capture Page
+                          Capture Page
                         </button>
                       </div>
                     </div>
@@ -776,7 +793,7 @@ export function WorkspaceWorkspace({
               {/* 7. FOLDERS / OTHER TYPES */}
               {!["document", "presentation", "spreadsheet", "pdf", "note", "mindmap"].includes(activeFile.type) && (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
-                  <span className="text-lg mb-2">📁</span>
+                  <span className="text-lg mb-2">FOLDER</span>
                   <span className="text-xs font-bold">Standard Folder Environment</span>
                   <p className="text-[10px] opacity-40 max-w-xs mt-1">This directory placeholder connects file links and attachments securely.</p>
                 </div>
