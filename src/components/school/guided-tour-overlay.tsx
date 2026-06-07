@@ -22,6 +22,16 @@ export function GuidedTourOverlay({ theme }: GuidedTourOverlayProps) {
 
   const highlightRef = useRef<HTMLDivElement>(null);
 
+  // Scroll highlighted element into view
+  useEffect(() => {
+    if (steps && activeStepIndex >= 0 && steps[activeStepIndex]?.highlight) {
+      const element = document.querySelector(`[data-tour-highlight="${steps[activeStepIndex].highlight}"]`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [activeStepIndex, steps]);
+
   if (!isTutorialActive || activeStepIndex < 0) return null;
   if (!steps || steps.length === 0) return null;
 
@@ -56,16 +66,6 @@ export function GuidedTourOverlay({ theme }: GuidedTourOverlayProps) {
       localStorage.removeItem("axis-tour-has-run");
     }
   };
-
-  // Scroll highlighted element into view
-  useEffect(() => {
-    if (currentStep?.highlight) {
-      const element = document.querySelector(`[data-tour-highlight="${currentStep.highlight}"]`);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }
-  }, [activeStepIndex, currentStep?.highlight]);
 
   return (
     <AnimatePresence>
