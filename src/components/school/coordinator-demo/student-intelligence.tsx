@@ -21,12 +21,16 @@ export function StudentIntelligence({
   theme, 
   searchQuery,
   selectedStudentId,
-  onClearSelectedStudent
+  onClearSelectedStudent,
+  isTutorialActive = false,
+  activeStepIndex = -1
 }: { 
   theme: string; 
   searchQuery: string;
   selectedStudentId?: string | null;
   onClearSelectedStudent?: () => void;
+  isTutorialActive?: boolean;
+  activeStepIndex?: number;
 }) {
   const [activeView, setActiveView] = useState<"overview" | "finder" | "statistics">("overview");
   const [selectedSubject, setSelectedSubject] = useState<SubjectDetail | null>(null);
@@ -35,10 +39,14 @@ export function StudentIntelligence({
   // Switch to directory finder when selection is pushed from global search
   useEffect(() => {
     if (selectedStudentId) {
-      setActiveView("finder");
+      if (isTutorialActive && activeStepIndex === 8) {
+        setActiveView("statistics");
+      } else {
+        setActiveView("finder");
+      }
       setStatsStudentId(selectedStudentId);
     }
-  }, [selectedStudentId]);
+  }, [selectedStudentId, isTutorialActive, activeStepIndex]);
 
   // Core Statistics Data
   const programmes = [
@@ -360,6 +368,7 @@ export function StudentIntelligence({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
+            className={isTutorialActive && activeStepIndex === 8 ? "tour-highlight rounded-3xl" : ""}
           >
             <StudentStatisticsProfile
               theme={theme}

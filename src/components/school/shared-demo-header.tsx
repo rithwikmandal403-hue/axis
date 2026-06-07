@@ -72,6 +72,15 @@ export function SharedDemoHeader({
     endTutorial();
   };
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && !isTutorialActive) {
+      const tourHasRun = localStorage.getItem("axis-tour-has-run") === "true";
+      if (tourHasRun) {
+        setHasRunTour(true);
+      }
+    }
+  }, [isTutorialActive]);
+
   return (
     <header className={`relative z-20 flex h-24 items-center justify-between border-b px-safe-lg md:px-safe-xl ${styles.border}`}>
       <div className="flex flex-col">
@@ -203,7 +212,11 @@ export function SharedDemoHeader({
                     : "bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20 hover:text-white"
             }`}
           >
-            {isTutorialActive ? "Exit Tour" : "Guided Tour"}
+            {isTutorialActive
+              ? "Exit Tour"
+              : hasRunTour
+                ? "Quick Tour"
+                : "Guided Tour"}
             {!hasRunTour && !isTutorialActive && (
               <span className="absolute -top-1.5 -right-1 px-1.5 py-0.5 rounded-full bg-cyan-400 text-[7px] font-black text-black uppercase tracking-wider scale-90 border border-[#050607]">
                 Recommended

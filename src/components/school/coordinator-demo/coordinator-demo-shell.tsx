@@ -22,6 +22,8 @@ import { SharedDemoHeader } from "../shared-demo-header";
 import { CoordinatorEmail } from "./coordinator-email";
 import { ConnectedResourcesWorkspace, ResourcePickerModal } from "./connected-resources";
 import { getThemeColors, type Theme, AXIS_TOKENS, getAxisTheme } from "@/lib/theme-utils";
+import { useDemoTutorial } from "@/components/school/demo-tutorial-context";
+import { GuidedTourOverlay } from "@/components/school/guided-tour-overlay";
 
 type AcademicProgramme = "pyp" | "myp" | "dp" | "cp";
 
@@ -185,7 +187,13 @@ export function CoordinatorDemoShell() {
   const [noteTags, setNoteTags] = useState("");
   const [spotlightQuery, setSpotlightQuery] = useState("");
   const [isCaptureOverlayOpen, setIsCaptureOverlayOpen] = useState(false);
-  const [captureState, setCaptureState] = useState<"idle" | "capturing" | "preview">("idle");
+  const [captureState, setCaptureState] = useState<"idle" | "selecting" | "capturing" | "scanning" | "preview">("idle");
+  const [_scanProgressText, _setScanProgressText] = useState("Initializing intelligence capture...");
+  const [_toastMessage, setToastMessage] = useState<string | null>(null);
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentPoint, setCurrentPoint] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -219,6 +227,7 @@ export function CoordinatorDemoShell() {
 
   const themeColors = getThemeColors(theme);
 
+  const { isTutorialActive } = useDemoTutorial();
 
   const [searchSelectedStudent, setSearchSelectedStudent] = useState<SearchItem | null>(null);
   const [searchSelectedTeacher, setSearchSelectedTeacher] = useState<SearchItem | null>(null);
@@ -966,6 +975,7 @@ export function CoordinatorDemoShell() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 className="grid grid-cols-1 gap-6 lg:grid-cols-12 overflow-visible"
+                data-tour-highlight="overview"
               >
                 
                 {/* Left Area: Snapshot Cards & Programme Details (8 cols) */}
@@ -1496,6 +1506,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                data-tour-highlight="students"
               >
                 <StudentIntelligence
                   theme={theme}
@@ -1542,6 +1553,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                data-tour-highlight="schedule"
               >
                 <AcademicScheduling
                   theme={theme}
@@ -1567,13 +1579,13 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                data-tour-highlight="analytics"
               >
                 <SchoolAnalytics
                   theme={theme}
                 />
               </motion.div>
             )}
-
             {/* ─── TAB 6: EVENTS & PROPOSALS ────────────────────────────────────── */}
             {activeTab === "events" && (
               <motion.div
@@ -1754,6 +1766,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                data-tour-highlight="requests"
               >
                 <CoordinatorDashboard theme={theme} />
               </motion.div>
@@ -1765,6 +1778,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                data-tour-highlight="meetings"
               >
                 <CoordinatorMeetings theme={theme} />
               </motion.div>
@@ -1776,6 +1790,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                data-tour-highlight="messages"
               >
                 <CoordinatorMessages
                   theme={theme}
@@ -1789,6 +1804,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                data-tour-highlight="context"
               >
                 <CoordinatorEmail theme={theme} />
               </motion.div>
@@ -1803,6 +1819,7 @@ export function CoordinatorDemoShell() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 className="max-w-6xl mx-auto w-full"
+                data-tour-highlight="resources"
               >
                 <ConnectedResourcesWorkspace theme={theme} />
               </motion.div>
@@ -2686,6 +2703,7 @@ export function CoordinatorDemoShell() {
                 ? "bg-white/95 border-black/10 text-black"
                 : "bg-[#0A0A0C]/95 border-white/[0.08] text-white"
             }`}
+            data-tour-highlight="essential-space"
           >
             {/* Tray Header */}
             <div className={`flex items-center justify-between p-5 pb-4 border-b shrink-0 ${
@@ -3017,6 +3035,29 @@ export function CoordinatorDemoShell() {
       {/* Global CSS style overrides for complete theme standardization */}
       <style dangerouslySetInnerHTML={{ __html: `
         .rounded-3xl { border-radius: 1rem !important; } /* Standardize card radius to 16px (rounded-2xl) */
+        .tour-dim-overlay {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(0.5px);
+          z-index: 35;
+          pointer-events: auto;
+          transition: all 0.4s ease-in-out;
+        }
+        .tour-highlight {
+          position: relative;
+          z-index: 40 !important;
+          box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.6), 0 0 45px rgba(6, 182, 212, 0.35) !important;
+          border-color: rgba(6, 182, 212, 0.8) !important;
+          pointer-events: auto !important;
+          transition: all 0.4s ease-in-out;
+        }
+        .theme-light .tour-highlight {
+          box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.5), 0 0 40px rgba(6, 182, 212, 0.2) !important;
+        }
+        .tour-highlight * {
+          pointer-events: auto !important;
+        }
       ` }} />
       {theme === "light" && (
         <style dangerouslySetInnerHTML={{ __html: `
@@ -3206,6 +3247,8 @@ export function CoordinatorDemoShell() {
         theme={theme}
       />
 
+
+
       {/* CSS keyframe animation for scanning line */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes scan {
@@ -3364,6 +3407,9 @@ export function CoordinatorDemoShell() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Guided Tour Overlay */}
+      <GuidedTourOverlay theme={theme} />
     </div>
   );
 }

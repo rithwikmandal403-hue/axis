@@ -838,7 +838,7 @@ export function StudentStatisticsProfile({
                                 const mouseX = (idx / (timeframeDataset.subjects[activeSubject].length - 1)) * (bounds?.width || 300);
                                 const mouseY = 100 - ((pt.grade - 3) / 4) * 100;
 
-                                setHoveredMarker(pt.milestone);
+                                setHoveredMarker(pt.milestone || null);
                                 setHoveredMarkerCoords({ x: mouseX, y: mouseY });
                               }
                             }}

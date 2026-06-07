@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
 import { ExperienceEntrance } from "@/components/school/experience-entrance";
-import { DemoTutorialProvider } from "@/components/school/demo-tutorial-context";
+import { DemoTutorialProvider, coordinatorSteps } from "@/components/school/demo-tutorial-context";
 import { TeacherDemoShell } from "@/components/school/teacher-demo/teacher-demo-shell";
 import { CoordinatorDemoShell } from "@/components/school/coordinator-demo/coordinator-demo-shell";
 import { getSchoolDemoRole } from "@/lib/school-demo-roles";
@@ -263,10 +263,11 @@ export function SharedDemoExperience() {
   }
 
   const role = getSchoolDemoRole(roleParam);
+  const perspective = role.id === "coordinator" ? "coordinator" : "teacher";
 
   return (
     <ExperienceEntrance>
-      <DemoTutorialProvider>
+      <DemoTutorialProvider perspective={perspective}>
         {role.id === "coordinator" ? (
           <CoordinatorDemoShell />
         ) : (
