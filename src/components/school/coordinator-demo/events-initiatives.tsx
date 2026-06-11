@@ -788,7 +788,7 @@ export function EventsInitiatives({ theme = "axis" }: { theme?: string }) {
     return milestones.filter((m) => m.attentionAlert);
   }, [milestones]);
 
-  const impactTelemetry = useMemo(() => {
+  const impactStats = useMemo(() => {
     if (formCategory === "personal") {
       return { students: 0, teachers: 0, conflict: "✓ Private calendar event. No institutional resources blocked." };
     }
@@ -1379,64 +1379,6 @@ export function EventsInitiatives({ theme = "axis" }: { theme?: string }) {
                 )}
               </AnimatePresence>
 
-              {/* Suggested by Context Engine (Bake Sale suggestion) */}
-              {!events.some(ev => ev.title.toLowerCase().includes("bake sale")) && (
-                <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-5 shadow-[0_0_15px_rgba(6,182,212,0.1)] space-y-3">
-                  <div className="flex items-center gap-1.5 pb-2 border-b border-cyan-500/10">
-                    <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400">Suggested by Context Engine</span>
-                    <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20 uppercase tracking-widest leading-none">Ecosystem suggestion</span>
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-xs font-bold text-white">Recent email mentions a Grade 12 Bake Sale</h4>
-                    <p className="text-[10px] text-white/50">Proposed date: September 18, 2026. Courtyard requested.</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setEvents((prev) => [
-                          ...prev,
-                          {
-                            id: "evt-bakesale",
-                            title: "Grade 12 Bake Sale",
-                            description: "Grade 12 Bake Sale event in the courtyard.",
-                            date: "2026-09-18",
-                            type: "event",
-                            category: "school",
-                            location: "Central Courtyard",
-                            startTime: "10:00",
-                            endTime: "14:00",
-                            audience: "All Students & Staff",
-                            status: "active"
-                          }
-                        ]);
-                        triggerToast("Grade 12 Bake Sale added to Calendar.");
-                      }}
-                      className="px-2.5 py-1.5 rounded bg-cyan-500 text-black text-[9px] font-bold hover:bg-cyan-400 transition-colors uppercase tracking-wider"
-                    >
-                      Create Event
-                    </button>
-                    <button
-                      onClick={() => {
-                        setFormName("Grade 12 Bake Sale");
-                        setFormDesc("Grade 12 Bake Sale event referenced in communication log.");
-                        setFormCategory("school");
-                        setFormType("event");
-                        setFormLocation("Central Courtyard");
-                        setFormDate("2026-09-18");
-                        setFormStartTime("10:00");
-                        setFormEndTime("14:00");
-                        setFormAudience("All Students & Staff");
-                        setShowWizard(true);
-                        setWizardStep(1);
-                      }}
-                      className="px-2.5 py-1.5 rounded bg-white/10 text-white/70 text-[9px] font-bold hover:bg-white/20 transition-colors uppercase tracking-wider"
-                    >
-                      Configure...
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Upcoming Events Overview */}
               <div className={`rounded-2xl border ${styles.cardBg} p-5 shadow-lg`}>
                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/[0.04]">
@@ -1482,6 +1424,63 @@ export function EventsInitiatives({ theme = "axis" }: { theme?: string }) {
                   })}
                 </div>
               </div>
+
+              {/* Suggested by Context Engine (Bake Sale suggestion) */}
+              {!events.some(ev => ev.title.toLowerCase().includes("bake sale")) && (
+                <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-5 shadow-[0_0_15px_rgba(6,182,212,0.1)] space-y-3">
+                  <div className="flex items-center gap-1.5 pb-2 border-b border-cyan-500/10">
+                    <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400">Suggested by Context Engine</span>
+                    <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20 uppercase tracking-widest leading-none">Ecosystem suggestion</span>
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-white">Recent email mentions a Grade 12 Bake Sale</h4>
+                    <p className="text-[10px] text-white/50">Proposed date: September 18, 2026. Courtyard requested.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setFormName("Grade 12 Bake Sale");
+                        setFormDesc("Grade 12 Bake Sale event in the courtyard.");
+                        setFormCategory("school");
+                        setFormType("event");
+                        setFormLocation("Central Courtyard");
+                        setFormDate("2026-09-18");
+                        setFormStartTime("10:00");
+                        setFormEndTime("14:00");
+                        setFormAudience("All Students & Staff");
+                        setFormNotifications(["Add to calendars", "Send announcement"]);
+                        setFormAttachments([]);
+                        setWizardStep(5);
+                        setShowWizard(true);
+                        triggerToast("Reviewing suggested event details.");
+                      }}
+                      className="px-2.5 py-1.5 rounded bg-cyan-500 text-black text-[9px] font-bold hover:bg-cyan-400 transition-colors uppercase tracking-wider"
+                    >
+                      Add to Calendar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFormName("Grade 12 Bake Sale");
+                        setFormDesc("Grade 12 Bake Sale event referenced in communication log.");
+                        setFormCategory("school");
+                        setFormType("event");
+                        setFormLocation("Central Courtyard");
+                        setFormDate("2026-09-18");
+                        setFormStartTime("10:00");
+                        setFormEndTime("14:00");
+                        setFormAudience("All Students & Staff");
+                        setFormNotifications(["Add to calendars", "Send announcement"]);
+                        setFormAttachments([]);
+                        setShowWizard(true);
+                        setWizardStep(1);
+                      }}
+                      className="px-2.5 py-1.5 rounded bg-white/10 text-white/70 text-[9px] font-bold hover:bg-white/20 transition-colors uppercase tracking-wider"
+                    >
+                      Configure...
+                    </button>
+                  </div>
+                </div>
+              )}
 
             </div>
 
@@ -2080,43 +2079,86 @@ export function EventsInitiatives({ theme = "axis" }: { theme?: string }) {
                     <div className={`p-4 rounded-xl border space-y-3.5 ${
                       isLight ? "bg-zinc-50 border-black/5" : "bg-black/30 border-white/5"
                     }`}>
-                      <div>
-                        <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Initiative Profile</span>
-                        <strong className="text-xs text-cyan-400 font-bold">{formName || "Untitled event"}</strong>
-                        <span className={`block text-[10px] mt-0.5 ${isLight ? "text-black/60" : "text-white/50"}`}>
-                          {formatEventDate(formDate)} · {formStartTime} to {formEndTime} ({formType})
-                        </span>
+                      <div className="flex justify-between items-start border-b border-white/[0.04] pb-2.5">
+                        <div className="space-y-0.5">
+                          <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Initiative Profile</span>
+                          <strong className="text-xs text-cyan-400 font-bold">{formName || "Untitled event"}</strong>
+                          <span className={`block text-[9px] opacity-60`}>Type: {formType}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(1)}
+                          className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold font-mono border border-cyan-400/20 px-1.5 py-0.5 rounded bg-cyan-400/5 transition-all"
+                        >
+                          EDIT
+                        </button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 pb-1">
-                        <div>
-                          <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Affected Candidates</span>
-                          <strong className="text-xs">{impactTelemetry.students} students</strong>
+                      <div className="flex justify-between items-start border-b border-white/[0.04] pb-2.5">
+                        <div className="space-y-0.5">
+                          <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Schedule & Location</span>
+                          <strong className="text-xs text-white/90">{formatEventDate(formDate)}</strong>
+                          <span className={`block text-[10px] ${isLight ? "text-black/60" : "text-white/50"}`}>
+                            ⏱ {formStartTime} - {formEndTime} · 📍 {formLocation || "Main Campus"}
+                          </span>
                         </div>
-                        <div>
-                          <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Affected Faculty</span>
-                          <strong className="text-xs">{impactTelemetry.teachers} teachers</strong>
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(2)}
+                          className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold font-mono border border-cyan-400/20 px-1.5 py-0.5 rounded bg-cyan-400/5 transition-all"
+                        >
+                          EDIT
+                        </button>
+                      </div>
+
+                      <div className="flex justify-between items-start border-b border-white/[0.04] pb-2.5">
+                        <div className="grid grid-cols-2 gap-3 flex-1 mr-4">
+                          <div>
+                            <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Affected Candidates</span>
+                            <strong className="text-xs">{impactStats.students} students</strong>
+                            <span className="block text-[9px] text-white/40">{formAudience}</span>
+                          </div>
+                          <div>
+                            <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Affected Faculty</span>
+                            <strong className="text-xs">{impactStats.teachers} teachers</strong>
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(3)}
+                          className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold font-mono border border-cyan-400/20 px-1.5 py-0.5 rounded bg-cyan-400/5 transition-all"
+                        >
+                          EDIT
+                        </button>
+                      </div>
+
+                      <div className="flex justify-between items-start border-b border-white/[0.04] pb-2.5">
+                        <div>
+                          <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Broadcast Summary</span>
+                          <p className={`text-[10px] mt-0.5 leading-snug ${isLight ? "text-black/65" : "text-white/50"}`}>
+                            Alerts via: <strong className="text-cyan-400 font-bold">{formNotifications.join(", ")}</strong>.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(4)}
+                          className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold font-mono border border-cyan-400/20 px-1.5 py-0.5 rounded bg-cyan-400/5 transition-all"
+                        >
+                          EDIT
+                        </button>
                       </div>
 
                       <div>
                         <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Conflicts Audit</span>
-                        {impactTelemetry.conflict ? (
+                        {impactStats.conflict ? (
                           <div className="mt-1 p-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-lg text-[9px]">
-                            {impactTelemetry.conflict}
+                            {impactStats.conflict}
                           </div>
                         ) : (
                           <span className="text-[10px] text-emerald-400 font-bold block mt-0.5">
                             ✓ Occupancy Clearance (Zero conflicts detected).
                           </span>
                         )}
-                      </div>
-
-                      <div>
-                        <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Broadcast Summary</span>
-                        <p className={`text-[10px] mt-0.5 leading-snug ${isLight ? "text-black/65" : "text-white/50"}`}>
-                          Dispatched system-wide calendars and notice alerts via: <strong className="text-cyan-400 font-bold">{formNotifications.join(", ")}</strong>.
-                        </p>
                       </div>
                     </div>
 

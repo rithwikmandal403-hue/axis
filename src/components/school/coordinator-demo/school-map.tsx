@@ -150,7 +150,7 @@ export function SchoolMap() {
       capacity: 6,
       upcomingEvents: ["All-day clinic support"],
       gridPos: "col-span-1 row-span-1 bg-rose-950/20 border-rose-800/30",
-      resources: ["Recovery beds", "Diagnostic screens", "Medical supplies", "Telemetry units"]
+      resources: ["Recovery beds", "Diagnostic screens", "Medical supplies", "Patient monitors"]
     },
     {
       id: "cafeteria",
@@ -386,28 +386,56 @@ export function SchoolMap() {
                     <span className="text-[9px] text-white/40 font-medium block leading-none">{selectedArea.staffRole}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.1, translateY: -1 }}
+                      whileTap={{ scale: 0.9 }}
                       onClick={() => setActiveCall(selectedArea.responsibleStaff)}
-                      className="size-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center hover:bg-cyan-50 hover:text-black text-cyan-400 transition-all cursor-pointer"
+                      className="size-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center hover:bg-cyan-500 hover:text-black hover:border-cyan-500 text-cyan-400 transition-all cursor-pointer"
+                      title="Call Supervisor"
                     >
-                      
-                    </button>
-                    <button
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="size-4"
+                      >
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                      </svg>
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.1, translateY: -1 }}
+                      whileTap={{ scale: 0.9 }}
                       onClick={() => {
                         setActiveSMS(selectedArea.responsibleStaff);
                         setSmsText("");
                       }}
-                      className="size-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center hover:bg-cyan-50 hover:text-black text-cyan-400 transition-all cursor-pointer"
+                      className="size-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center hover:bg-cyan-500 hover:text-black hover:border-cyan-500 text-cyan-400 transition-all cursor-pointer"
+                      title="Message Supervisor"
                     >
-                      
-                    </button>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="size-4"
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </motion.button>
                   </div>
                 </div>
               </div>
             </motion.div>
           ) : (
             <div className="border border-dashed border-white/[0.12] p-8 rounded-3xl h-[460px] flex flex-col justify-center items-center text-center text-xs text-white/30 space-y-2">
-              <span className="text-2xl opacity-40"></span>
+              <span className="text-2xl opacity-40">🏫</span>
               <h4 className="font-bold text-white/60">No Area Selected</h4>
               <p className="max-w-[200px] leading-relaxed mx-auto">Select any IB space in the directory to inspect occupancy, supervisor, and direct action triggers.</p>
             </div>
@@ -428,7 +456,18 @@ export function SchoolMap() {
               <div className="space-y-2">
                 <span className="text-[10px] font-extrabold tracking-widest uppercase text-cyan-400 block font-mono">Secured Hotlink Calling</span>
                 <div className="size-14 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto text-cyan-400 text-xl animate-pulse">
-                  
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-6"
+                  >
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
                 </div>
                 <h4 className="text-sm font-bold mt-3">{activeCall}</h4>
                 <span className="text-[10px] text-white/40 block">Connecting direct audio channel...</span>
@@ -457,7 +496,13 @@ export function SchoolMap() {
                   <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-wider leading-none">Direct Chat</span>
                   <h4 className="text-xs font-bold mt-1.5">Recipient: {activeSMS}</h4>
                 </div>
-                <button onClick={() => setActiveSMS(null)} className="text-white/40 hover:text-white text-xs font-bold"></button>
+                <button
+                  onClick={() => setActiveSMS(null)}
+                  className="text-white/40 hover:text-white hover:bg-white/10 size-6 rounded-lg flex items-center justify-center transition-colors text-xs font-bold font-mono"
+                  title="Close"
+                >
+                  ✕
+                </button>
               </div>
               <div className="space-y-1.5">
                 <textarea

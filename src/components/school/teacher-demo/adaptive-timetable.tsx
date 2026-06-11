@@ -9,7 +9,10 @@ type TimelineEvent = {
   block: number;
   time: string;
   durationMin: number;
-  type: "class" | "sync" | "free" | "break";
+  type: "class" | "sync" | "free" | "break" | "meeting" | "prep" | "homeroom";
+  title?: string;
+  room?: string;
+  students?: number;
   adjustment?: string;
   details?: string;
 };
@@ -20,86 +23,45 @@ type TimelineSchedule = {
 
 const WEEK_SCHEDULE: TimelineSchedule = {
   Monday: [
-    {
-      id: "ev-1",
-      block: 1,
-      time: "08:00  -  08:30",
-      durationMin: 30,
-      type: "class",
-      details: "Homeroom Advisory Roster - Routine morning announcement sync & roster broadcast",
-    },
-    {
-      id: "ev-2",
-      block: 2,
-      time: "08:30  -  09:50",
-      durationMin: 80,
-      type: "class",
-      details: "Block 2 - Academic period",
-    },
-    {
-      id: "ev-3",
-      block: 3,
-      time: "10:05  -  11:20",
-      durationMin: 75,
-      type: "class",
-      details: "Block 3 - Academic period",
-    },
-    {
-      id: "ev-4",
-      block: 4,
-      time: "11:30  -  12:50",
-      durationMin: 80,
-      type: "class",
-      details: "Block 4 - Academic period",
-    },
-    {
-      id: "ev-5",
-      block: 5,
-      time: "12:50  -  13:40",
-      durationMin: 50,
-      type: "break",
-      details: "Lunch Block",
-    },
-    {
-      id: "ev-6",
-      block: 6,
-      time: "13:40  -  15:00",
-      durationMin: 80,
-      type: "class",
-      details: "Block 6 - Academic period",
-    },
+    { id: "ev-1", block: 1, time: "08:00  -  09:20", durationMin: 80, type: "class", title: "DP2 Physics HL", room: "Room B204", students: 24, details: "Core IB Physics Curriculum. Focus on Quantum Phenomena." },
+    { id: "ev-2", block: 2, time: "09:30  -  10:50", durationMin: 80, type: "free", title: "Free Block", details: "No scheduled class. Available for grading." },
+    { id: "ev-3", block: 3, time: "11:00  -  12:20", durationMin: 80, type: "class", title: "DP1 Physics HL", room: "Science Lab 2", students: 18, details: "Introduction to Kinematics. Lab equipment required." },
+    { id: "ev-break", block: 4, time: "12:20  -  13:10", durationMin: 50, type: "break", title: "Lunch Break", details: "Staff lunch." },
+    { id: "ev-4", block: 5, time: "13:10  -  14:30", durationMin: 80, type: "meeting", title: "Department Planning", room: "Science Office", details: "Weekly physics department synchronization." },
+    { id: "ev-5", block: 6, time: "14:40  -  16:00", durationMin: 80, type: "class", title: "DP2 Physics HL", room: "Room B204", students: 24, details: "Problem solving session." },
+    { id: "ev-6", block: 7, time: "16:10  -  17:00", durationMin: 50, type: "free", title: "Preparation Period", details: "Lesson prep for tomorrow." },
   ],
   Tuesday: [
-    { id: "ev-7", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
-    { id: "ev-8", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
-    { id: "ev-9", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
-    { id: "ev-10", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
-    { id: "ev-11", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
-    { id: "ev-12", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
+    { id: "ev-t1", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "homeroom", title: "Homeroom Advisory", room: "Room B204", students: 22, details: "Morning check-in." },
+    { id: "ev-t2", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", title: "DP1 Physics HL", room: "Science Lab 2", students: 18, details: "Kinematics." },
+    { id: "ev-t3", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "free", title: "Free Block", details: "Planning time." },
+    { id: "ev-t4", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", title: "MYP Physics", room: "Room B204", students: 26, details: "Energy and work." },
+    { id: "ev-t5", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", title: "Lunch Break", details: "Lunch." },
+    { id: "ev-t6", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "meeting", title: "Grade Level Meeting", room: "Staff Room", details: "Student welfare discussion." },
   ],
   Wednesday: [
-    { id: "ev-13", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
-    { id: "ev-14", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
-    { id: "ev-15", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
-    { id: "ev-16", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
-    { id: "ev-17", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
-    { id: "ev-18", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
+    { id: "ev-w1", block: 1, time: "08:00  -  09:20", durationMin: 80, type: "prep", title: "Preparation Period", details: "Lab setup for chemistry." },
+    { id: "ev-w2", block: 2, time: "09:30  -  10:50", durationMin: 80, type: "class", title: "DP2 Physics HL", room: "Room B204", students: 24, details: "Practical investigations." },
+    { id: "ev-w3", block: 3, time: "11:00  -  12:20", durationMin: 80, type: "class", title: "DP1 Chemistry SL", room: "Science Lab 1", students: 20, details: "Stoichiometry." },
+    { id: "ev-w4", block: 4, time: "12:20  -  13:10", durationMin: 50, type: "break", title: "Lunch Break", details: "Lunch." },
+    { id: "ev-w5", block: 5, time: "13:10  -  14:30", durationMin: 80, type: "free", title: "Free Block", details: "Marking." },
+    { id: "ev-w6", block: 6, time: "14:40  -  16:00", durationMin: 80, type: "class", title: "MYP Physics", room: "Room B204", students: 26, details: "Thermal physics." },
   ],
   Thursday: [
-    { id: "ev-19", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
-    { id: "ev-20", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
-    { id: "ev-21", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
-    { id: "ev-22", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
-    { id: "ev-23", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
-    { id: "ev-24", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
+    { id: "ev-th1", block: 1, time: "08:00  -  09:20", durationMin: 80, type: "class", title: "DP1 Physics HL", room: "Science Lab 2", students: 18, details: "Momentum." },
+    { id: "ev-th2", block: 2, time: "09:30  -  10:50", durationMin: 80, type: "class", title: "MYP Physics", room: "Room B204", students: 26, details: "Thermal physics." },
+    { id: "ev-th3", block: 3, time: "11:00  -  12:20", durationMin: 80, type: "free", title: "Free Block", details: "Admin." },
+    { id: "ev-th4", block: 4, time: "12:20  -  13:10", durationMin: 50, type: "break", title: "Lunch Break", details: "Lunch." },
+    { id: "ev-th5", block: 5, time: "13:10  -  14:30", durationMin: 80, type: "meeting", title: "Subject Leads Alignment", room: "Conference Room A", details: "Curriculum mapping." },
+    { id: "ev-th6", block: 6, time: "14:40  -  16:00", durationMin: 80, type: "class", title: "DP2 Physics HL", room: "Room B204", students: 24, details: "Review session." },
   ],
   Friday: [
-    { id: "ev-25", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "class", details: "Homeroom Advisory Roster" },
-    { id: "ev-26", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", details: "Block 2 - Academic period" },
-    { id: "ev-27", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "class", details: "Block 3 - Academic period" },
-    { id: "ev-28", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", details: "Block 4 - Academic period" },
-    { id: "ev-29", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", details: "Lunch Block" },
-    { id: "ev-30", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "class", details: "Block 6 - Academic period" },
+    { id: "ev-f1", block: 1, time: "08:00  -  08:30", durationMin: 30, type: "homeroom", title: "Homeroom Advisory", room: "Room B204", students: 22, details: "Weekly wrap-up." },
+    { id: "ev-f2", block: 2, time: "08:30  -  09:50", durationMin: 80, type: "class", title: "DP1 Chemistry SL", room: "Science Lab 1", students: 20, details: "Lab reports." },
+    { id: "ev-f3", block: 3, time: "10:05  -  11:20", durationMin: 75, type: "prep", title: "Preparation Period", details: "Next week planning." },
+    { id: "ev-f4", block: 4, time: "11:30  -  12:50", durationMin: 80, type: "class", title: "MYP Physics", room: "Room B204", students: 26, details: "Assessment." },
+    { id: "ev-f5", block: 5, time: "12:50  -  13:40", durationMin: 50, type: "break", title: "Lunch Break", details: "Lunch." },
+    { id: "ev-f6", block: 6, time: "13:40  -  15:00", durationMin: 80, type: "free", title: "Free Block", details: "Early finish." },
   ],
 };
 
@@ -180,7 +142,21 @@ export function AdaptiveTimetable({
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[9px] font-medium text-emerald-400">Universal Time Blocks</span>
             </div>
-            <h3 className="text-xl font-medium tracking-tight text-white mt-1">School Timetable</h3>
+            <h3 className="text-xl font-medium tracking-tight text-white mt-1">Your Timetable</h3>
+            <div className="mt-3 flex items-center gap-4 text-xs font-medium text-white/40">
+              <span className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-cyan-500/50" />
+                Classes Today: {WEEK_SCHEDULE[selectedDay]?.filter(e => e.type === "class").length || 0}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-zinc-500/50" />
+                Free Blocks: {WEEK_SCHEDULE[selectedDay]?.filter(e => e.type === "free" || e.type === "prep").length || 0}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-purple-500/50" />
+                Meetings: {WEEK_SCHEDULE[selectedDay]?.filter(e => e.type === "meeting").length || 0}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -341,12 +317,22 @@ export function AdaptiveTimetable({
                               {getBlockLabel(item.block)}
                             </span>
                             <h4 className="text-sm font-semibold tracking-tight text-white/90">
-                              {item.type === "break" ? "Break" : "Academic Period"}
+                              {item.title || (item.type === "break" ? "Break" : "Academic Period")}
                             </h4>
                           </div>
 
+                          {/* Sub-info for classes */}
+                          {item.students && (
+                            <div className="flex items-center gap-3 text-xs text-white/40 font-medium">
+                              <span>{item.students} Students</span>
+                            </div>
+                          )}
+
                           {/* Middle Info & Indicators */}
                           <div className="flex flex-wrap items-center gap-3">
+                            <span className="text-[9px] font-semibold uppercase tracking-widest text-white/30 border border-white/10 bg-white/[0.02] px-1.5 py-0.5 rounded">
+                              {item.type === "class" ? "Teaching" : item.type === "free" ? "Free" : item.type === "meeting" ? "Meeting" : item.type === "prep" ? "Planning" : item.type === "homeroom" ? "Homeroom" : "Break"}
+                            </span>
                             {item.adjustment && (
                               <span className="rounded bg-amber-500/[0.06] border border-amber-500/20 px-2 py-0.5 text-[8px] font-semibold text-amber-400">
                                 {item.adjustment}
@@ -378,14 +364,16 @@ export function AdaptiveTimetable({
                           )}
                         </div>
 
-                        {/* Right Block (Block Number) */}
+                        {/* Right Block (Venue / Location) */}
                         <div className="w-full md:w-44 shrink-0 border-t md:border-t-0 md:border-l border-white/[0.05] bg-white/[0.005] p-5 flex flex-col justify-center items-start md:items-end">
                           <span className="text-[9px] text-white/30 uppercase font-bold tracking-wider mb-1">
-                            Block
+                            Location
                           </span>
-                          <span className="text-3xl font-bold text-white/95">{item.block}</span>
-                          <span className="text-[10px] text-white/40 mt-1 leading-none">
-                            {item.type === "break" ? "Lunch" : "Class"}
+                          <span className="text-xl font-bold text-white/95 text-right leading-tight truncate w-full md:text-right">
+                            {item.room || "Flexible"}
+                          </span>
+                          <span className="text-[10px] text-white/40 mt-1 leading-none text-right">
+                            {item.type === "class" ? "Classroom" : item.type === "free" ? "Free Space" : item.type === "break" ? "Break Area" : item.type === "meeting" ? "Meeting Room" : item.type === "prep" ? "Prep Area" : "Homeroom"}
                           </span>
                         </div>
 

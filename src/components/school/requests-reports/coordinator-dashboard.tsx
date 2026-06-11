@@ -13,6 +13,29 @@ interface CoordinatorDashboardProps {
 
 const INITIAL_REQUESTS: Request[] = [
   {
+    id: "req-0",
+    type: "technology_issue",
+    category: "Technology Issue",
+    reporter: {
+      id: "tch-3",
+      name: "Ananya Rao",
+      role: "teacher",
+      email: "ananya.rao@school.edu"
+    },
+    location: {
+      type: "room",
+      name: "Room S305",
+      id: "s305"
+    },
+    description: "The ceiling-mounted projector in classroom S305 has a broken display port and needs immediate repair. Cannot run lecture slides for DP Chemistry classes.",
+    dateSubmitted: "2026-06-10T09:30:00Z",
+    priority: "high",
+    status: "pending",
+    context: {
+      operationalImpact: "DP Chemistry classes are currently unable to show slide presentations."
+    }
+  },
+  {
     id: "req-1",
     type: "facility_issue",
     category: "Facilities Issue",
@@ -204,13 +227,21 @@ export function CoordinatorDashboard({ theme = "dark" }: CoordinatorDashboardPro
   const [replyAttachedFile, setReplyAttachedFile] = useState<string | null>(null);
   const [isReplyPickerOpen, setIsReplyPickerOpen] = useState(false);
 
-  // Quick Resolve States
+  // Drag and drop states
+  const [dragOverRequestId, setDragOverRequestId] = useState<string | null>(null);
+  const [isDragOverReplyModal, setIsDragOverReplyModal] = useState(false);
+
+  // Quick Resolve & Custom Actions States
   const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
   const [resolutionNote, setResolutionNote] = useState("");
+  const [activeAction, setActiveAction] = useState<"decline_leave" | "inquire_leave" | "will_fix" | "consider_suggestion" | null>(null);
+  const [actionText, setActionText] = useState("");
 
   useEffect(() => {
     setResolvingRequestId(null);
     setResolutionNote("");
+    setActiveAction(null);
+    setActionText("");
   }, [selectedRequest]);
 
   const [newRequestText, setNewRequestText] = useState("");
@@ -498,8 +529,41 @@ export function CoordinatorDashboard({ theme = "dark" }: CoordinatorDashboardPro
     return "INFORMATION_SUPPORT";
   };
 
+  const getRequestSubtype = (request: Request): "LEAVE" | "ISSUE" | "SUGGESTION" | "GENERAL" => {
+    const categoryLower = request.category?.toLowerCase() || "";
+    const typeLower = request.type?.toLowerCase() || "";
+    const descLower = request.description?.toLowerCase() || "";
+
+    if (categoryLower.includes("leave") || descLower.includes("leave of absence")) {
+      return "LEAVE";
+    }
+
+    if (
+      categoryLower.includes("facilities") ||
+      categoryLower.includes("maintenance") ||
+      categoryLower.includes("projector") ||
+      typeLower.includes("facility_issue") ||
+      typeLower.includes("technology_issue") ||
+      typeLower.includes("equipment_issue") ||
+      typeLower.includes("maintenance_request")
+    ) {
+      return "ISSUE";
+    }
+
+    if (
+      typeLower.includes("suggestion") ||
+      typeLower.includes("feedback") ||
+      categoryLower.includes("suggestion") ||
+      categoryLower.includes("feedback")
+    ) {
+      return "SUGGESTION";
+    }
+
+    return "GENERAL";
+  };
+
   const isIssueRequest = (request: Request) => {
-    return getCategoryGroup(request) === "ISSUE";
+    return getRequestSubtype(request) === "ISSUE";
   };
 
   return (
@@ -551,17 +615,51 @@ export function CoordinatorDashboard({ theme = "dark" }: CoordinatorDashboardPro
                 <span className="text-xs">No records correspond to the selected operational category.</span>
               </div>
             ) : (
-              filteredRequests.map((request) => (
+               filteredRequests.map((request) => (
                 <motion.div
                   key={request.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                  className={`p-4 rounded-xl border transition-all cursor-pointer axis-drop-target ${
                     selectedRequest?.id === request.id
                       ? "bg-white/[0.03] border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.05)]"
                       : "bg-white/[0.01] border-white/[0.04] hover:bg-white/[0.02]"
+                  } ${
+                    dragOverRequestId === request.id
+                      ? "ring-2 ring-cyan-400 border-cyan-400/50 bg-cyan-950/20 scale-[1.01]"
+                      : ""
                   }`}
                   onClick={() => setSelectedRequest(request)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOverRequestId(request.id);
+                  }}
+                  onDragLeave={() => {
+                    setDragOverRequestId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverRequestId(null);
+                    try {
+                      const data = e.dataTransfer.getData("application/json");
+                      if (data) {
+                        const item = JSON.parse(data);
+                        if (item && item.title) {
+                          setSelectedRequest(request);
+                          setReplyAttachedFile(item.title);
+                          if (item.content) {
+                            setReplyMessage((prev) => 
+                              prev ? `${prev}\n\n[Note Content: ${item.content}]` : `[Note Content: ${item.content}]`
+                            );
+                          }
+                          setShowReplyModal(true);
+                          triggerToast(`Selected request & attached "${item.title}" to reply.`);
+                        }
+                      }
+                    } catch (err) {
+                      console.error("Failed to drop item on request card", err);
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
@@ -855,75 +953,118 @@ export function CoordinatorDashboard({ theme = "dark" }: CoordinatorDashboardPro
                         );
                       }
 
-                      if (categoryGroup === "ISSUE") {
-                        if (selectedRequest.status === "pending" || selectedRequest.status === "new" || selectedRequest.status === "in_progress") {
-                          return (
-                            <div className="space-y-2.5">
-                              <button
-                                onClick={() => setResolvingRequestId(selectedRequest.id)}
-                                className="w-full py-2.5 rounded-lg bg-cyan-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-cyan-400 transition-all shadow-[0_4px_12px_rgba(6,182,212,0.15)]"
-                              >
-                                Resolve Issue
-                              </button>
-                              <div className="grid grid-cols-3 gap-2">
-                                {renderAssignButton()}
-                                {renderReplyButton()}
-                                {renderEscalateButton()}
-                              </div>
-                            </div>
-                          );
-                        } else if (selectedRequest.status === "resolved") {
-                          return (
-                            <div className="space-y-2.5">
-                              {renderArchiveButton()}
-                              {renderReplyButton(true)}
-                            </div>
-                          );
-                        }
-                      }
+                      const subtype = getRequestSubtype(selectedRequest);
 
-                      if (categoryGroup === "REQUEST") {
+                      if (subtype === "LEAVE") {
                         if (selectedRequest.status === "pending" || selectedRequest.status === "new") {
                           return (
-                            <div className="space-y-2.5">
-                              <div className="grid grid-cols-2 gap-2">
-                                <button
-                                  onClick={() => {
-                                    handleStatusChange(selectedRequest.id, "approved", "Approved by Coordinator Ms. Sarah Thompson.");
-                                  }}
-                                  className="px-2.5 py-2.5 rounded-lg bg-emerald-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-emerald-400 transition-all"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const reason = prompt("Enter rejection reason:");
-                                    if (reason !== null) {
-                                      handleStatusChange(selectedRequest.id, "rejected", `Rejected by Coordinator Ms. Thompson. Reason: ${reason || "Not specified."}`);
-                                    }
-                                  }}
-                                  className="px-2.5 py-2.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-extrabold uppercase hover:bg-red-500/30 transition-all"
-                                >
-                                  Reject
-                                </button>
-                              </div>
-                              
-                              <button
-                                onClick={() => {
-                                  const msg = prompt("Enter clarification request message:");
-                                  if (msg) {
-                                    handleStatusChange(selectedRequest.id, "pending", `Coordinator Sarah Thompson requested clarification: "${msg}"`);
-                                  }
-                                }}
-                                className="w-full px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold uppercase hover:bg-amber-500/20 transition-all"
-                              >
-                                Request Information
-                              </button>
-
-                              <div className="flex gap-2">
-                                {renderAssignButton()}
-                                {renderReplyButton()}
-                              </div>
+                            <div className="space-y-3">
+                              {activeAction === null ? (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      onClick={() => handleStatusChange(selectedRequest.id, "approved", "Leave request approved by Coordinator Ms. Sarah Thompson.")}
+                                      className="py-2.5 rounded-lg bg-emerald-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-emerald-400 transition-all shadow-[0_4px_12px_rgba(16,185,129,0.15)]"
+                                    >
+                                      Approve Leave
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setActiveAction("decline_leave");
+                                        setActionText("");
+                                      }}
+                                      className="py-2.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-extrabold uppercase hover:bg-rose-500/30 transition-all"
+                                    >
+                                      Decline Leave
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setActiveAction("inquire_leave");
+                                      setActionText("");
+                                    }}
+                                    className="w-full py-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-extrabold uppercase hover:bg-cyan-500/20 transition-all"
+                                  >
+                                    Inquire & Ask Details
+                                  </button>
+                                  <div className="grid grid-cols-2 gap-2 mt-1">
+                                    {renderAssignButton()}
+                                    {renderReplyButton()}
+                                  </div>
+                                </div>
+                              ) : activeAction === "decline_leave" ? (
+                                <div className="p-3 bg-rose-950/20 border border-rose-500/20 rounded-xl space-y-2.5">
+                                  <span className="text-[10px] text-rose-400 font-extrabold uppercase tracking-wide block">Decline Leave Request</span>
+                                  <textarea
+                                    value={actionText}
+                                    onChange={(e) => setActionText(e.target.value)}
+                                    placeholder="Specify reason for decline (e.g. scheduling conflicts, exams)..."
+                                    className="w-full h-16 bg-[#09090b] border border-white/10 rounded-lg p-2 text-[11px] text-white/95 placeholder:text-white/30 focus:outline-none focus:border-rose-500/50 resize-none font-medium"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const finalReason = actionText.trim() ? actionText.trim() : "Declined due to scheduling policy.";
+                                        handleStatusChange(selectedRequest.id, "rejected", `Decline note from Ms. Thompson: "${finalReason}"`);
+                                        setActiveAction(null);
+                                      }}
+                                      className="flex-grow py-2 rounded-lg bg-rose-600 text-white text-[10px] font-extrabold uppercase hover:bg-rose-500 transition-all"
+                                    >
+                                      Confirm Decline
+                                    </button>
+                                    <button
+                                      onClick={() => setActiveAction(null)}
+                                      className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 text-[10px] font-bold uppercase transition-all"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : activeAction === "inquire_leave" ? (
+                                <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl space-y-2.5">
+                                  <span className="text-[10px] text-cyan-400 font-extrabold uppercase tracking-wide block">Inquire & Ask Details</span>
+                                  <textarea
+                                    value={actionText}
+                                    onChange={(e) => setActionText(e.target.value)}
+                                    placeholder="Ask about details (why and when, scheduling issues)..."
+                                    className="w-full h-16 bg-[#09090b] border border-white/10 rounded-lg p-2 text-[11px] text-white/95 placeholder:text-white/30 focus:outline-none focus:border-cyan-500/50 resize-none font-medium"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const finalMsg = actionText.trim() ? actionText.trim() : "Please provide more details on the exact dates and cover required.";
+                                        const newReply = {
+                                          id: `reply-inquiry-${Date.now()}`,
+                                          author: { id: "coord-1", name: "Ms. Sarah Thompson", role: "coordinator" as UserRole },
+                                          timestamp: new Date().toISOString(),
+                                          message: `Information Request: "${finalMsg}"`
+                                        };
+                                        const updated = requests.map(r => {
+                                          if (r.id === selectedRequest.id) {
+                                            const updatedReq = { ...r, replies: [...(r.replies || []), newReply] };
+                                            setSelectedRequest(updatedReq);
+                                            return updatedReq;
+                                          }
+                                          return r;
+                                        });
+                                        setRequests(updated);
+                                        window.sessionStorage.setItem("axis-requests", JSON.stringify(updated));
+                                        triggerToast("Clarification request sent.");
+                                        setActiveAction(null);
+                                      }}
+                                      className="flex-grow py-2 rounded-lg bg-cyan-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-cyan-400 transition-all"
+                                    >
+                                      Send Inquiry
+                                    </button>
+                                    <button
+                                      onClick={() => setActiveAction(null)}
+                                      className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 text-[10px] font-bold uppercase transition-all"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           );
                         } else if (selectedRequest.status === "approved" || selectedRequest.status === "rejected") {
@@ -936,24 +1077,189 @@ export function CoordinatorDashboard({ theme = "dark" }: CoordinatorDashboardPro
                         }
                       }
 
-                      if (categoryGroup === "INFORMATION_SUPPORT") {
+                      if (subtype === "ISSUE") {
                         if (selectedRequest.status === "pending" || selectedRequest.status === "new" || selectedRequest.status === "in_progress") {
                           return (
-                            <div className="space-y-2.5">
-                              <button
-                                onClick={() => setResolvingRequestId(selectedRequest.id)}
-                                className="w-full py-2.5 rounded-lg bg-cyan-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-cyan-400 transition-all shadow-[0_4px_12px_rgba(6,182,212,0.15)]"
-                              >
-                                Close Conversation
-                              </button>
-                              <div className="grid grid-cols-3 gap-2">
-                                {renderReplyButton()}
-                                {renderAssignButton()}
-                                {renderEscalateButton()}
-                              </div>
+                            <div className="space-y-3">
+                              {activeAction === null ? (
+                                <div className="space-y-2">
+                                  <button
+                                    onClick={() => {
+                                      setActiveAction("will_fix");
+                                      setActionText("");
+                                    }}
+                                    className="w-full py-2.5 rounded-lg bg-cyan-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-cyan-400 transition-all shadow-[0_4px_12px_rgba(6,182,212,0.15)]"
+                                  >
+                                    Mark &quot;Will Be Fixed&quot;
+                                  </button>
+                                  <button
+                                    onClick={() => setResolvingRequestId(selectedRequest.id)}
+                                    className="w-full py-2 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold uppercase hover:bg-emerald-500/30 transition-all"
+                                  >
+                                    Resolve Issue
+                                  </button>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {renderAssignButton()}
+                                    {renderReplyButton()}
+                                    {renderEscalateButton()}
+                                  </div>
+                                </div>
+                              ) : activeAction === "will_fix" ? (
+                                <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl space-y-2.5">
+                                  <span className="text-[10px] text-cyan-400 font-extrabold uppercase tracking-wide block">Mark &quot;Will Be Fixed&quot; &amp; Contact Staff</span>
+                                  <textarea
+                                    value={actionText}
+                                    onChange={(e) => setActionText(e.target.value)}
+                                    placeholder="Add notes for the reporter (e.g. facilities technician has been contacted)..."
+                                    className="w-full h-16 bg-[#09090b] border border-white/10 rounded-lg p-2 text-[11px] text-white/95 placeholder:text-white/30 focus:outline-none focus:border-cyan-500/50 resize-none font-medium"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const noteStr = actionText.trim() ? ` Notes: "${actionText.trim()}"` : "";
+                                        const finalMsg = `This issue will be fixed. The right department/staff has been contacted.${noteStr}`;
+                                        handleStatusChange(selectedRequest.id, "in_progress", finalMsg);
+                                        setActiveAction(null);
+                                      }}
+                                      className="flex-grow py-2 rounded-lg bg-cyan-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-cyan-400 transition-all"
+                                    >
+                                      Confirm action
+                                    </button>
+                                    <button
+                                      onClick={() => setActiveAction(null)}
+                                      className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 text-[10px] font-bold uppercase transition-all"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           );
                         } else if (selectedRequest.status === "resolved") {
+                          return (
+                            <div className="space-y-2.5">
+                              {renderArchiveButton()}
+                              {renderReplyButton(true)}
+                            </div>
+                          );
+                        }
+                      }
+
+                      if (subtype === "SUGGESTION") {
+                        if (selectedRequest.status === "pending" || selectedRequest.status === "new" || selectedRequest.status === "in_progress") {
+                          return (
+                            <div className="space-y-3">
+                              {activeAction === null ? (
+                                <div className="space-y-2">
+                                  <button
+                                    onClick={() => {
+                                      setActiveAction("consider_suggestion");
+                                      setActionText("");
+                                    }}
+                                    className="w-full py-2.5 rounded-lg bg-cyan-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-cyan-400 transition-all shadow-[0_4px_12px_rgba(6,182,212,0.15)]"
+                                  >
+                                    Mark &quot;Taken into Consideration&quot;
+                                  </button>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const reason = prompt("Enter decline reason:");
+                                        if (reason !== null) {
+                                          handleStatusChange(selectedRequest.id, "rejected", `Declined suggestion. Reason: ${reason || "Not specified."}`);
+                                        }
+                                      }}
+                                      className="py-1.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[9px] font-bold uppercase hover:bg-rose-500/25 transition-all text-center"
+                                    >
+                                      Decline
+                                    </button>
+                                    {renderAssignButton()}
+                                    {renderReplyButton()}
+                                  </div>
+                                </div>
+                              ) : activeAction === "consider_suggestion" ? (
+                                <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl space-y-2.5">
+                                  <span className="text-[10px] text-cyan-400 font-extrabold uppercase tracking-wide block">Mark &quot;Taken into Consideration&quot;</span>
+                                  <textarea
+                                    value={actionText}
+                                    onChange={(e) => setActionText(e.target.value)}
+                                    placeholder="Add feedback for the suggestion (e.g. taken into account for future scheduling adjustments)..."
+                                    className="w-full h-16 bg-[#09090b] border border-white/10 rounded-lg p-2 text-[11px] text-white/95 placeholder:text-white/30 focus:outline-none focus:border-cyan-500/50 resize-none font-medium"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const noteStr = actionText.trim() ? ` Details: "${actionText.trim()}"` : "";
+                                        const finalMsg = `This suggestion has been taken into consideration.${noteStr}`;
+                                        handleStatusChange(selectedRequest.id, "resolved", finalMsg);
+                                        setActiveAction(null);
+                                      }}
+                                      className="flex-grow py-2 rounded-lg bg-cyan-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-cyan-400 transition-all"
+                                    >
+                                      Confirm Action
+                                    </button>
+                                    <button
+                                      onClick={() => setActiveAction(null)}
+                                      className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 text-[10px] font-bold uppercase transition-all"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        } else if (selectedRequest.status === "resolved" || selectedRequest.status === "approved" || selectedRequest.status === "rejected") {
+                          return (
+                            <div className="space-y-2.5">
+                              {renderArchiveButton()}
+                              {renderReplyButton(true)}
+                            </div>
+                          );
+                        }
+                      }
+
+                      if (subtype === "GENERAL") {
+                        if (selectedRequest.status === "pending" || selectedRequest.status === "new" || selectedRequest.status === "in_progress") {
+                          return (
+                            <div className="space-y-2.5">
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => handleStatusChange(selectedRequest.id, "approved", "Approved by Coordinator Ms. Sarah Thompson.")}
+                                  className="px-2.5 py-2.5 rounded-lg bg-emerald-500 text-zinc-950 text-[10px] font-extrabold uppercase hover:bg-emerald-400 transition-all"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const reason = prompt("Enter rejection reason:");
+                                    if (reason !== null) {
+                                      handleStatusChange(selectedRequest.id, "rejected", `Rejected. Reason: ${reason || "Not specified."}`);
+                                    }
+                                  }}
+                                  className="px-2.5 py-2.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-extrabold uppercase hover:bg-red-500/30 transition-all"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const msg = prompt("Enter details/clarification request message:");
+                                  if (msg) {
+                                    handleStatusChange(selectedRequest.id, "pending", `Coordinator requested clarification: "${msg}"`);
+                                  }
+                                }}
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold uppercase hover:bg-amber-500/20 transition-all"
+                              >
+                                Request Information
+                              </button>
+                              <div className="flex gap-2">
+                                {renderAssignButton()}
+                                {renderReplyButton()}
+                              </div>
+                            </div>
+                          );
+                        } else if (selectedRequest.status === "approved" || selectedRequest.status === "rejected" || selectedRequest.status === "resolved") {
                           return (
                             <div className="space-y-2.5">
                               {renderArchiveButton()}
@@ -1191,7 +1497,37 @@ export function CoordinatorDashboard({ theme = "dark" }: CoordinatorDashboardPro
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 10 }}
-              className="relative w-full max-w-md border p-6 rounded-2xl shadow-2xl z-10 text-white bg-[#0E0E10] border-white/10 space-y-4"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOverReplyModal(true);
+              }}
+              onDragLeave={() => {
+                setIsDragOverReplyModal(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragOverReplyModal(false);
+                try {
+                  const data = e.dataTransfer.getData("application/json");
+                  if (data) {
+                    const item = JSON.parse(data);
+                    if (item && item.title) {
+                      setReplyAttachedFile(item.title);
+                      if (item.content) {
+                        setReplyMessage((prev) => 
+                          prev ? `${prev}\n\n[Note Content: ${item.content}]` : `[Note Content: ${item.content}]`
+                        );
+                      }
+                      triggerToast(`Attached "${item.title}" to reply.`);
+                    }
+                  }
+                } catch (err) {
+                  console.error("Failed to drop item in reply modal", err);
+                }
+              }}
+              className={`relative w-full max-w-md border p-6 rounded-2xl shadow-2xl z-10 text-white bg-[#0E0E10] border-white/10 space-y-4 axis-drop-target transition-all duration-200 ${
+                isDragOverReplyModal ? "ring-2 ring-cyan-400 border-cyan-400/50 bg-cyan-950/10 scale-[1.01]" : ""
+              }`}
             >
               <div className="flex items-center justify-between border-b pb-3 border-white/10">
                 <div>
@@ -1264,6 +1600,7 @@ export function CoordinatorDashboard({ theme = "dark" }: CoordinatorDashboardPro
         onClose={() => setIsReplyPickerOpen(false)}
         onSelect={(doc) => setReplyAttachedFile(doc.title)}
         theme={theme as Theme}
+        contextText={selectedRequest ? `${selectedRequest.description} ${replyMessage}` : replyMessage}
       />
 
       {/* Floating Toast */}

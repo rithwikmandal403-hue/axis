@@ -564,11 +564,22 @@ export function ConnectedResourcesWorkspace({ theme }: { theme: Theme }) {
 }
 
 // ─── REUSABLE RESOURCE PICKER MODAL FOR ATTACHMENTS ───────────────────────
+import { 
+  getSessionFiles, 
+  saveSessionFiles, 
+  getSessionFolders, 
+  FileTypeIcon,
+  type PersonalFile,
+  type PersonalFolder 
+} from "../personal-database";
+
+// ─── REUSABLE RESOURCE PICKER MODAL FOR ATTACHMENTS ───────────────────────
 type ResourcePickerModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (doc: ResourceDoc) => void;
+  onSelect: (doc: { id: string; title: string; type: string; size: string; category: string }) => void;
   theme?: Theme;
+  contextText?: string;
 };
 
 export function ResourcePickerModal({
@@ -576,13 +587,102 @@ export function ResourcePickerModal({
   onClose,
   onSelect,
   theme = "dark",
+  contextText = "",
 }: ResourcePickerModalProps) {
-  getAxisTheme(theme);
+  const styles = getAxisTheme(theme);
+  const isLight = theme === "light";
+
+  // Tab State: "suggested" | "institutional" | "personal" | "upload"
+  const [activeTab, setActiveTab] = useState<"suggested" | "institutional" | "personal" | "upload">("suggested");
+  
+  // Search & Navigation States
   const [search, setSearch] = useState("");
   const [activeFolder, setActiveFolder] = useState<string>("all");
-  const [resources] = useState<ResourceDoc[]>(() => getSessionResources());
+  const [personalFolderId, setPersonalFolderId] = useState<string | undefined>(undefined);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const docs = useMemo(() => {
+  // Data States
+  const [resources] = useState<ResourceDoc[]>(() => getSessionResources());
+  const [personalFiles, setPersonalFiles] = useState<PersonalFile[]>(() => getSessionFiles());
+  const [personalFolders] = useState<PersonalFolder[]>(() => getSessionFolders());
+
+  // Upload Simulation States
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadType, setUploadType] = useState<PersonalFile["type"]>("pdf");
+  const [uploadSize, setUploadSize] = useState("180 KB");
+  const [uploadFolderId, setUploadFolderId] = useState<string>("");
+
+  // Update files list when session storage changes
+  useEffect(() => {
+    if (isOpen) {
+      setPersonalFiles(getSessionFiles());
+    }
+  }, [isOpen]);
+
+  // Context Engine suggested files logic
+  const suggestedFiles = useMemo(() => {
+    const text = (contextText || "").toLowerCase();
+    const suggestions: (ResourceDoc | PersonalFile)[] = [];
+
+    if (text.includes("handbook") || text.includes("dp handbook") || text.includes("student handbook")) {
+      const match1 = resources.find(r => r.title.toLowerCase().includes("handbook"));
+      if (match1) suggestions.push(match1);
+      const match2 = resources.find(r => r.title.toLowerCase().includes("honesty"));
+      if (match2) suggestions.push(match2);
+      const match3 = resources.find(r => r.title.toLowerCase().includes("assessment policy"));
+      if (match3) suggestions.push(match3);
+    } 
+    
+    if (text.includes("moderation") || text.includes("notes") || text.includes("meeting notes")) {
+      const p1 = personalFiles.find(f => f.title.toLowerCase().includes("moderation notes - april"));
+      if (p1) suggestions.push(p1);
+      const p2 = personalFiles.find(f => f.title.toLowerCase().includes("moderation notes - may"));
+      if (p2) suggestions.push(p2);
+      const p3 = personalFiles.find(f => f.title.toLowerCase().includes("department review"));
+      if (p3) suggestions.push(p3);
+    }
+    
+    if (text.includes("assessment policy") || text.includes("assessment")) {
+      const p1 = personalFiles.find(f => f.title.toLowerCase().includes("dp assessment policy"));
+      if (p1) suggestions.push(p1);
+      const p2 = personalFiles.find(f => f.title.toLowerCase().includes("assessment handbook"));
+      if (p2) suggestions.push(p2);
+      const r1 = resources.find(r => r.title.toLowerCase().includes("assessment policy"));
+      if (r1) suggestions.push(r1);
+    }
+
+    // Default suggestions if none match the conversation keywords
+    if (suggestions.length === 0) {
+      const match1 = resources.find(r => r.title.toLowerCase().includes("honesty"));
+      if (match1) suggestions.push(match1);
+      const match2 = resources.find(r => r.title.toLowerCase().includes("guide"));
+      if (match2) suggestions.push(match2);
+      const p1 = personalFiles.find(f => f.title.toLowerCase().includes("tok"));
+      if (p1) suggestions.push(p1);
+    }
+
+    // De-duplicate suggestions by title
+    const unique: (ResourceDoc | PersonalFile)[] = [];
+    const seen = new Set<string>();
+    for (const item of suggestions) {
+      if (!seen.has(item.title)) {
+        seen.add(item.title);
+        unique.push(item);
+      }
+    }
+    return unique;
+  }, [contextText, resources, personalFiles]);
+
+  const getRecommendationReason = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes("handbook")) return "Matches 'handbook' reference in dialogue";
+    if (t.includes("moderation")) return "Matches 'moderation notes' topic";
+    if (t.includes("assessment")) return "Matches 'assessment policy' request";
+    return "AI Suggested Reference";
+  };
+
+  // Filter Connected Resources docs
+  const filteredInstitutionalDocs = useMemo(() => {
     return resources.filter((d) => {
       const matchSearch = d.title.toLowerCase().includes(search.toLowerCase());
       const matchFolder = activeFolder === "all" ? true : d.category === activeFolder;
@@ -590,9 +690,49 @@ export function ResourcePickerModal({
     });
   }, [resources, search, activeFolder]);
 
+  // Filter Personal Database docs
+  const filteredPersonalDocs = useMemo(() => {
+    return personalFiles.filter((f) => {
+      const matchSearch = f.title.toLowerCase().includes(search.toLowerCase());
+      const matchFolder = f.folderId === personalFolderId;
+      const matchFavorite = showFavoritesOnly ? f.isFavorite : true;
+      return matchSearch && matchFolder && matchFavorite;
+    });
+  }, [personalFiles, search, personalFolderId, showFavoritesOnly]);
+
   const categories = [
     "all", "Academic", "Faculty", "Parents", "Students", "Administration", "Policies", "IB Resources", "Forms"
   ];
+
+  // Handle upload selection directly
+  const handleUploadAndAttach = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadTitle.trim()) return;
+
+    const newFile: PersonalFile = {
+      id: `pf-${Date.now()}`,
+      title: uploadTitle.endsWith(`.${uploadType}`) ? uploadTitle.trim() : `${uploadTitle.trim()}.${uploadType}`,
+      type: uploadType,
+      date: new Date().toISOString().split("T")[0],
+      size: uploadSize || "140 KB",
+      folderId: uploadFolderId ? uploadFolderId : undefined,
+      isFavorite: false
+    };
+
+    const updatedFiles = [newFile, ...personalFiles];
+    saveSessionFiles(updatedFiles);
+    setPersonalFiles(updatedFiles);
+
+    onSelect({
+      id: newFile.id,
+      title: newFile.title,
+      type: newFile.type,
+      size: newFile.size,
+      category: "Personal File"
+    });
+    setUploadTitle("");
+    onClose();
+  };
 
   return (
     <AnimatePresence>
@@ -604,80 +744,346 @@ export function ResourcePickerModal({
             initial={{ opacity: 0, scale: 0.96, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            className={`relative w-full max-w-xl border p-5 rounded-2xl shadow-2xl z-10 flex flex-col gap-4 max-h-[80vh] bg-[#0E0E10] border-white/10 text-white`}
+            className={`relative w-full max-w-xl border p-5 rounded-2xl shadow-2xl z-10 flex flex-col gap-4 max-h-[85vh] bg-[#0E0E10] border-white/10 text-white`}
           >
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b pb-3 border-white/10 shrink-0">
               <div>
-                <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400 block font-mono">Select Document</span>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-white">Axis Connected Resources</h3>
+                <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400 block font-mono">Unified Retrieval Hub</span>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-white">Select File Attachment</h3>
               </div>
               <button onClick={onClose} className="text-white/40 hover:text-white text-xs font-semibold px-2 py-1 bg-white/5 rounded-lg">✕</button>
             </div>
 
-            {/* Selection folders */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 shrink-0 scrollbar-none">
-              {categories.map((folder) => {
-                const isSelected = activeFolder === folder;
+            {/* TAB SELECTOR */}
+            <div className="flex rounded-xl p-0.5 bg-black/40 border border-white/5 shrink-0">
+              {([
+                { id: "suggested", label: "Suggested Files" },
+                { id: "institutional", label: "Connected Resources" },
+                { id: "personal", label: "Personal Database" },
+                { id: "upload", label: "Device Upload" }
+              ] as const).map((tab) => {
+                const isActive = activeTab === tab.id;
                 return (
                   <button
-                    key={folder}
+                    key={tab.id}
                     type="button"
-                    onClick={() => setActiveFolder(folder)}
-                    className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0 transition-colors ${
-                      isSelected
-                        ? "bg-cyan-500 text-black"
-                        : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setSearch("");
+                    }}
+                    className={`flex-1 py-2 text-center rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
+                      isActive
+                        ? "bg-cyan-500 text-black shadow-lg"
+                        : "text-white/45 hover:text-white/80"
                     }`}
                   >
-                    {folder === "all" ? "All Folders" : folder}
+                    {tab.label}
                   </button>
                 );
               })}
             </div>
 
-            {/* Search Input */}
-            <div className="relative shrink-0">
-              <input
-                type="text"
-                placeholder="Filter by title..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-xl bg-black/60 border border-white/10 pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-cyan-500/50 text-white"
-              />
-              <svg className="absolute left-2.5 top-2.5 size-3.5 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-              </svg>
-            </div>
+            {/* SEARCH AREA (Not shown on upload tab) */}
+            {activeTab !== "upload" && (
+              <div className="relative shrink-0">
+                <input
+                  type="text"
+                  placeholder={
+                    activeTab === "suggested"
+                      ? "Filter suggested references..."
+                      : activeTab === "personal"
+                      ? "Search private vault files..."
+                      : "Filter institutional assets..."
+                  }
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-xl bg-black/60 border border-white/10 pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-cyan-500/50 text-white"
+                />
+                <svg className="absolute left-2.5 top-2.5 size-3.5 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
+                </svg>
+              </div>
+            )}
 
-            {/* List scroll view */}
+            {/* TAB CONTENTS */}
             <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[300px] scrollbar-none">
-              {docs.length === 0 ? (
-                <div className="text-center py-10 text-xs text-white/20 uppercase tracking-widest font-semibold">No resource files found</div>
-              ) : (
-                docs.map((doc) => (
-                  <button
-                    key={doc.id}
-                    type="button"
-                    onClick={() => {
-                      onSelect(doc);
-                      onClose();
-                    }}
-                    className="w-full text-left p-3 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.04] hover:border-cyan-500/30 transition-all flex items-center justify-between gap-3 group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <DocTypeIcon type={doc.type} />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold text-white/90 truncate group-hover:text-cyan-400 transition-colors">{doc.title}</span>
-                        <span className="text-[9px] text-white/40 leading-none mt-1">{doc.category} · {doc.size}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-[8px] font-mono border border-cyan-500/20 bg-cyan-950/20 text-cyan-400 px-1.5 py-0.5 rounded">{doc.version}</span>
-                      <span className="text-[10px] text-white/35 font-bold uppercase tracking-wider group-hover:text-cyan-400 transition-colors">Select →</span>
-                    </div>
-                  </button>
-                ))
+              
+              {/* TAB 1: SUGGESTED FILES */}
+              {activeTab === "suggested" && (
+                <div className="space-y-2">
+                  <div className="p-2.5 rounded-xl bg-cyan-950/15 border border-cyan-800/20 text-[10px] text-cyan-400 font-semibold flex items-center gap-2">
+                    <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                    Context Engine analyzed text and suggested these highly relevant files:
+                  </div>
+                  
+                  {suggestedFiles
+                    .filter(item => item.title.toLowerCase().includes(search.toLowerCase()))
+                    .length === 0 ? (
+                      <div className="text-center py-10 text-xs text-white/20 uppercase tracking-widest font-semibold">No suggestions found</div>
+                    ) : (
+                      suggestedFiles
+                        .filter(item => item.title.toLowerCase().includes(search.toLowerCase()))
+                        .map((item) => {
+                          const isPersonal = !("category" in item);
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                onSelect({
+                                  id: item.id,
+                                  title: item.title,
+                                  type: item.type,
+                                  size: item.size,
+                                  category: isPersonal ? "Personal File" : (item as ResourceDoc).category
+                                });
+                                onClose();
+                              }}
+                              className="w-full text-left p-3.5 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.04] hover:border-cyan-500/30 transition-all flex items-center justify-between gap-3 group"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <FileTypeIcon type={item.type} />
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-white/90 truncate group-hover:text-cyan-400 transition-colors">{item.title}</span>
+                                  <span className="text-[9px] text-white/40 leading-none mt-1.5 flex items-center gap-1.5">
+                                    <span className="text-cyan-400 font-bold uppercase tracking-wider shrink-0">
+                                      {isPersonal ? "📁 Personal File" : "🏫 School Resource"}
+                                    </span>
+                                    <span>·</span>
+                                    <span className="text-amber-400/90 font-medium font-mono shrink-0">
+                                      {getRecommendationReason(item.title)}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-white/35 font-bold uppercase tracking-wider group-hover:text-cyan-400 transition-colors shrink-0">Attach →</span>
+                            </button>
+                          );
+                        })
+                    )}
+                </div>
               )}
+
+              {/* TAB 2: CONNECTED RESOURCES */}
+              {activeTab === "institutional" && (
+                <div className="space-y-3">
+                  {/* Category switcher */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 scrollbar-none">
+                    {categories.map((folder) => {
+                      const isSelected = activeFolder === folder;
+                      return (
+                        <button
+                          key={folder}
+                          type="button"
+                          onClick={() => setActiveFolder(folder)}
+                          className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0 transition-colors ${
+                            isSelected
+                              ? "bg-cyan-500 text-black"
+                              : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          {folder === "all" ? "All Folders" : folder}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="space-y-2">
+                    {filteredInstitutionalDocs.length === 0 ? (
+                      <div className="text-center py-10 text-xs text-white/20 uppercase tracking-widest font-semibold">No resource files found</div>
+                    ) : (
+                      filteredInstitutionalDocs.map((doc) => (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={() => {
+                            onSelect({
+                              id: doc.id,
+                              title: doc.title,
+                              type: doc.type,
+                              size: doc.size,
+                              category: doc.category
+                            });
+                            onClose();
+                          }}
+                          className="w-full text-left p-3 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.04] hover:border-cyan-500/30 transition-all flex items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileTypeIcon type={doc.type} />
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-semibold text-white/90 truncate group-hover:text-cyan-400 transition-colors">{doc.title}</span>
+                              <span className="text-[9px] text-white/40 leading-none mt-1">{doc.category} · {doc.size}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-[8px] font-mono border border-cyan-500/20 bg-cyan-950/20 text-cyan-400 px-1.5 py-0.5 rounded">{doc.version}</span>
+                            <span className="text-[10px] text-white/35 font-bold uppercase tracking-wider group-hover:text-cyan-400 transition-colors">Select →</span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: PERSONAL DATABASE */}
+              {activeTab === "personal" && (
+                <div className="space-y-3">
+                  {/* Favorites and Nav bar */}
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase border-b border-white/5 pb-2 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPersonalFolderId(undefined)}
+                        className={`hover:text-cyan-400 ${personalFolderId === undefined ? "text-cyan-400" : "text-white/60"}`}
+                      >
+                        Root Vault
+                      </button>
+                      {personalFolderId && (
+                        <>
+                          <span className="text-white/20">/</span>
+                          <span className="text-cyan-400">{personalFolders.find(f => f.id === personalFolderId)?.name}</span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                      className={`px-2 py-0.5 rounded border ${
+                        showFavoritesOnly ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "border-white/10 text-white/45"
+                      }`}
+                    >
+                      ★ Starred
+                    </button>
+                  </div>
+
+                  {/* Folders in list (only shown in root folder view) */}
+                  {personalFolderId === undefined && !showFavoritesOnly && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {personalFolders
+                        .filter(folder => folder.name.toLowerCase().includes(search.toLowerCase()))
+                        .map((folder) => (
+                          <div
+                            key={folder.id}
+                            onClick={() => setPersonalFolderId(folder.id)}
+                            className="p-2.5 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] hover:border-cyan-500/20 transition-all cursor-pointer flex items-center gap-2 group"
+                          >
+                            <span className="text-cyan-400">📁</span>
+                            <span className="text-[11px] font-bold text-white/80 group-hover:text-cyan-400 transition-colors truncate">
+                              {folder.name}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Personal files list */}
+                  <div className="space-y-2">
+                    {filteredPersonalDocs.length === 0 ? (
+                      <div className="text-center py-8 text-xs text-white/20 uppercase tracking-widest font-semibold">No files inside folder</div>
+                    ) : (
+                      filteredPersonalDocs.map((file) => (
+                        <button
+                          key={file.id}
+                          type="button"
+                          onClick={() => {
+                            onSelect({
+                              id: file.id,
+                              title: file.title,
+                              type: file.type,
+                              size: file.size,
+                              category: "Personal File"
+                            });
+                            onClose();
+                          }}
+                          className="w-full text-left p-3 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.04] hover:border-cyan-500/30 transition-all flex items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileTypeIcon type={file.type} />
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-semibold text-white/90 truncate group-hover:text-cyan-400 transition-colors">{file.title}</span>
+                              <span className="text-[9px] text-white/40 leading-none mt-1">
+                                {file.size} · Uploaded {file.date}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-white/35 font-bold uppercase tracking-wider group-hover:text-cyan-400 transition-colors shrink-0">Attach →</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: DEVICE UPLOAD SIMULATOR */}
+              {activeTab === "upload" && (
+                <form onSubmit={handleUploadAndAttach} className="space-y-3.5 text-xs text-left p-2">
+                  <div className="border-2 border-dashed border-white/10 rounded-2xl p-6 text-center flex flex-col items-center justify-center gap-2 bg-black/20">
+                    <span className="text-3xl animate-bounce">📥</span>
+                    <span className="font-bold text-white/80">Simulate File Drag & Drop</span>
+                    <span className="text-[10px] text-white/30">Or fill in the metadata details below to upload instantly</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] text-zinc-500 uppercase font-semibold">Filename</label>
+                    <input
+                      type="text"
+                      placeholder="Enter document filename..."
+                      value={uploadTitle}
+                      onChange={(e) => setUploadTitle(e.target.value)}
+                      className="w-full rounded-xl bg-black border border-white/10 px-3 py-2 text-white outline-none focus:border-cyan-500 text-xs"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1 col-span-2">
+                      <label className="text-[9px] text-zinc-500 uppercase font-semibold">Organize into Folder</label>
+                      <select
+                        value={uploadFolderId}
+                        onChange={(e) => setUploadFolderId(e.target.value)}
+                        className="w-full rounded-xl bg-black border border-white/10 px-3 py-2 text-white outline-none focus:border-cyan-500 text-[11px]"
+                      >
+                        <option value="">Vault Root Directory</option>
+                        {personalFolders.map(f => (
+                          <option key={f.id} value={f.id}>📁 {f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-zinc-500 uppercase font-semibold">Extension</label>
+                      <select
+                        value={uploadType}
+                        onChange={(e) => setUploadType(e.target.value as PersonalFile["type"])}
+                        className="w-full rounded-xl bg-black border border-white/10 px-3 py-2 text-white outline-none focus:border-cyan-500 text-[11px]"
+                      >
+                        <option value="pdf">.pdf</option>
+                        <option value="doc">.docx</option>
+                        <option value="xls">.xlsx</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-3 border-t border-white/5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("suggested")}
+                      className="px-4 py-2 border border-white/10 hover:bg-white/5 text-xs rounded-xl font-bold text-white"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold rounded-xl"
+                    >
+                      Upload & Link
+                    </button>
+                  </div>
+                </form>
+              )}
+
             </div>
           </motion.div>
         </div>

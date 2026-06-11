@@ -1,7 +1,29 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { StudentSupportFlag } from "../student-support-context";
+
+interface IBAccommodationHistory {
+  date: string;
+  user: string;
+  action: string;
+}
+
+interface IBAccommodation {
+  status: "Verified by IB" | "Pending Verification" | "Documentation Under Review" | "Expired" | "Not Applicable";
+  statusColor: string;
+  planActive: boolean;
+  approvalDate: string;
+  expiryDate?: string;
+  nextReviewDate: string;
+  documentationStatus: string;
+  provisions: string[];
+  notes: string;
+  history: IBAccommodationHistory[];
+  documentRef?: string;
+  documentName?: string;
+}
 
 interface StudentStatsData {
   id: string;
@@ -30,6 +52,7 @@ interface StudentStatsData {
     verifiedAccommodations: string[];
     learningSupport: string[];
   };
+  ibAccommodations: IBAccommodation;
 }
 
 const STATS_DATABASE: StudentStatsData[] = [
@@ -59,6 +82,25 @@ const STATS_DATABASE: StudentStatsData[] = [
       statusColor: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
       verifiedAccommodations: ["Extra Time (25%)", "Separate Room"],
       learningSupport: ["Anxiety Support Plan"]
+    },
+    ibAccommodations: {
+      status: "Verified by IB",
+      statusColor: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
+      planActive: true,
+      approvalDate: "Sep 12, 2025",
+      expiryDate: "May 2027",
+      nextReviewDate: "Oct 15, 2026",
+      documentationStatus: "Verified & Uploaded",
+      provisions: ["Extra Time (25%)", "Separate Room", "Rest Breaks"],
+      notes: "Student has been approved by the IB for 25% additional time during examinations. Separate testing environment required. Accommodation documentation verified and active.",
+      documentRef: "IB-REF-2025-DP-9821-CV",
+      documentName: "IB_AccessArrangements_ChloeVance_FormD1.pdf",
+      history: [
+        { date: "Jan 15, 2026", user: "Aarav Chen", action: "Review note: Checked room assignments for May 2026 exams to ensure separate environment is booked." },
+        { date: "Sep 12, 2025", user: "IB Portal", action: "Official IB Approval granted for 25% Extra Time, Rest Breaks, and Separate Room." },
+        { date: "Sep 05, 2025", user: "Aarav Chen", action: "Medical documentation and psychoeducational report uploaded to IB portal." },
+        { date: "Aug 20, 2025", user: "Aarav Chen", action: "Initial accommodations request drafted and parent consent obtained." }
+      ]
     }
   },
   {
@@ -87,6 +129,23 @@ const STATS_DATABASE: StudentStatsData[] = [
       statusColor: "text-blue-400 border-blue-500/20 bg-blue-500/5",
       verifiedAccommodations: ["Rest Breaks (10 mins)"],
       learningSupport: ["Learning Support Plan (Math focus)"]
+    },
+    ibAccommodations: {
+      status: "Pending Verification",
+      statusColor: "text-amber-400 border-amber-500/20 bg-amber-500/5",
+      planActive: true,
+      approvalDate: "Jan 18, 2026",
+      expiryDate: "Jun 2027",
+      nextReviewDate: "Sep 05, 2026",
+      documentationStatus: "Documentation Under Review",
+      provisions: ["Rest Breaks (10 mins)"],
+      notes: "Request submitted for 10-minute rest breaks per hour. Medical certificates uploaded. Awaiting final IB response.",
+      documentRef: "IB-REF-2026-DP-1042-LG",
+      documentName: "IB_AccessArrangements_LucasGray_Request.pdf",
+      history: [
+        { date: "Jan 18, 2026", user: "Ananya Rao", action: "Accommodation request submitted to IB (Pending Verification)." },
+        { date: "Jan 10, 2026", user: "Ananya Rao", action: "Rest break request medical certification uploaded." }
+      ]
     }
   },
   {
@@ -115,6 +174,21 @@ const STATS_DATABASE: StudentStatsData[] = [
       statusColor: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
       verifiedAccommodations: ["None"],
       learningSupport: ["None"]
+    },
+    ibAccommodations: {
+      status: "Not Applicable",
+      statusColor: "text-white/40 border-white/10 bg-white/5",
+      planActive: false,
+      approvalDate: "N/A",
+      nextReviewDate: "N/A",
+      documentationStatus: "No Documentation Required",
+      provisions: [],
+      notes: "No active accommodations or access arrangements requested or required for the DP programme cycles.",
+      documentRef: "N/A",
+      documentName: "N/A",
+      history: [
+        { date: "Sep 01, 2025", user: "Marcus Vance", action: "No special accommodations requested for candidate." }
+      ]
     }
   }
 ];
@@ -425,27 +499,673 @@ const DYNAMIC_TIMEFRAME_DATA: Record<
   }
 };
 
+interface SubjectTrendPoint {
+  period: string;
+  grade: number;
+  classAvg: number;
+  milestone?: { label: string; type: string; score: string; date: string };
+}
+
+function ExpandableSubjectCard({
+  subj,
+  timeframeDataset,
+  timeframe,
+  activeSubject,
+  setActiveSubject,
+  hoveredMarker,
+  setHoveredMarker,
+  hoveredMarkerCoords,
+  setHoveredMarkerCoords
+}: {
+  subj: string;
+  timeframeDataset: {
+    labels: string[];
+    overviewAvg: number[];
+    subjects: Record<string, SubjectTrendPoint[]>;
+  };
+  timeframe: string;
+  activeSubject: string | null;
+  setActiveSubject: (subj: string | null) => void;
+  hoveredMarker: { label: string; type: string; score: string; date: string } | null;
+  setHoveredMarker: (marker: { label: string; type: string; score: string; date: string } | null) => void;
+  hoveredMarkerCoords: { x: number; y: number } | null;
+  setHoveredMarkerCoords: (coords: { x: number; y: number } | null) => void;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const isExpanded = activeSubject === subj;
+
+  // Auto-scroll safety: scroll when expanded
+  useEffect(() => {
+    if (isExpanded) {
+      const timeoutId = setTimeout(() => {
+        cardRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest"
+        });
+      }, 250); // Wait for the height animation to kick off
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isExpanded]);
+
+  // Resolve Concept Mastery
+  const concepts = useMemo(() => {
+    if (subj.toLowerCase().includes("physics")) {
+      return [
+        { name: "Mechanics & Kinematics", percentage: 88 },
+        { name: "Electromagnetism & Induction", percentage: 62 },
+        { name: "Thermodynamics & Waves", percentage: 75 }
+      ];
+    } else if (subj.toLowerCase().includes("math") || subj.toLowerCase().includes("calculus")) {
+      return [
+        { name: "Calculus & Analysis", percentage: 90 },
+        { name: "Algebra & Functions", percentage: 95 },
+        { name: "Probability & Statistics", percentage: 82 }
+      ];
+    } else if (subj.toLowerCase().includes("chemistry")) {
+      return [
+        { name: "Organic Chemistry", percentage: 74 },
+        { name: "Stoichiometry & Gas Laws", percentage: 81 },
+        { name: "Chemical Kinetics & Thermo", percentage: 68 }
+      ];
+    } else {
+      return [
+        { name: "Core Syllabus Theory", percentage: 85 },
+        { name: "Practical Lab Work", percentage: 78 },
+        { name: "Exam Prep & Mock Papers", percentage: 82 }
+      ];
+    }
+  }, [subj]);
+
+  // Resolve Teacher Feedback
+  const feedback = useMemo(() => {
+    if (subj.toLowerCase().includes("physics")) {
+      return {
+        text: "Chloe shows excellent logical deductions in problem-solving. Extended Essay draft requires refined methodology, but core IA experimental setup is solid.",
+        teacher: "Dr. Alistair Vance, Head of Physics"
+      };
+    } else if (subj.toLowerCase().includes("math") || subj.toLowerCase().includes("calculus")) {
+      return {
+        text: "Outstanding speed in differentiation work. Needs minor practice on vector proofs under exam conditions.",
+        teacher: "Mrs. Sarah Jenkins, Senior Mathematics Lecturer"
+      };
+    } else if (subj.toLowerCase().includes("chemistry")) {
+      return {
+        text: "Lab reporting has improved dramatically. Focus on organic compound naming conventions for the final exam.",
+        teacher: "Dr. Monica Geller, Chemistry Director"
+      };
+    } else {
+      return {
+        text: "Regular attendance and consistent performance across all classroom checkpoints. Continues to track well against predicted goals.",
+        teacher: "Class Subject Tutor"
+      };
+    }
+  }, [subj]);
+
+  // Resolve Growth & AI Predictions
+  const growth = useMemo(() => {
+    if (subj.toLowerCase().includes("physics")) {
+      return {
+        growthText: "+0.8 grade points over 3mo",
+        predictionText: "6.0 predicted (90% conf)"
+      };
+    } else if (subj.toLowerCase().includes("math")) {
+      return {
+        growthText: "+0.4 grade points over 3mo",
+        predictionText: "7.0 predicted (85% conf)"
+      };
+    } else if (subj.toLowerCase().includes("chemistry")) {
+      return {
+        growthText: "+0.3 grade points over 3mo",
+        predictionText: "6.0 predicted (92% conf)"
+      };
+    } else {
+      return {
+        growthText: "+0.5 grade points over 3mo",
+        predictionText: "6.0 predicted (88% conf)"
+      };
+    }
+  }, [subj]);
+
+  const grades = timeframeDataset.subjects[subj];
+  if (!grades || grades.length === 0) return null;
+  const currentGradePoint = grades[grades.length - 1];
+
+  return (
+    <div
+      ref={cardRef}
+      className={`rounded-3xl border transition-all duration-500 relative overflow-hidden ${
+        isExpanded
+          ? "bg-cyan-950/[0.03] border-cyan-500/30 shadow-[0_10px_40px_rgba(6,182,212,0.12),inset_0_1px_1px_rgba(255,255,255,0.05)]"
+          : "bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03] hover:border-white/10"
+      }`}
+    >
+      {/* Clickable Header Row */}
+      <button
+        type="button"
+        onClick={() => {
+          setActiveSubject(isExpanded ? null : subj);
+          setHoveredMarker(null);
+        }}
+        className="w-full p-5 flex items-center justify-between text-left transition-colors relative z-20 group"
+      >
+        <div className="flex items-center gap-4">
+          {/* Active/Expanded State Indicator Dot with pulsing animation */}
+          <div className="relative flex size-2 shrink-0">
+            {isExpanded && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
+            )}
+            <span className={`relative inline-flex size-2 rounded-full transition-colors ${isExpanded ? "bg-cyan-400" : "bg-white/15"}`}></span>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold text-white tracking-wide transition-colors group-hover:text-cyan-400">{subj}</h4>
+            <span className="text-[9px] text-white/30 font-mono block mt-0.5 uppercase tracking-wider">IB Course Progress</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <span className="text-[8px] text-white/30 font-mono block uppercase tracking-wider">IB Grade</span>
+            <span className="text-base font-black text-cyan-400 font-mono leading-none">{currentGradePoint.grade.toFixed(1)}</span>
+          </div>
+
+          <div className="text-right hidden sm:block">
+            <span className="text-[8px] text-white/30 font-mono block uppercase tracking-wider">Class Avg</span>
+            <span className="text-xs font-bold text-white/60 font-mono leading-none">{currentGradePoint.classAvg.toFixed(1)}</span>
+          </div>
+
+          {/* Chevron icon with animation */}
+          <motion.div
+            animate={{ rotate: isExpanded ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-white/45 group-hover:text-white"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </motion.div>
+        </div>
+      </button>
+
+      {/* Expanded Details Section */}
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="border-t border-white/[0.04] overflow-hidden relative z-10"
+          >
+            <div className="p-6 space-y-6">
+              
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Performance Timeline Graph with Assessment Markers */}
+                <div className="lg:col-span-8 space-y-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Performance Timeline & Assessment Markers</h4>
+                    <p className="text-[10px] text-white/40">Hover over markers (dots) to reveal assessment details.</p>
+                  </div>
+
+                  <div className="h-44 bg-zinc-950/40 rounded-2xl border border-white/[0.04] relative select-none">
+                    
+                    {/* Floating Assessment Tooltip Card */}
+                    <AnimatePresence>
+                      {hoveredMarker && hoveredMarkerCoords && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          style={{
+                            position: "absolute",
+                            left: `${hoveredMarkerCoords.x}px`,
+                            top: `${hoveredMarkerCoords.y}px`,
+                            transform: "translateX(-50%)"
+                          }}
+                          className="z-50 w-52 p-3 bg-zinc-950 border border-cyan-500/30 rounded-xl shadow-2xl backdrop-blur-xl pointer-events-none"
+                        >
+                          <span className="block text-[8px] font-black text-cyan-400 uppercase tracking-widest">{hoveredMarker.type}</span>
+                          <strong className="block text-[10.5px] text-white mt-0.5 font-bold leading-snug">{hoveredMarker.label}</strong>
+                          <div className="flex justify-between items-center text-[9px] text-white/40 mt-1.5 border-t border-white/5 pt-1.5">
+                            <span>Grade Score: <strong className="text-cyan-400 font-mono">{hoveredMarker.score}</strong></span>
+                            <span>{hoveredMarker.date}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {(() => {
+                      const activeSubjectData = timeframeDataset.subjects[subj];
+                      if (!activeSubjectData || activeSubjectData.length === 0) return null;
+
+                      const chartWidth = 350;
+                      const chartHeight = 90;
+                      const paddingLeft = 25;
+                      const paddingTop = 15;
+
+                      const getCoords = (idx: number, grade: number) => {
+                        const denom = activeSubjectData.length > 1 ? activeSubjectData.length - 1 : 1;
+                        const x = paddingLeft + (idx / denom) * chartWidth;
+                        const y = paddingTop + (1 - (grade - 3) / 4) * chartHeight;
+                        return { x, y };
+                      };
+
+                      const classAvgPoints = activeSubjectData.map((pt: SubjectTrendPoint, idx: number) => {
+                        const { x, y } = getCoords(idx, pt.classAvg);
+                        return `${idx === 0 ? "M" : "L"} ${x},${y}`;
+                      });
+                      const classAvgPathD = classAvgPoints.join(" ");
+
+                      const studentPoints = activeSubjectData.map((pt: SubjectTrendPoint, idx: number) => {
+                        const { x, y } = getCoords(idx, pt.grade);
+                        return `${idx === 0 ? "M" : "L"} ${x},${y}`;
+                      });
+                      const studentPathD = studentPoints.join(" ");
+
+                      const firstX = paddingLeft;
+                      const lastX = paddingLeft + chartWidth;
+                      const bottomY = paddingTop + chartHeight; // 105
+                      const areaPathD = `${studentPathD} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
+
+                      return (
+                        <>
+                          <svg 
+                            viewBox="0 0 400 130" 
+                            preserveAspectRatio="none"
+                            className="w-full h-full overflow-visible absolute inset-0 z-10"
+                          >
+                            <defs>
+                              <linearGradient id={`subjGrad-${subj}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.15" />
+                                <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                              </linearGradient>
+                            </defs>
+
+                            {/* Horizontal Guidelines */}
+                            <line x1="25" y1="15" x2="375" y2="15" stroke="rgba(255,255,255,0.04)" strokeDasharray="3,3" />
+                            <line x1="25" y1="60" x2="375" y2="60" stroke="rgba(255,255,255,0.04)" strokeDasharray="3,3" />
+                            <line x1="25" y1="105" x2="375" y2="105" stroke="rgba(255,255,255,0.04)" strokeDasharray="3,3" />
+
+                            {/* Class Average Reference Line */}
+                            <motion.path
+                              key={`${subj}-${timeframe}-class-avg`}
+                              d={classAvgPathD}
+                              fill="none"
+                              stroke="#ffffff"
+                              strokeOpacity="0.12"
+                              strokeWidth="1.5"
+                              strokeDasharray="3,3"
+                              initial={{ pathLength: 0, opacity: 0 }}
+                              animate={{ pathLength: 1, opacity: 0.12 }}
+                              transition={{ duration: 0.8, ease: "easeOut" }}
+                            />
+
+                            {/* Area Gradient under Student Grade Curve */}
+                            <motion.path
+                              key={`${subj}-${timeframe}-area`}
+                              d={areaPathD}
+                              fill={`url(#subjGrad-${subj})`}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.5, delay: 0.2 }}
+                            />
+
+                            {/* Student Grade Curve */}
+                            <motion.path
+                              key={`${subj}-${timeframe}-student-line`}
+                              d={studentPathD}
+                              fill="none"
+                              stroke="#06b6d4"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              initial={{ pathLength: 0, opacity: 0 }}
+                              animate={{ pathLength: 1, opacity: 1 }}
+                              transition={{ duration: 0.8, ease: "easeOut" }}
+                            />
+                          </svg>
+
+                          {/* Guidelines labels */}
+                          <div className="absolute inset-0 pointer-events-none z-20">
+                            <div className="absolute left-[6.25%] top-[7.69%] text-[8px] font-mono font-medium text-white/20 -translate-y-1/2">7.0 Max</div>
+                            <div className="absolute left-[6.25%] top-[42.3%] text-[8px] font-mono font-medium text-white/20 -translate-y-1/2">5.0 Target</div>
+                            <div className="absolute left-[6.25%] top-[76.92%] text-[8px] font-mono font-medium text-white/20 -translate-y-1/2">3.0 Baseline</div>
+                          </div>
+
+                          {/* Nodes Overlay */}
+                          <div className="absolute inset-0 z-20 pointer-events-auto">
+                            {activeSubjectData.map((pt: SubjectTrendPoint, idx: number) => {
+                              const denom = activeSubjectData.length > 1 ? activeSubjectData.length - 1 : 1;
+                              const xPercent = 6.25 + (idx / denom) * 87.5;
+                              const yPercent = 11.54 + (1 - (pt.grade - 3) / 4) * 69.23;
+                              const hasMilestone = !!pt.milestone;
+
+                              return (
+                                <motion.div
+                                  key={`${subj}-${timeframe}-node-${idx}`}
+                                  initial={{ opacity: 0, scale: 0 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ type: "spring", stiffness: 100, damping: 10, delay: idx * 0.05 }}
+                                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                                  style={{
+                                    left: `${xPercent}%`,
+                                    top: `${yPercent}%`
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const parent = e.currentTarget.parentElement?.parentElement;
+                                    if (parent) {
+                                      const parentRect = parent.getBoundingClientRect();
+                                      setHoveredMarker(pt.milestone || {
+                                        label: `Grade Status: ${pt.grade.toFixed(1)}`,
+                                        type: "Grade Point",
+                                        score: `${pt.grade.toFixed(1)} / 7.0`,
+                                        date: pt.period
+                                      });
+                                      setHoveredMarkerCoords({
+                                        x: rect.left - parentRect.left + rect.width / 2,
+                                        y: rect.top - parentRect.top - 68
+                                      });
+                                    }
+                                  }}
+                                  onMouseLeave={() => {
+                                    setHoveredMarker(null);
+                                  }}
+                                >
+                                  {/* Circle Node */}
+                                  <div className={`rounded-full transition-all border-2 ${
+                                    hasMilestone
+                                      ? "size-3 bg-cyan-400 border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] cursor-pointer"
+                                      : "size-2 bg-zinc-950 border-white/40 cursor-pointer hover:border-cyan-400"
+                                  }`} />
+                                  {hasMilestone && (
+                                    <div className="absolute size-5 rounded-full bg-cyan-400/10 -z-10 hover:bg-cyan-400/20 transition-all cursor-pointer" />
+                                  )}
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+
+                          {/* X-Axis Labels Overlay */}
+                          <div className="absolute left-0 right-0 bottom-1 h-5 z-20 pointer-events-none">
+                            {timeframeDataset.labels.map((l: string, idx: number) => {
+                              const denom = timeframeDataset.labels.length > 1 ? timeframeDataset.labels.length - 1 : 1;
+                              const xPercent = 6.25 + (idx / denom) * 87.5;
+                              return (
+                                <div
+                                  key={l}
+                                  className="absolute -translate-x-1/2 text-[8.5px] font-mono font-semibold tracking-wider text-white/30 text-center"
+                                  style={{ left: `${xPercent}%` }}
+                                >
+                                  {l}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Subject statistics details column */}
+                <div className="lg:col-span-4 space-y-4">
+                  
+                  {/* Cohort Comparison */}
+                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3">
+                    <h4 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Cohort comparison</h4>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/60">Candidate Grade</span>
+                      <strong className="text-cyan-400 font-mono text-sm">
+                        {currentGradePoint.grade.toFixed(1)}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/60">Cohort Average</span>
+                      <strong className="text-white/80 font-mono text-sm">
+                        {currentGradePoint.classAvg.toFixed(1)}
+                      </strong>
+                    </div>
+                    {/* Compare Bar */}
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
+                      <div
+                        style={{
+                          width: `${(currentGradePoint.grade / 7) * 100}%`
+                        }}
+                        className="bg-cyan-400 h-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Growth & Predictions */}
+                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3">
+                    <h4 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Growth & Projections</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/60">Growth Metric</span>
+                        <span className="text-emerald-400 font-bold font-mono">{growth.growthText}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/60">AI Predicted Trend</span>
+                        <span className="text-cyan-400 font-extrabold font-mono">{growth.predictionText}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Concept Mastery */}
+                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3">
+                    <h4 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Concept Mastery</h4>
+                    <div className="space-y-2.5">
+                      {concepts.map((c) => (
+                        <div key={c.name} className="space-y-1">
+                          <div className="flex justify-between text-[9.5px] font-semibold leading-none">
+                            <span className="text-white/75 truncate pr-2">{c.name}</span>
+                            <span className="text-cyan-400 font-mono shrink-0">{c.percentage}%</span>
+                          </div>
+                          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                            <div style={{ width: `${c.percentage}%` }} className="h-full bg-cyan-400" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Lower Section: Ledger List & Teacher Observation */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 border-t border-white/5 pt-5">
+                
+                {/* Assessment History Ledger list */}
+                <div className="lg:col-span-7 space-y-3">
+                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Assessment History Ledger</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {grades
+                      .filter((pt: SubjectTrendPoint) => pt.milestone)
+                      .map((pt: SubjectTrendPoint, idx: number) => (
+                        <div
+                          key={idx}
+                          className="p-3 bg-zinc-950/20 border border-white/[0.03] rounded-xl flex items-center justify-between text-xs font-semibold"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-white/30 font-mono text-[9px] w-12 shrink-0">{pt.milestone?.date}</span>
+                            <div>
+                              <strong className="text-white block font-bold">{pt.milestone?.label}</strong>
+                              <span className="text-[9.5px] text-cyan-400/80 block leading-none font-mono mt-0.5">{pt.milestone?.type}</span>
+                            </div>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-white">{pt.milestone?.score}</span>
+                        </div>
+                      ))}
+
+                    {grades.filter((pt: SubjectTrendPoint) => pt.milestone).length === 0 && (
+                      <span className="text-[10px] text-white/30 italic block text-center py-2">No milestone assessments logged in this timeframe.</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Teacher observation feedback */}
+                <div className="lg:col-span-5 space-y-3">
+                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Teacher Observation</h4>
+                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-2 flex flex-col justify-between h-[135px]">
+                    <p className="text-[10.5px] text-white/75 italic leading-relaxed font-semibold">
+                      &ldquo;{feedback.text}&rdquo;
+                    </p>
+                    <div className="text-[9px] text-white/35 text-right font-mono font-bold">
+                      — {feedback.teacher}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function StudentStatisticsProfile({
   theme,
   selectedStudentId,
-  onBack
+  onBack,
+  isTeacher = false
 }: {
   theme: string;
   selectedStudentId?: string | null;
   onBack?: () => void;
+  isTeacher?: boolean;
 }) {
   const activeStudentId = selectedStudentId || "std-1";
   const [timeframe, setTimeframe] = useState<"month" | "term" | "year" | "multi">("term");
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const [showMedicalModal, setShowMedicalModal] = useState(false);
 
+  // Accommodations workflow states
+  const [students, setStudents] = useState<StudentStatsData[]>(STATS_DATABASE);
+  const [showDocsModal, setShowDocsModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showReviewNotesModal, setShowReviewNotesModal] = useState(false);
+  const [downloadSuccess, setDownloadSuccess] = useState(false);
+
+  // Reset expanded subject when active student changes to prevent crash from missing subject
+  useEffect(() => {
+    setActiveSubject(null);
+    setDownloadSuccess(false);
+  }, [activeStudentId]);
+
   // States for assessment tooltips
   const [hoveredMarker, setHoveredMarker] = useState<{ label: string; type: string; score: string; date: string } | null>(null);
   const [hoveredMarkerCoords, setHoveredMarkerCoords] = useState<{ x: number; y: number } | null>(null);
 
   const activeStudent = useMemo(() => {
-    return STATS_DATABASE.find((s) => s.id === activeStudentId) || STATS_DATABASE[0];
-  }, [activeStudentId]);
+    return students.find((s) => s.id === activeStudentId) || students[0];
+  }, [students, activeStudentId]);
+
+  // Form states for updating accommodations
+  const [formStatus, setFormStatus] = useState<"Verified by IB" | "Pending Verification" | "Documentation Under Review" | "Expired" | "Not Applicable">("Verified by IB");
+  const [formActive, setFormActive] = useState(false);
+  const [formExpiry, setFormExpiry] = useState("");
+  const [formProvisions, setFormProvisions] = useState<string[]>([]);
+  const [formNotes, setFormNotes] = useState("");
+  const [reviewNoteText, setReviewNoteText] = useState("");
+
+  // Sync form states when activeStudent or showUpdateModal changes
+  useEffect(() => {
+    if (activeStudent) {
+      setFormStatus(activeStudent.ibAccommodations.status);
+      setFormActive(activeStudent.ibAccommodations.planActive);
+      setFormExpiry(activeStudent.ibAccommodations.expiryDate || "");
+      setFormProvisions(activeStudent.ibAccommodations.provisions);
+      setFormNotes(activeStudent.ibAccommodations.notes);
+    }
+  }, [showUpdateModal, activeStudent]);
+
+  useEffect(() => {
+    if (showReviewNotesModal) {
+      setReviewNoteText("");
+    }
+  }, [showReviewNotesModal]);
+
+  const handleSaveAccommodations = () => {
+    const statusColors: Record<string, string> = {
+      "Verified by IB": "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
+      "Pending Verification": "text-amber-400 border-amber-500/20 bg-amber-500/5",
+      "Documentation Under Review": "text-amber-400 border-amber-500/20 bg-amber-500/5",
+      "Expired": "text-rose-400 border-rose-500/20 bg-rose-500/5",
+      "Not Applicable": "text-white/40 border-white/10 bg-white/5"
+    };
+
+    const updatedStudents = students.map((s) => {
+      if (s.id === activeStudent.id) {
+        const currentDate = new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "2-digit"
+        });
+        const actionMessage = `Accommodation records updated (Status: ${formStatus}, Plan Active: ${formActive ? "Yes" : "No"}).`;
+        const newHistoryItem = {
+          date: currentDate,
+          user: "Aarav Chen",
+          action: actionMessage
+        };
+
+        return {
+          ...s,
+          ibAccommodations: {
+            ...s.ibAccommodations,
+            status: formStatus,
+            statusColor: statusColors[formStatus] || "text-white/40 border-white/10 bg-white/5",
+            planActive: formActive,
+            expiryDate: formExpiry || "N/A",
+            provisions: formProvisions,
+            notes: formNotes,
+            history: [newHistoryItem, ...s.ibAccommodations.history]
+          }
+        };
+      }
+      return s;
+    });
+
+    setStudents(updatedStudents);
+    setShowUpdateModal(false);
+  };
+
+  const handleSaveReviewNotes = () => {
+    if (!reviewNoteText.trim()) return;
+
+    const updatedStudents = students.map((s) => {
+      if (s.id === activeStudent.id) {
+        const currentDate = new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "2-digit"
+        });
+        const newHistoryItem = {
+          date: currentDate,
+          user: "Aarav Chen",
+          action: `Review note: ${reviewNoteText}`
+        };
+
+        return {
+          ...s,
+          ibAccommodations: {
+            ...s.ibAccommodations,
+            history: [newHistoryItem, ...s.ibAccommodations.history]
+          }
+        };
+      }
+      return s;
+    });
+
+    setStudents(updatedStudents);
+    setShowReviewNotesModal(false);
+  };
 
   const styling = useMemo(() => {
     return (
@@ -512,7 +1232,10 @@ export function StudentStatisticsProfile({
               {activeStudent.avatar}
             </div>
             <div className="space-y-1">
-              <h2 className="text-base font-black tracking-tight text-white">{activeStudent.name}</h2>
+              <h2 className="text-base font-black tracking-tight text-white flex items-center gap-1.5">
+                {activeStudent.name}
+                <StudentSupportFlag studentName={activeStudent.name} theme={theme} />
+              </h2>
               <span className="text-[9px] uppercase tracking-widest text-cyan-400 font-bold block font-mono">
                 IB {activeStudent.program.toUpperCase()} Candidate
               </span>
@@ -540,36 +1263,194 @@ export function StudentStatisticsProfile({
         </div>
 
         {/* ─── UPFRONT MEDICAL BADGES (Replacing Role Switcher) ───────────────── */}
-        <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="space-y-1.5">
-            <span className="text-[8px] text-white/30 uppercase tracking-widest font-black block font-mono">Critical Medical & Support Information</span>
-            <div className="flex flex-wrap gap-1.5">
-              {activeStudent.medicalBadges.map((badge, idx) => (
-                <span
-                  key={idx}
-                  className={`px-2.5 py-0.5 rounded-md text-[8.5px] font-extrabold uppercase border ${
-                    badge.includes("Verified") || badge.includes("Approved")
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : badge.includes("No Medical")
-                      ? "bg-white/5 text-white/60 border-white/10"
-                      : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                  }`}
-                >
-                  {badge}
-                </span>
-              ))}
+        {!isTeacher && (
+          <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="space-y-1.5">
+              <span className="text-[8px] text-white/30 uppercase tracking-widest font-black block font-mono">Critical Medical & Support Information</span>
+              <div className="flex flex-wrap gap-1.5">
+                {activeStudent.medicalBadges.map((badge, idx) => (
+                  <span
+                    key={idx}
+                    className={`px-2.5 py-0.5 rounded-md text-[8.5px] font-extrabold uppercase border ${
+                      badge.includes("Verified") || badge.includes("Approved")
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : badge.includes("No Medical")
+                        ? "bg-white/5 text-white/60 border-white/10"
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                    }`}
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
             </div>
+
+            <button
+              onClick={() => setShowMedicalModal(true)}
+              className="text-[9px] uppercase tracking-wider font-extrabold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1 self-end sm:self-center"
+            >
+              <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <span>[View Details]</span>
+            </button>
+          </div>
+        )}
+
+        {/* ─── IB ACCOMMODATIONS & ACCESS ARRANGEMENTS ────────────────────────── */}
+        <div className="pt-4 border-t border-white/5 space-y-4">
+          <div className="flex justify-between items-center">
+            <span className="text-[8px] text-white/30 uppercase tracking-widest font-black block font-mono">
+              IB Accommodations & Access Arrangements
+            </span>
+            {activeStudent.ibAccommodations.planActive && (
+              <span className="flex items-center gap-1.5 text-[8.5px] font-bold text-emerald-400 uppercase tracking-wider font-mono">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10b981]" />
+                Active arrangements
+              </span>
+            )}
           </div>
 
-          <button
-            onClick={() => setShowMedicalModal(true)}
-            className="text-[9px] uppercase tracking-wider font-extrabold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1 self-end sm:self-center"
-          >
-            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-            <span>[View Details]</span>
-          </button>
+          {isTeacher ? (
+            /* Teacher Perspective: Operational adjustments only */
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/[0.01] border border-white/[0.04] p-4 rounded-2xl">
+                <div className="space-y-1.5">
+                  <span className="text-[8px] text-white/35 uppercase tracking-widest block font-bold font-mono">Required Provisions</span>
+                  {activeStudent.ibAccommodations.provisions.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeStudent.ibAccommodations.provisions.map((provision, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[8.5px] font-extrabold uppercase font-mono"
+                        >
+                          {provision}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[9px] text-white/30 italic">No access arrangements or provisions registered.</div>
+                  )}
+                </div>
+                {activeStudent.ibAccommodations.expiryDate && activeStudent.ibAccommodations.expiryDate !== "N/A" && (
+                  <div className="shrink-0">
+                    <span className="text-[8px] text-white/35 uppercase tracking-widest block font-bold font-mono">Valid Until</span>
+                    <span className="text-[10.5px] text-cyan-400 font-mono font-bold block mt-1">{activeStudent.ibAccommodations.expiryDate}</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-[8px] text-white/35 uppercase tracking-widest block font-bold font-mono">Academic Support Notes</span>
+                <p className="text-[11px] text-white/75 leading-relaxed font-medium">
+                  {activeStudent.ibAccommodations.notes}
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Coordinator Perspective: Complete record details */
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                {/* Status Summary Card (Span 4) */}
+                <div className="md:col-span-4 p-3.5 bg-white/[0.01] border border-white/[0.04] rounded-2xl flex flex-col justify-between space-y-3">
+                  <div>
+                    <span className="text-[8px] text-white/35 uppercase tracking-widest block font-bold font-mono">IB Accommodation Status</span>
+                    <span className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[8.5px] font-extrabold uppercase border ${
+                      activeStudent.ibAccommodations.status === "Verified by IB"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : activeStudent.ibAccommodations.status === "Pending Verification" || activeStudent.ibAccommodations.status === "Documentation Under Review"
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        : activeStudent.ibAccommodations.status === "Expired"
+                        ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                        : "bg-white/5 text-white/40 border-white/10"
+                    }`}>
+                      {activeStudent.ibAccommodations.status}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] text-white/45 block font-semibold">
+                      Documentation: <strong className="text-white/80">{activeStudent.ibAccommodations.documentationStatus}</strong>
+                    </span>
+                    {activeStudent.ibAccommodations.expiryDate && activeStudent.ibAccommodations.expiryDate !== "N/A" && (
+                      <span className="text-[9px] text-white/45 block font-semibold">
+                        Approved Until: <strong className="text-cyan-400 font-mono">{activeStudent.ibAccommodations.expiryDate}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Provisions & Notes (Span 8) */}
+                <div className="md:col-span-8 flex flex-col justify-between space-y-3">
+                  {/* Provisions list */}
+                  {activeStudent.ibAccommodations.provisions.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeStudent.ibAccommodations.provisions.map((provision, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[8.5px] font-extrabold uppercase font-mono"
+                        >
+                          {provision}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[9px] text-white/30 italic">No access arrangements or provisions registered.</div>
+                  )}
+                  {/* plain notes */}
+                  <p className="text-[11px] text-white/75 leading-relaxed font-medium">
+                    {activeStudent.ibAccommodations.notes}
+                  </p>
+                </div>
+              </div>
+
+              {/* Timeline Info Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/5">
+                <div>
+                  <span className="text-[8px] text-white/30 uppercase tracking-widest block font-mono">Approval Date</span>
+                  <span className="text-[10px] text-white/80 font-mono font-bold">{activeStudent.ibAccommodations.approvalDate}</span>
+                </div>
+                <div>
+                  <span className="text-[8px] text-white/30 uppercase tracking-widest block font-mono">Expiry Date</span>
+                  <span className="text-[10px] text-white/80 font-mono font-bold">{activeStudent.ibAccommodations.expiryDate || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-[8px] text-white/30 uppercase tracking-widest block font-mono">Next Review Date</span>
+                  <span className="text-[10px] text-white/80 font-mono font-bold">{activeStudent.ibAccommodations.nextReviewDate}</span>
+                </div>
+                <div>
+                  <span className="text-[8px] text-white/30 uppercase tracking-widest block font-mono">Supporting Documentation</span>
+                  <span className="text-[10px] text-white/80 font-bold">{activeStudent.ibAccommodations.documentationStatus}</span>
+                </div>
+              </div>
+
+              {/* Coordinator Actions */}
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-white/5 justify-end">
+                <button
+                  onClick={() => setShowDocsModal(true)}
+                  className="px-2.5 py-1 rounded bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.05] text-[8.5px] uppercase tracking-wider font-black text-cyan-400 transition-all font-mono"
+                >
+                  [View Documentation]
+                </button>
+                <button
+                  onClick={() => setShowHistoryModal(true)}
+                  className="px-2.5 py-1 rounded bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.05] text-[8.5px] uppercase tracking-wider font-black text-cyan-400 transition-all font-mono"
+                >
+                  [View History]
+                </button>
+                <button
+                  onClick={() => setShowUpdateModal(true)}
+                  className="px-2.5 py-1 rounded bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.05] text-[8.5px] uppercase tracking-wider font-black text-cyan-400 transition-all font-mono"
+                >
+                  [Update Records]
+                </button>
+                <button
+                  onClick={() => setShowReviewNotesModal(true)}
+                  className="px-2.5 py-1 rounded bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.05] text-[8.5px] uppercase tracking-wider font-black text-cyan-400 transition-all font-mono"
+                >
+                  [Record Review Notes]
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -588,8 +1469,6 @@ export function StudentStatisticsProfile({
                 key={t}
                 onClick={() => {
                   setTimeframe(t);
-                  // Reset expanded subject view as different data scales load
-                  setActiveSubject(null);
                 }}
                 className={`px-3 py-1 rounded-lg text-[8.5px] font-black uppercase tracking-wider transition-all ${
                   timeframe === t
@@ -604,73 +1483,120 @@ export function StudentStatisticsProfile({
         </div>
 
         {/* Dynamic Trajectory Graph rendering genuine data points */}
-        <div className="h-44 border-b border-white/5 relative pt-4">
-          <div className="absolute left-0 right-0 top-0 border-t border-dashed border-white/5 flex justify-between text-[8px] text-white/20">
-            <span>7.0 Max</span>
-          </div>
-          <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-white/5 flex justify-between text-[8px] text-white/20">
-            <span>5.0 Target</span>
-          </div>
-          <div className="absolute left-0 right-0 bottom-0 border-t border-dashed border-white/5 flex justify-between text-[8px] text-white/20 font-mono">
-            <span>Overall Class Average correlation scale</span>
-          </div>
+        <div className="h-44 border-b border-white/5 relative select-none">
+          {(() => {
+            const chartWidth = 350;
+            const chartHeight = 90;
+            const paddingLeft = 25;
+            const paddingTop = 15;
 
-          {/* Draw average SVG curve */}
-          <svg viewBox="0 0 300 120" className="w-full h-full overflow-visible absolute inset-0 z-10">
-            <defs>
-              <linearGradient id="oGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.12" />
-                <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path
-              d={timeframeDataset.overviewAvg
-                .map((pt, idx) => {
-                  const x = (idx / (timeframeDataset.overviewAvg.length - 1)) * 300;
-                  const y = 120 - ((pt - 3) / 4) * 120;
-                  return `${idx === 0 ? "M" : "L"} ${x},${y}`;
-                })
-                .join(" ")}
-              fill="none"
-              stroke="#06b6d4"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d={`${timeframeDataset.overviewAvg
-                .map((pt, idx) => {
-                  const x = (idx / (timeframeDataset.overviewAvg.length - 1)) * 300;
-                  const y = 120 - ((pt - 3) / 4) * 120;
-                  return `${idx === 0 ? "M" : "L"} ${x},${y}`;
-                })
-                .join(" ")} L 300,120 L 0,120 Z`}
-              fill="url(#oGrad)"
-            />
-            {timeframeDataset.overviewAvg.map((pt, idx) => {
-              const x = (idx / (timeframeDataset.overviewAvg.length - 1)) * 300;
-              const y = 120 - ((pt - 3) / 4) * 120;
-              return (
-                <g key={idx}>
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r="4.5"
-                    className="fill-zinc-950 stroke-cyan-400 stroke-2"
+            const getCoords = (idx: number, pt: number) => {
+              const x = paddingLeft + (idx / (timeframeDataset.overviewAvg.length - 1)) * chartWidth;
+              const y = paddingTop + (1 - (pt - 3) / 4) * chartHeight;
+              return { x, y };
+            };
+
+            const pathPoints = timeframeDataset.overviewAvg.map((pt, idx) => {
+              const { x, y } = getCoords(idx, pt);
+              return `${idx === 0 ? "M" : "L"} ${x},${y}`;
+            });
+            const linePathD = pathPoints.join(" ");
+
+            const firstX = paddingLeft;
+            const lastX = paddingLeft + chartWidth;
+            const bottomY = paddingTop + chartHeight; // 105
+            const areaPathD = `${linePathD} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
+
+            return (
+              <>
+                <svg 
+                  viewBox="0 0 400 130" 
+                  preserveAspectRatio="none"
+                  className="w-full h-full overflow-visible absolute inset-0 z-10"
+                >
+                  <defs>
+                    <linearGradient id="oGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.15" />
+                      <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Horizontal Guidelines */}
+                  <line x1="25" y1="15" x2="375" y2="15" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+                  <line x1="25" y1="60" x2="375" y2="60" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+                  <line x1="25" y1="105" x2="375" y2="105" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+
+                  {/* Area path with spring transition */}
+                  <motion.path
+                    d={areaPathD}
+                    fill="url(#oGrad)"
+                    animate={{ d: areaPathD }}
+                    transition={{ type: "spring", stiffness: 80, damping: 15 }}
                   />
-                  <text x={x} y={y - 8} textAnchor="middle" className="fill-white font-mono text-[8px] font-bold">
-                    {pt.toFixed(2)}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
 
-        <div className="flex justify-between text-[8px] text-white/30 uppercase tracking-widest font-mono">
-          {timeframeDataset.labels.map((l) => (
-            <span key={l}>{l}</span>
-          ))}
+                  {/* Line path with spring transition */}
+                  <motion.path
+                    d={linePathD}
+                    fill="none"
+                    stroke="#06b6d4"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    animate={{ d: linePathD }}
+                    transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                  />
+                </svg>
+
+                {/* Guidelines labels (HTML overlay, no distortion) */}
+                <div className="absolute inset-0 pointer-events-none z-20">
+                  <div className="absolute left-[6.25%] top-[7.69%] text-[8px] font-mono font-medium text-white/20 -translate-y-1/2">7.0 Max</div>
+                  <div className="absolute left-[6.25%] top-[42.3%] text-[8px] font-mono font-medium text-white/20 -translate-y-1/2">5.0 Target</div>
+                  <div className="absolute left-[6.25%] top-[76.92%] text-[8px] font-mono font-medium text-white/20 -translate-y-1/2">Overall Class Average correlation scale</div>
+                </div>
+
+                {/* Nodes & Labels Overlay (HTML overlay, no distortion) */}
+                <div className="absolute inset-0 z-20 pointer-events-auto">
+                  {timeframeDataset.overviewAvg.map((pt, idx) => {
+                    const xPercent = 6.25 + (idx / (timeframeDataset.overviewAvg.length - 1)) * 87.5;
+                    const yPercent = 11.54 + (1 - (pt - 3) / 4) * 69.23;
+                    return (
+                      <div
+                        key={idx}
+                        className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-all duration-500 ease-out"
+                        style={{
+                          left: `${xPercent}%`,
+                          top: `${yPercent}%`
+                        }}
+                      >
+                        {/* Floating Value */}
+                        <span className="text-[8px] font-bold font-mono text-white mb-1.5 block -translate-y-3 pointer-events-none select-none">
+                          {pt.toFixed(2)}
+                        </span>
+                        {/* Circle Node */}
+                        <div className="size-2 rounded-full bg-zinc-950 border-2 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* X-Axis Labels Overlay */}
+                <div className="absolute left-0 right-0 bottom-1 h-5 z-20 pointer-events-none">
+                  {timeframeDataset.labels.map((l, idx) => {
+                    const xPercent = 6.25 + (idx / (timeframeDataset.labels.length - 1)) * 87.5;
+                    return (
+                      <div
+                        key={l}
+                        className="absolute -translate-x-1/2 text-[8.5px] font-mono font-semibold tracking-wider text-white/30 text-center"
+                        style={{ left: `${xPercent}%` }}
+                      >
+                        {l}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -682,282 +1608,27 @@ export function StudentStatisticsProfile({
           <p className="text-[10.5px] text-white/35">Explore timeline checkpoints, assessment markers, and classroom support correlation.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {Object.keys(timeframeDataset.subjects).map((subj) => {
-            const grades = timeframeDataset.subjects[subj];
-            const currentGradePoint = grades[grades.length - 1];
-            const isExpanded = activeSubject === subj;
-
-            return (
-              <button
-                key={subj}
-                onClick={() => {
-                  setActiveSubject(isExpanded ? null : subj);
-                  // Hide any tooltips
-                  setHoveredMarker(null);
-                }}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  isExpanded
-                    ? "bg-cyan-500/5 border-cyan-500/40 shadow-[0_4px_20px_rgba(6,182,212,0.08)]"
-                    : "bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03] hover:border-white/10"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-xs font-bold text-white tracking-wide">{subj}</h4>
-                    <span className="text-[9px] text-white/30 font-mono block mt-1 uppercase">IB Grade Rating</span>
-                  </div>
-                  <span className="text-xl font-black text-cyan-400 font-mono">{currentGradePoint.grade.toFixed(1)}</span>
-                </div>
-                <div className="mt-3 flex justify-between items-center text-[10px] text-white/50 border-t border-white/5 pt-2">
-                  <span>Class Average: <strong className="text-white/80 font-mono">{currentGradePoint.classAvg.toFixed(1)}</strong></span>
-                  <span className="text-cyan-400/80 font-bold uppercase tracking-wider text-[8px]">
-                    {isExpanded ? "Collapse ▲" : "Investigate ▼"}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+        <div className="flex flex-col gap-4">
+          {Object.keys(timeframeDataset.subjects).map((subj) => (
+            <ExpandableSubjectCard
+              key={subj}
+              subj={subj}
+              timeframeDataset={timeframeDataset}
+              timeframe={timeframe}
+              activeSubject={activeSubject}
+              setActiveSubject={setActiveSubject}
+              hoveredMarker={hoveredMarker}
+              setHoveredMarker={setHoveredMarker}
+              hoveredMarkerCoords={hoveredMarkerCoords}
+              setHoveredMarkerCoords={setHoveredMarkerCoords}
+            />
+          ))}
         </div>
       </div>
 
-      {/* ─── SUBJECT EXPANDED DETAILS PANEL (PROGRESSIVE LEVEL 3) ─────────────── */}
-      <AnimatePresence mode="wait">
-        {activeSubject && (
-          <motion.div
-            key={activeSubject}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className={`p-6 rounded-3xl border border-cyan-500/20 bg-cyan-950/[0.03] space-y-6 relative`}
-          >
-            {/* Header info */}
-            <div className="flex justify-between items-start border-b border-white/5 pb-4">
-              <div>
-                <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">Expanded subject analytics</span>
-                <h3 className="text-sm font-black text-white uppercase tracking-wider mt-0.5">{activeSubject} Analysis</h3>
-              </div>
-              <button
-                onClick={() => setActiveSubject(null)}
-                className="text-[9px] text-white/40 hover:text-white uppercase tracking-wider font-extrabold font-mono"
-              >
-                Close Subject ×
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Performance Timeline Graph with Assessment Markers */}
-              <div className="lg:col-span-8 space-y-4">
-                <div>
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Performance Timeline & Assessment Markers</h4>
-                  <p className="text-[10px] text-white/40">Hover over markers (dots) to reveal assessment details.</p>
-                </div>
-
-                <div className="h-44 bg-zinc-950/40 rounded-2xl border border-white/[0.04] p-4 relative">
-                  
-                  {/* Floating Assessment Tooltip Card */}
-                  <AnimatePresence>
-                    {hoveredMarker && hoveredMarkerCoords && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        style={{
-                          position: "absolute",
-                          left: `${hoveredMarkerCoords.x}px`,
-                          top: `${hoveredMarkerCoords.y - 75}px`,
-                          transform: "translateX(-50%)"
-                        }}
-                        className="z-50 w-52 p-3 bg-zinc-950 border border-cyan-500/30 rounded-xl shadow-2xl backdrop-blur-xl pointer-events-none"
-                      >
-                        <span className="block text-[8px] font-black text-cyan-400 uppercase tracking-widest">{hoveredMarker.type}</span>
-                        <strong className="block text-[10.5px] text-white mt-0.5 font-bold leading-snug">{hoveredMarker.label}</strong>
-                        <div className="flex justify-between items-center text-[9px] text-white/40 mt-1.5 border-t border-white/5 pt-1.5">
-                          <span>Grade Score: <strong className="text-cyan-400 font-mono">{hoveredMarker.score}</strong></span>
-                          <span>{hoveredMarker.date}</span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div className="h-full relative">
-                    <div className="absolute left-0 right-0 top-0 border-t border-dashed border-white/[0.04] flex justify-between text-[7.5px] text-white/20">
-                      <span>7.0 Max</span>
-                    </div>
-                    <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-white/[0.04] flex justify-between text-[7.5px] text-white/20">
-                      <span>5.0 Target</span>
-                    </div>
-
-                    <svg viewBox="0 0 300 100" className="w-full h-full overflow-visible absolute inset-0 z-10">
-                      {/* Class Average Reference Line */}
-                      <path
-                        d={timeframeDataset.subjects[activeSubject]
-                          .map((pt, idx) => {
-                            const x = (idx / (timeframeDataset.subjects[activeSubject].length - 1)) * 300;
-                            const y = 100 - ((pt.classAvg - 3) / 4) * 100;
-                            return `${idx === 0 ? "M" : "L"} ${x},${y}`;
-                          })
-                          .join(" ")}
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeOpacity="0.12"
-                        strokeWidth="1.5"
-                        strokeDasharray="3,3"
-                      />
-
-                      {/* Student Grade Curve */}
-                      <path
-                        d={timeframeDataset.subjects[activeSubject]
-                          .map((pt, idx) => {
-                            const x = (idx / (timeframeDataset.subjects[activeSubject].length - 1)) * 300;
-                            const y = 100 - ((pt.grade - 3) / 4) * 100;
-                            return `${idx === 0 ? "M" : "L"} ${x},${y}`;
-                          })
-                          .join(" ")}
-                        fill="none"
-                        stroke="#06b6d4"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-
-                      {/* Nodes and Assessment Markers */}
-                      {timeframeDataset.subjects[activeSubject].map((pt, idx) => {
-                        const x = (idx / (timeframeDataset.subjects[activeSubject].length - 1)) * 300;
-                        const y = 100 - ((pt.grade - 3) / 4) * 100;
-                        const hasMilestone = !!pt.milestone;
-
-                        return (
-                          <g
-                            key={idx}
-                            onMouseEnter={(e) => {
-                              if (hasMilestone) {
-                                // Simple local coordinate layout mapping
-                                const bounds = e.currentTarget.parentElement?.getBoundingClientRect();
-                                const mouseX = (idx / (timeframeDataset.subjects[activeSubject].length - 1)) * (bounds?.width || 300);
-                                const mouseY = 100 - ((pt.grade - 3) / 4) * 100;
-
-                                setHoveredMarker(pt.milestone || null);
-                                setHoveredMarkerCoords({ x: mouseX, y: mouseY });
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              setHoveredMarker(null);
-                            }}
-                            className={hasMilestone ? "cursor-pointer" : ""}
-                          >
-                            <circle
-                              cx={x}
-                              cy={y}
-                              r={hasMilestone ? 6 : 4}
-                              className={
-                                hasMilestone
-                                  ? "fill-cyan-400 stroke-cyan-500 stroke-2 animate-pulse"
-                                  : "fill-zinc-950 stroke-white/40 stroke-2"
-                              }
-                            />
-                            {hasMilestone && (
-                              <circle
-                                cx={x}
-                                cy={y}
-                                r="10"
-                                className="fill-cyan-400/10 stroke-none hover:fill-cyan-400/20"
-                              />
-                            )}
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Graph Axis labels */}
-                <div className="flex justify-between text-[8px] text-white/30 uppercase tracking-widest font-mono">
-                  {timeframeDataset.labels.map((l) => (
-                    <span key={l}>{l}</span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Subject statistics details column */}
-              <div className="lg:col-span-4 space-y-4">
-                
-                {/* Cohort Comparison */}
-                <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3">
-                  <h4 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Cohort comparison</h4>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-white/60">Candidate Grade</span>
-                    <strong className="text-cyan-400 font-mono text-sm">
-                      {timeframeDataset.subjects[activeSubject][timeframeDataset.subjects[activeSubject].length - 1].grade.toFixed(1)}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-white/60">Cohort Average</span>
-                    <strong className="text-white/80 font-mono text-sm">
-                      {timeframeDataset.subjects[activeSubject][timeframeDataset.subjects[activeSubject].length - 1].classAvg.toFixed(1)}
-                    </strong>
-                  </div>
-                  {/* Compare Bar */}
-                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
-                    <div
-                      style={{
-                        width: `${(timeframeDataset.subjects[activeSubject][timeframeDataset.subjects[activeSubject].length - 1].grade / 7) * 100}%`
-                      }}
-                      className="bg-cyan-400 h-full"
-                    />
-                  </div>
-                </div>
-
-                {/* Attendance & Support Correlation */}
-                <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-2">
-                  <h4 className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Attendance Correlation</h4>
-                  <p className="text-[10.5px] text-white/75 leading-relaxed font-medium">
-                    {activeStudent.id === "std-2"
-                      ? "Attendance stands at 91.2%. Math/Chemistry records show a close correlation between late arrivals and downward grade slips."
-                      : "Attendance stands at 97.4%. Highly regular attendance patterns show positive correlation with grade stability and milestone delivery."}
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* Assessment History Ledger list */}
-            <div className="space-y-3 border-t border-white/5 pt-4">
-              <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Assessment History Ledger</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {timeframeDataset.subjects[activeSubject]
-                  .filter((pt) => pt.milestone)
-                  .map((pt, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 bg-zinc-950/20 border border-white/[0.03] rounded-xl flex items-center justify-between text-xs font-semibold"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-white/30 font-mono text-[9px] w-12 shrink-0">{pt.milestone?.date}</span>
-                        <div>
-                          <strong className="text-white block font-bold">{pt.milestone?.label}</strong>
-                          <span className="text-[9.5px] text-cyan-400/80 block leading-none font-mono mt-0.5">{pt.milestone?.type}</span>
-                        </div>
-                      </div>
-                      <span className="text-xs font-mono font-bold text-white">{pt.milestone?.score}</span>
-                    </div>
-                  ))}
-
-                {timeframeDataset.subjects[activeSubject].filter((pt) => pt.milestone).length === 0 && (
-                  <span className="text-[10px] text-white/30 italic block text-center py-2">No milestone assessments logged in this timeframe.</span>
-                )}
-              </div>
-            </div>
-
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ─── DETAILED MEDICAL MODAL (ONE CLICK AWAY) ────────────────────────── */}
       <AnimatePresence>
-        {showMedicalModal && (
+        {showMedicalModal && !isTeacher && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
@@ -1062,6 +1733,379 @@ export function StudentStatisticsProfile({
                   className="w-full py-2.5 rounded-xl bg-cyan-500 text-black font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-cyan-400"
                 >
                   Close Record
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── VIEW DOCUMENTATION MODAL ────────────────────────────────────── */}
+      <AnimatePresence>
+        {showDocsModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDocsModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="z-50 w-full max-w-lg bg-[#0C0C0E] border border-white/10 p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] space-y-5"
+            >
+              <div className="flex justify-between items-start border-b border-white/5 pb-3">
+                <div>
+                  <span className="text-[8px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">IB Official Document Repository</span>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">Access Arrangement Documentation</h3>
+                </div>
+                <button onClick={() => setShowDocsModal(false)} className="text-white/40 hover:text-white text-xl font-bold font-mono">×</button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-zinc-950/60 border border-white/[0.04] rounded-2xl space-y-3 font-semibold text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40">Candidate Name:</span>
+                    <span className="text-white">{activeStudent.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40">Document Ref:</span>
+                    <span className="text-cyan-400 font-mono">{activeStudent.ibAccommodations.documentRef || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40">File Registered:</span>
+                    <span className="text-white/80 max-w-[200px] truncate font-mono text-[10.5px]">{activeStudent.ibAccommodations.documentName || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40">Verification Status:</span>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${activeStudent.ibAccommodations.statusColor}`}>
+                      {activeStudent.ibAccommodations.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Simulated Document Preview Area */}
+                <div className="relative h-44 bg-zinc-900 border border-white/5 rounded-2xl flex flex-col justify-between p-4 overflow-hidden select-none">
+                  {/* Watermark/Stamp */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
+                    <div className="text-white font-mono text-[9px] border border-white p-2 rotate-12 scale-150">INTERNATIONAL BACCALAUREATE</div>
+                  </div>
+
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-0.5">
+                      <span className="text-[7.5px] text-white/30 font-mono block">IB CARDIFF GLOBAL OFFICE</span>
+                      <strong className="text-[10px] text-white/90 font-bold block uppercase tracking-wide">Official Assessment Authorization</strong>
+                    </div>
+                    <div className="size-8 rounded border border-white/10 bg-white/5 flex items-center justify-center text-[9.5px] text-white/60 font-black font-mono">IB</div>
+                  </div>
+
+                  <div className="space-y-1.5 py-2">
+                    <span className="text-[8px] text-white/40 uppercase block">Approved Access Provisions:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {activeStudent.ibAccommodations.provisions.length > 0 ? (
+                        activeStudent.ibAccommodations.provisions.map((prov, i) => (
+                          <span key={i} className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[8px] font-mono">{prov}</span>
+                        ))
+                      ) : (
+                        <span className="text-[9px] text-white/30 italic">No accommodations authorized.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-end border-t border-white/5 pt-2 text-[8px] font-mono text-white/30">
+                    <span>AUTHORIZED SIGN-OFF: Dr. E. Rostova</span>
+                    <span>ISSUED: {activeStudent.ibAccommodations.approvalDate}</span>
+                  </div>
+                </div>
+
+                {downloadSuccess ? (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center text-emerald-400 text-[10.5px] font-bold animate-pulse">
+                    ✓ PDF Download Simulated: {activeStudent.ibAccommodations.documentName} saved to local storage.
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    if (activeStudent.ibAccommodations.documentName !== "N/A") {
+                      setDownloadSuccess(true);
+                      setTimeout(() => setDownloadSuccess(false), 3000);
+                    }
+                  }}
+                  disabled={activeStudent.ibAccommodations.documentName === "N/A"}
+                  className="w-full py-2.5 rounded-xl bg-cyan-500 text-black font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-cyan-400 disabled:opacity-30 disabled:hover:bg-cyan-500"
+                >
+                  Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDocsModal(false);
+                    setDownloadSuccess(false);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-white/10"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── VIEW HISTORY MODAL ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showHistoryModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHistoryModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="z-50 w-full max-w-lg bg-[#0C0C0E] border border-white/10 p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] space-y-5"
+            >
+              <div className="flex justify-between items-start border-b border-white/5 pb-3">
+                <div>
+                  <span className="text-[8px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">System Audit Log</span>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">Accommodation History & Reviews</h3>
+                </div>
+                <button onClick={() => setShowHistoryModal(false)} className="text-white/40 hover:text-white text-xl font-bold font-mono">×</button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+                  {activeStudent.ibAccommodations.history.map((log, idx) => (
+                    <div key={idx} className="p-3 bg-white/[0.01] border border-white/[0.04] rounded-2xl space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8.5px] text-cyan-400 font-mono font-bold">{log.date}</span>
+                        <span className="text-[8.5px] text-white/40 uppercase tracking-wider font-mono">By: {log.user}</span>
+                      </div>
+                      <p className="text-[10.5px] text-white/80 leading-relaxed font-semibold">{log.action}</p>
+                    </div>
+                  ))}
+
+                  {activeStudent.ibAccommodations.history.length === 0 && (
+                    <div className="text-[10.5px] text-white/30 italic text-center py-6">No historical entries found.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="w-full py-2.5 rounded-xl bg-cyan-500 text-black font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-cyan-400"
+                >
+                  Close History
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── UPDATE ACCOMMODATION RECORDS MODAL ────────────────────────── */}
+      <AnimatePresence>
+        {showUpdateModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUpdateModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="z-50 w-full max-w-lg bg-[#0C0C0E] border border-white/10 p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] space-y-4"
+            >
+              <div className="flex justify-between items-start border-b border-white/5 pb-3">
+                <div>
+                  <span className="text-[8px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">Record Custodian Panel</span>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">Update Accommodation Records</h3>
+                </div>
+                <button onClick={() => setShowUpdateModal(false)} className="text-white/40 hover:text-white text-xl font-bold font-mono">×</button>
+              </div>
+
+              <div className="space-y-3.5 text-xs text-white/80 font-semibold max-h-[400px] overflow-y-auto pr-1">
+                {/* Status selector */}
+                <div className="space-y-1">
+                  <label className="text-[8.5px] text-white/40 uppercase tracking-widest font-mono block">Verification Status</label>
+                  <select
+                    value={formStatus}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setFormStatus(e.target.value as "Verified by IB" | "Pending Verification" | "Documentation Under Review" | "Expired" | "Not Applicable")
+                    }
+                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-500 font-semibold"
+                  >
+                    <option value="Verified by IB">Verified by IB</option>
+                    <option value="Pending Verification">Pending Verification</option>
+                    <option value="Documentation Under Review">Documentation Under Review</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Not Applicable">Not Applicable</option>
+                  </select>
+                </div>
+
+                {/* Plan active checkbox */}
+                <div className="flex items-center gap-2.5 p-3 bg-white/[0.01] border border-white/[0.04] rounded-2xl">
+                  <input
+                    type="checkbox"
+                    id="planActiveCheck"
+                    checked={formActive}
+                    onChange={(e) => setFormActive(e.target.checked)}
+                    className="size-3.5 accent-cyan-500 rounded border-white/10 bg-zinc-900 cursor-pointer"
+                  />
+                  <label htmlFor="planActiveCheck" className="text-[11px] text-white cursor-pointer select-none">
+                    Accommodation Plan Active
+                  </label>
+                </div>
+
+                {/* Expiry Date */}
+                <div className="space-y-1">
+                  <label className="text-[8.5px] text-white/40 uppercase tracking-widest font-mono block">Expiry Date (e.g. May 2027)</label>
+                  <input
+                    type="text"
+                    value={formExpiry}
+                    onChange={(e) => setFormExpiry(e.target.value)}
+                    placeholder="May 2027"
+                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-500 font-mono"
+                  />
+                </div>
+
+                {/* Provisions checklist */}
+                <div className="space-y-1.5">
+                  <label className="text-[8.5px] text-white/40 uppercase tracking-widest font-mono block">Approved Provisions</label>
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-zinc-950/60 border border-white/[0.03] rounded-2xl max-h-[120px] overflow-y-auto">
+                    {[
+                      "Extra Time (25%)",
+                      "Separate Room",
+                      "Rest Breaks",
+                      "Scribe",
+                      "Reader",
+                      "Assistive Technology",
+                      "Modified Papers"
+                    ].map((provision) => {
+                      const isChecked = formProvisions.includes(provision);
+                      return (
+                        <div key={provision} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`prov-${provision}`}
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormProvisions([...formProvisions, provision]);
+                              } else {
+                                setFormProvisions(formProvisions.filter((p) => p !== provision));
+                              }
+                            }}
+                            className="size-3.5 accent-cyan-500 rounded border-white/10 bg-zinc-900 cursor-pointer"
+                          />
+                          <label htmlFor={`prov-${provision}`} className="text-[10px] text-white/70 truncate cursor-pointer select-none">
+                            {provision}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1">
+                  <label className="text-[8.5px] text-white/40 uppercase tracking-widest font-mono block">Accommodation Notes</label>
+                  <textarea
+                    rows={3}
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    placeholder="Enter plain language accommodation summary..."
+                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-500 font-medium leading-relaxed resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={handleSaveAccommodations}
+                  className="w-full py-2.5 rounded-xl bg-cyan-500 text-black font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-cyan-400"
+                >
+                  Save Changes
+                </button>
+                <button
+                  onClick={() => setShowUpdateModal(false)}
+                  className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── RECORD REVIEW NOTES MODAL ──────────────────────────────────── */}
+      <AnimatePresence>
+        {showReviewNotesModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowReviewNotesModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="z-50 w-full max-w-md bg-[#0C0C0E] border border-white/10 p-6 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] space-y-4"
+            >
+              <div className="flex justify-between items-start border-b border-white/5 pb-3">
+                <div>
+                  <span className="text-[8px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">Case Management</span>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">Record Review Notes</h3>
+                </div>
+                <button onClick={() => setShowReviewNotesModal(false)} className="text-white/40 hover:text-white text-xl font-bold font-mono">×</button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <p className="text-white/55 font-semibold leading-relaxed">
+                  Log a progress note or record an evaluation session for {activeStudent.name}. This note will be appended to the official accommodation audit history.
+                </p>
+                <div className="space-y-1">
+                  <label className="text-[8.5px] text-white/40 uppercase tracking-widest font-mono block">Review Note</label>
+                  <textarea
+                    rows={4}
+                    value={reviewNoteText}
+                    onChange={(e) => setReviewNoteText(e.target.value)}
+                    placeholder="Enter details of review session (e.g. Verified with student, updated exam accommodations schedule...)"
+                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-500 font-semibold leading-relaxed resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={handleSaveReviewNotes}
+                  disabled={!reviewNoteText.trim()}
+                  className="w-full py-2.5 rounded-xl bg-cyan-500 text-black font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-cyan-400 disabled:opacity-30 disabled:hover:bg-cyan-500"
+                >
+                  Save Note
+                </button>
+                <button
+                  onClick={() => setShowReviewNotesModal(false)}
+                  className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-extrabold uppercase tracking-wider text-[10px] transition-all hover:bg-white/10"
+                >
+                  Cancel
                 </button>
               </div>
             </motion.div>

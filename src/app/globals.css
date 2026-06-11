@@ -50,3 +50,26 @@ button {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* Axis Intelligent Drop Target Visual Cues */
+.axis-drop-target {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body[data-axis-dragging="true"] .axis-drop-target {
+  border-style: dashed !important;
+  border-color: rgba(6, 182, 212, 0.55) !important;
+  background-color: rgba(6, 182, 212, 0.02) !important;
+  box-shadow: 0 0 24px rgba(6, 182, 212, 0.08) !important;
+  animation: axis-pulse-border 1.8s infinite alternate ease-in-out;
+}
+
+@keyframes axis-pulse-border {
+  from {
+    border-color: rgba(6, 182, 212, 0.35);
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.04);
+  }
+  to {
+    border-color: rgba(6, 182, 212, 0.7);
+    box-shadow: 0 0 28px rgba(6, 182, 212, 0.16);
+  }
+}

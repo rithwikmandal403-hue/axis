@@ -55,25 +55,55 @@ type RecipientTarget = {
 // ─── Recipient Suggestion Data ──────────────────────────────────────────
 
 const RECIPIENT_TARGETS: RecipientTarget[] = [
+  // Faculty & Staff
   { id: "rec-fac-1", name: "Science Faculty", email: "science.faculty@axis.edu", category: "Faculty" },
   { id: "rec-fac-2", name: "Mathematics Faculty", email: "math.faculty@axis.edu", category: "Faculty" },
   { id: "rec-fac-3", name: "Languages Faculty", email: "languages.faculty@axis.edu", category: "Faculty" },
   { id: "rec-fac-4", name: "All Teaching Staff", email: "all.staff@axis.edu", category: "Faculty" },
+  { id: "rec-fac-5", name: "Sarah Chen", email: "sarah.chen@axis.edu", category: "Faculty" },
+  { id: "rec-fac-6", name: "Aarav Chen", email: "aarav.chen@axis.edu", category: "Faculty" },
+  { id: "rec-fac-7", name: "Marcus Vance", email: "marcus.vance@axis.edu", category: "Faculty" },
+  { id: "rec-fac-8", name: "Ananya Rao", email: "ananya.rao@axis.edu", category: "Faculty" },
+  { id: "rec-fac-9", name: "Clara Dupont", email: "clara.dupont@axis.edu", category: "Faculty" },
+  { id: "rec-fac-10", name: "Robert Blake", email: "robert.blake@axis.edu", category: "Faculty" },
+
+  // Guardians & Parents
   { id: "rec-gdn-1", name: "DP1 Parents/Guardians", email: "dp1.parents@family.com", category: "Guardians" },
   { id: "rec-gdn-2", name: "DP2 Parents/Guardians", email: "dp2.parents@family.com", category: "Guardians" },
   { id: "rec-gdn-3", name: "Grade 11 Parents", email: "g11.parents@family.com", category: "Guardians" },
   { id: "rec-gdn-4", name: "Grade 12 Parents", email: "g12.parents@family.com", category: "Guardians" },
+  { id: "rec-gdn-5", name: "David Vance", email: "david.vance@family.com", category: "Guardians" },
+  { id: "rec-gdn-6", name: "Helena Watson", email: "helena.watson@family.com", category: "Guardians" },
+
+  // Students
+  { id: "rec-std-1", name: "Chloe Vance", email: "chloe.vance@axis.edu", category: "Programme" },
+  { id: "rec-std-2", name: "Lucas Gray", email: "lucas.gray@axis.edu", category: "Programme" },
+  { id: "rec-std-3", name: "Dilan Patel", email: "dilan.patel@axis.edu", category: "Programme" },
+  { id: "rec-std-4", name: "Emma Watson", email: "emma.watson@axis.edu", category: "Programme" },
   { id: "rec-prg-1", name: "IB DP Candidates", email: "dp.candidates@axis.edu", category: "Programme" },
   { id: "rec-prg-2", name: "MYP Students", email: "myp.students@axis.edu", category: "Programme" },
   { id: "rec-prg-3", name: "CP Candidates", email: "cp.candidates@axis.edu", category: "Programme" },
+
+  // Cohorts
   { id: "rec-grd-1", name: "Grade 11 Cohort", email: "g11.cohort@axis.edu", category: "Grade-Level" },
   { id: "rec-grd-2", name: "Grade 12 Cohort", email: "g12.cohort@axis.edu", category: "Grade-Level" },
+
+  // Subject Leads & Departments
   { id: "rec-sub-1", name: "EE Supervisors", email: "ee.supervisors@axis.edu", category: "Subject Lead" },
   { id: "rec-sub-2", name: "TOK Essay Advisors", email: "tok.advisors@axis.edu", category: "Subject Lead" },
   { id: "rec-sub-3", name: "Subject Heads", email: "subject.heads@axis.edu", category: "Subject Lead" },
   { id: "rec-dep-1", name: "Science Department", email: "science.dept@axis.edu", category: "Department" },
   { id: "rec-dep-2", name: "Math Department", email: "math.dept@axis.edu", category: "Department" },
   { id: "rec-dep-3", name: "Admin Staff", email: "admin.staff@axis.edu", category: "Department" },
+
+  // Custom Groups & External Orgs
+  { id: "rec-grp-1", name: "DP1 Teachers", email: "dp1.teachers@axis.edu", category: "Faculty" },
+  { id: "rec-grp-2", name: "Leadership Team", email: "leadership@axis.edu", category: "Faculty" },
+  { id: "rec-grp-3", name: "Parent Representative", email: "parent.rep@family.com", category: "Guardians" },
+  { id: "rec-ext-1", name: "External Consultant", email: "consultant.ext@axis.edu", category: "Broadcast" },
+  { id: "rec-ext-2", name: "IB Evaluation Board", email: "ib.eval@ib.org", category: "Broadcast" },
+
+  // Broadcasts
   { id: "rec-bdc-1", name: "All School Members", email: "all@axis.edu", category: "Broadcast" },
   { id: "rec-bdc-2", name: "DP Cohort Announcement", email: "dp.announcements@axis.edu", category: "Broadcast" },
 ];
@@ -448,6 +478,52 @@ const FOLDERS: { id: EmailFolder; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
+function parseRecipientsString(str: string): RecipientTarget[] {
+  if (!str) return [];
+  return str.split(",").map((part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return null;
+    const found = RECIPIENT_TARGETS.find(
+      (t) => t.name.toLowerCase() === trimmed.toLowerCase() || t.email.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (found) return found;
+    return {
+      id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: trimmed,
+      email: trimmed,
+      category: "Faculty"
+    } as RecipientTarget;
+  }).filter(Boolean) as RecipientTarget[];
+}
+
+function handleRecipientInputKeyDown(
+  e: React.KeyboardEvent<HTMLInputElement>,
+  list: RecipientTarget[],
+  setList: React.Dispatch<React.SetStateAction<RecipientTarget[]>>,
+  searchVal: string,
+  setSearchVal: React.Dispatch<React.SetStateAction<string>>
+) {
+  if (e.key === "Enter" || e.key === "," || e.key === ";") {
+    e.preventDefault();
+    const trimmed = searchVal.trim().replace(/[;,]$/, "").trim();
+    if (!trimmed) return;
+    if (list.some((r) => r.email.toLowerCase() === trimmed.toLowerCase())) {
+      setSearchVal("");
+      return;
+    }
+    const newRecipient: RecipientTarget = {
+      id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: trimmed,
+      email: trimmed,
+      category: "Faculty"
+    };
+    setList([...list, newRecipient]);
+    setSearchVal("");
+  } else if (e.key === "Backspace" && !searchVal && list.length > 0) {
+    setList(list.slice(0, -1));
+  }
+}
+
 export function CoordinatorEmail({ theme }: { theme: Theme }) {
   const styles = getAxisTheme(theme);
   const [activeFolder, setActiveFolder] = useState<EmailFolder>("inbox");
@@ -473,9 +549,12 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
   // Compose Modal States
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
-  const [composeTo, setComposeTo] = useState("");
-  const [composeCc, setComposeCc] = useState("");
-  const [composeBcc, setComposeBcc] = useState("");
+  const [composeTo, setComposeTo] = useState<RecipientTarget[]>([]);
+  const [composeCc, setComposeCc] = useState<RecipientTarget[]>([]);
+  const [composeBcc, setComposeBcc] = useState<RecipientTarget[]>([]);
+  const [toSearch, setToSearch] = useState("");
+  const [ccSearch, setCcSearch] = useState("");
+  const [bccSearch, setBccSearch] = useState("");
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [composeSubject, setComposeSubject] = useState("");
@@ -537,28 +616,34 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
 
   // Recipient autocompletes list filters
   const filteredToSuggestions = useMemo(() => {
-    const q = composeTo.toLowerCase().trim();
-    if (!q) return RECIPIENT_TARGETS;
-    return RECIPIENT_TARGETS.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q)
-    );
-  }, [composeTo]);
+    const q = toSearch.toLowerCase().trim();
+    return RECIPIENT_TARGETS.filter((t) => {
+      const isAlreadySelected = composeTo.some((r) => r.email.toLowerCase() === t.email.toLowerCase());
+      if (isAlreadySelected) return false;
+      if (!q) return true;
+      return t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
+    });
+  }, [toSearch, composeTo]);
 
   const filteredCcSuggestions = useMemo(() => {
-    const q = composeCc.toLowerCase().trim();
-    if (!q) return RECIPIENT_TARGETS;
-    return RECIPIENT_TARGETS.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q)
-    );
-  }, [composeCc]);
+    const q = ccSearch.toLowerCase().trim();
+    return RECIPIENT_TARGETS.filter((t) => {
+      const isAlreadySelected = composeCc.some((r) => r.email.toLowerCase() === t.email.toLowerCase());
+      if (isAlreadySelected) return false;
+      if (!q) return true;
+      return t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
+    });
+  }, [ccSearch, composeCc]);
 
   const filteredBccSuggestions = useMemo(() => {
-    const q = composeBcc.toLowerCase().trim();
-    if (!q) return RECIPIENT_TARGETS;
-    return RECIPIENT_TARGETS.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q)
-    );
-  }, [composeBcc]);
+    const q = bccSearch.toLowerCase().trim();
+    return RECIPIENT_TARGETS.filter((t) => {
+      const isAlreadySelected = composeBcc.some((r) => r.email.toLowerCase() === t.email.toLowerCase());
+      if (isAlreadySelected) return false;
+      if (!q) return true;
+      return t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
+    });
+  }, [bccSearch, composeBcc]);
 
   // ─── Draft Auto-Saving ──────────────────────────────────────────────────
   useEffect(() => {
@@ -566,9 +651,9 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
 
     // Check if there is any substantial content to save
     const hasContent =
-      composeTo.trim() ||
-      composeCc.trim() ||
-      composeBcc.trim() ||
+      composeTo.length > 0 ||
+      composeCc.length > 0 ||
+      composeBcc.length > 0 ||
       composeSubject.trim() ||
       composeBody.trim() ||
       composeAttachments.length > 0;
@@ -587,9 +672,9 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
         from: "Ms. Sarah Thompson",
         fromRole: "DP Coordinator",
         fromAvatar: "ST",
-        to: composeTo,
-        cc: composeCc || undefined,
-        bcc: composeBcc || undefined,
+        to: composeTo.map((r) => r.name || r.email).join(", "),
+        cc: composeCc.map((r) => r.name || r.email).join(", ") || undefined,
+        bcc: composeBcc.map((r) => r.name || r.email).join(", ") || undefined,
         subject: composeSubject || "(No Subject)",
         preview: composeBody.replace(/<[^>]*>/g, "").slice(0, 80) || "(No Content)",
         body: composeBody,
@@ -626,14 +711,14 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
       const customEvent = e as CustomEvent;
       if (customEvent.detail) {
         setActiveDraftId(null);
-        setComposeTo(customEvent.detail.to || "");
-        setComposeCc("");
-        setComposeBcc("");
+        setComposeTo(parseRecipientsString(customEvent.detail.to || ""));
+        setComposeCc(parseRecipientsString(customEvent.detail.cc || ""));
+        setComposeBcc(parseRecipientsString(customEvent.detail.bcc || ""));
         setComposeSubject(customEvent.detail.subject || "");
         setComposeBody(customEvent.detail.body || "");
         setComposeAttachments([]);
-        setShowCc(false);
-        setShowBcc(false);
+        setShowCc(!!customEvent.detail.cc);
+        setShowBcc(!!customEvent.detail.bcc);
         setShowComposeModal(true);
         setDraftSavedStatus("");
       }
@@ -646,9 +731,9 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
     if (typeof window !== "undefined" && win.pendingComposeEmail) {
       const details = win.pendingComposeEmail;
       setActiveDraftId(null);
-      setComposeTo(details.to || "");
-      setComposeCc("");
-      setComposeBcc("");
+      setComposeTo(parseRecipientsString(details.to || ""));
+      setComposeCc([]);
+      setComposeBcc([]);
       setComposeSubject(details.subject || "");
       setComposeBody(details.body || "");
       setComposeAttachments([]);
@@ -736,16 +821,16 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
 
   const handleSendEmail = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!composeTo.trim() || !composeSubject.trim() || !composeBody.trim()) return;
+    if (composeTo.length === 0 || !composeSubject.trim() || !composeBody.trim()) return;
 
     const newSentEmail: Email = {
       id: `em-sent-${Date.now()}`,
       from: "Ms. Sarah Thompson",
       fromRole: "DP Coordinator",
       fromAvatar: "ST",
-      to: composeTo,
-      cc: composeCc || undefined,
-      bcc: composeBcc || undefined,
+      to: composeTo.map((r) => r.name || r.email).join(", "),
+      cc: composeCc.map((r) => r.name || r.email).join(", ") || undefined,
+      bcc: composeBcc.map((r) => r.name || r.email).join(", ") || undefined,
       subject: composeSubject,
       preview: composeBody.replace(/<[^>]*>/g, "").slice(0, 80),
       body: composeBody,
@@ -765,9 +850,12 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
     });
 
     setShowComposeModal(false);
-    setComposeTo("");
-    setComposeCc("");
-    setComposeBcc("");
+    setComposeTo([]);
+    setComposeCc([]);
+    setComposeBcc([]);
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
     setComposeSubject("");
     setComposeBody("");
     setComposeAttachments([]);
@@ -777,9 +865,12 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
 
   const handleOpenComposeDraft = () => {
     setActiveDraftId(null);
-    setComposeTo("");
-    setComposeCc("");
-    setComposeBcc("");
+    setComposeTo([]);
+    setComposeCc([]);
+    setComposeBcc([]);
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
     setComposeSubject("");
     setComposeBody("");
     setComposeAttachments([]);
@@ -796,9 +887,12 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
     }
     setShowComposeModal(false);
     setActiveDraftId(null);
-    setComposeTo("");
-    setComposeCc("");
-    setComposeBcc("");
+    setComposeTo([]);
+    setComposeCc([]);
+    setComposeBcc([]);
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
     setComposeSubject("");
     setComposeBody("");
     setComposeAttachments([]);
@@ -835,9 +929,12 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
 
   const handleOpenDraft = (draft: Email) => {
     setActiveDraftId(draft.id);
-    setComposeTo(draft.to);
-    setComposeCc(draft.cc || "");
-    setComposeBcc(draft.bcc || "");
+    setComposeTo(parseRecipientsString(draft.to));
+    setComposeCc(parseRecipientsString(draft.cc || ""));
+    setComposeBcc(parseRecipientsString(draft.bcc || ""));
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
     setComposeSubject(draft.subject);
     setComposeBody(draft.body);
     setComposeAttachments(draft.tags?.filter((t) => t !== "draft") || []);
@@ -1366,7 +1463,7 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`relative w-full max-w-2xl border p-5 md:p-6 rounded-2xl shadow-2xl z-10 flex flex-col gap-4 transition-all duration-200 ${
+              className={`relative w-full max-w-2xl border p-5 md:p-6 rounded-2xl shadow-2xl z-10 flex flex-col gap-4 transition-all duration-200 axis-drop-target ${
                 isDragOverAttachment ? "ring-2 ring-cyan-400 border-cyan-400/50 scale-[1.01]" : ""
               } ${
                 theme === "light" ? "bg-white border-black/10 text-black" : "bg-[#0E0E10] border-white/10 text-white"
@@ -1388,7 +1485,7 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
               {/* Composition Form */}
               <form onSubmit={handleSendEmail} className="space-y-3.5 text-xs font-bold border-none flex-1 flex flex-col min-h-0">
                 {/* To Field with suggestions */}
-                <div className="space-y-1 relative">
+                <div className="space-y-1.5 relative">
                   <div className="flex justify-between items-center">
                     <label className={`text-[10px] uppercase tracking-wider ${theme === "light" ? "text-black/40" : "text-zinc-500"}`}>Recipient (To)</label>
                     <div className="flex gap-2">
@@ -1400,19 +1497,41 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
                       )}
                     </div>
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={composeTo}
-                    onFocus={() => setShowToSuggestions(true)}
-                    onChange={(e) => { setComposeTo(e.target.value); setShowToSuggestions(true); }}
-                    placeholder="Search groups, departments or enter email..."
-                    className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-all ${
-                      theme === "light"
-                        ? "bg-black/[0.01] border-black/[0.08] text-black focus:border-cyan-600"
-                        : "bg-zinc-950 border-zinc-800 text-white focus:border-cyan-500"
-                    }`}
-                  />
+                  <div className={`flex flex-wrap items-center gap-1.5 p-2 rounded-xl border transition-all ${
+                    theme === "light"
+                      ? "bg-black/[0.01] border-black/[0.08] text-black focus-within:border-cyan-600"
+                      : "bg-zinc-950 border-zinc-800 text-white focus-within:border-cyan-500"
+                  }`}>
+                    {composeTo.map((recipient) => (
+                      <div
+                        key={recipient.id}
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold transition-all ${
+                          theme === "light" ? "bg-black/5 text-black hover:bg-black/10" : "bg-white/5 text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <span>{recipient.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setComposeTo(composeTo.filter((r) => r.id !== recipient.id))}
+                          className="text-white/40 hover:text-white font-bold ml-0.5 text-xs select-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <input
+                      type="text"
+                      required={composeTo.length === 0}
+                      value={toSearch}
+                      onFocus={() => setShowToSuggestions(true)}
+                      onKeyDown={(e) => handleRecipientInputKeyDown(e, composeTo, setComposeTo, toSearch, setToSearch)}
+                      onChange={(e) => { setToSearch(e.target.value); setShowToSuggestions(true); }}
+                      placeholder={composeTo.length === 0 ? "Search groups, departments or enter email..." : ""}
+                      className={`flex-grow min-w-[120px] bg-transparent border-none outline-none text-xs ${
+                        theme === "light" ? "text-black placeholder-black/35" : "text-white placeholder-white/35"
+                      }`}
+                    />
+                  </div>
                   {showToSuggestions && filteredToSuggestions.length > 0 && (
                     <>
                       <div className="fixed inset-0 z-30" onClick={() => setShowToSuggestions(false)} />
@@ -1423,7 +1542,13 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
                           <button
                             key={t.id}
                             type="button"
-                            onClick={() => { setComposeTo(t.email); setShowToSuggestions(false); }}
+                            onClick={() => {
+                              if (!composeTo.some((r) => r.email.toLowerCase() === t.email.toLowerCase())) {
+                                setComposeTo([...composeTo, t]);
+                              }
+                              setToSearch("");
+                              setShowToSuggestions(false);
+                            }}
                             className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left transition-colors ${
                               theme === "light" ? "hover:bg-black/5 text-black" : "hover:bg-white/5 text-white"
                             }`}
@@ -1441,23 +1566,45 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
 
                 {/* CC Line */}
                 {showCc && (
-                  <div className="space-y-1 relative">
+                  <div className="space-y-1.5 relative">
                     <div className="flex justify-between items-center">
                       <label className={`text-[10px] uppercase tracking-wider ${theme === "light" ? "text-black/40" : "text-zinc-500"}`}>Carbon Copy (CC)</label>
-                      <button type="button" onClick={() => { setShowCc(false); setComposeCc(""); }} className="text-[9px] font-bold text-red-400 hover:underline">Remove</button>
+                      <button type="button" onClick={() => { setShowCc(false); setComposeCc([]); }} className="text-[9px] font-bold text-red-400 hover:underline">Remove</button>
                     </div>
-                    <input
-                      type="text"
-                      value={composeCc}
-                      onFocus={() => setShowCcSuggestions(true)}
-                      onChange={(e) => { setComposeCc(e.target.value); setShowCcSuggestions(true); }}
-                      placeholder="Enter CC recipient..."
-                      className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-all ${
-                        theme === "light"
-                          ? "bg-black/[0.01] border-black/[0.08] text-black focus:border-cyan-600"
-                          : "bg-zinc-950 border-zinc-800 text-white focus:border-cyan-500"
-                      }`}
-                    />
+                    <div className={`flex flex-wrap items-center gap-1.5 p-2 rounded-xl border transition-all ${
+                      theme === "light"
+                        ? "bg-black/[0.01] border-black/[0.08] text-black focus-within:border-cyan-600"
+                        : "bg-zinc-950 border-zinc-800 text-white focus-within:border-cyan-500"
+                    }`}>
+                      {composeCc.map((recipient) => (
+                        <div
+                          key={recipient.id}
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold transition-all ${
+                            theme === "light" ? "bg-black/5 text-black hover:bg-black/10" : "bg-white/5 text-white hover:bg-white/10"
+                          }`}
+                        >
+                          <span>{recipient.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setComposeCc(composeCc.filter((r) => r.id !== recipient.id))}
+                            className="text-white/40 hover:text-white font-bold ml-0.5 text-xs select-none"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <input
+                        type="text"
+                        value={ccSearch}
+                        onFocus={() => setShowCcSuggestions(true)}
+                        onKeyDown={(e) => handleRecipientInputKeyDown(e, composeCc, setComposeCc, ccSearch, setCcSearch)}
+                        onChange={(e) => { setCcSearch(e.target.value); setShowCcSuggestions(true); }}
+                        placeholder={composeCc.length === 0 ? "Enter CC recipient..." : ""}
+                        className={`flex-grow min-w-[120px] bg-transparent border-none outline-none text-xs ${
+                          theme === "light" ? "text-black placeholder-black/35" : "text-white placeholder-white/35"
+                        }`}
+                      />
+                    </div>
                     {showCcSuggestions && filteredCcSuggestions.length > 0 && (
                       <>
                         <div className="fixed inset-0 z-30" onClick={() => setShowCcSuggestions(false)} />
@@ -1468,7 +1615,13 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
                             <button
                               key={t.id}
                               type="button"
-                              onClick={() => { setComposeCc(t.email); setShowCcSuggestions(false); }}
+                              onClick={() => {
+                                if (!composeCc.some((r) => r.email.toLowerCase() === t.email.toLowerCase())) {
+                                  setComposeCc([...composeCc, t]);
+                                }
+                                setCcSearch("");
+                                setShowCcSuggestions(false);
+                              }}
                               className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left transition-colors ${
                                 theme === "light" ? "hover:bg-black/5 text-black" : "hover:bg-white/5 text-white"
                               }`}
@@ -1485,23 +1638,45 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
 
                 {/* BCC Line */}
                 {showBcc && (
-                  <div className="space-y-1 relative">
+                  <div className="space-y-1.5 relative">
                     <div className="flex justify-between items-center">
                       <label className={`text-[10px] uppercase tracking-wider ${theme === "light" ? "text-black/40" : "text-zinc-500"}`}>Blind Carbon Copy (BCC)</label>
-                      <button type="button" onClick={() => { setShowBcc(false); setComposeBcc(""); }} className="text-[9px] font-bold text-red-400 hover:underline">Remove</button>
+                      <button type="button" onClick={() => { setShowBcc(false); setComposeBcc([]); }} className="text-[9px] font-bold text-red-400 hover:underline">Remove</button>
                     </div>
-                    <input
-                      type="text"
-                      value={composeBcc}
-                      onFocus={() => setShowBccSuggestions(true)}
-                      onChange={(e) => { setComposeBcc(e.target.value); setShowBccSuggestions(true); }}
-                      placeholder="Enter BCC recipient..."
-                      className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-all ${
-                        theme === "light"
-                          ? "bg-black/[0.01] border-black/[0.08] text-black focus:border-cyan-600"
-                          : "bg-zinc-950 border-zinc-800 text-white focus:border-cyan-500"
-                      }`}
-                    />
+                    <div className={`flex flex-wrap items-center gap-1.5 p-2 rounded-xl border transition-all ${
+                      theme === "light"
+                        ? "bg-black/[0.01] border-black/[0.08] text-black focus-within:border-cyan-600"
+                        : "bg-zinc-950 border-zinc-800 text-white focus-within:border-cyan-500"
+                    }`}>
+                      {composeBcc.map((recipient) => (
+                        <div
+                          key={recipient.id}
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold transition-all ${
+                            theme === "light" ? "bg-black/5 text-black hover:bg-black/10" : "bg-white/5 text-white hover:bg-white/10"
+                          }`}
+                        >
+                          <span>{recipient.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setComposeBcc(composeBcc.filter((r) => r.id !== recipient.id))}
+                            className="text-white/40 hover:text-white font-bold ml-0.5 text-xs select-none"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <input
+                        type="text"
+                        value={bccSearch}
+                        onFocus={() => setShowBccSuggestions(true)}
+                        onKeyDown={(e) => handleRecipientInputKeyDown(e, composeBcc, setComposeBcc, bccSearch, setBccSearch)}
+                        onChange={(e) => { setBccSearch(e.target.value); setShowBccSuggestions(true); }}
+                        placeholder={composeBcc.length === 0 ? "Enter BCC recipient..." : ""}
+                        className={`flex-grow min-w-[120px] bg-transparent border-none outline-none text-xs ${
+                          theme === "light" ? "text-black placeholder-black/35" : "text-white placeholder-white/35"
+                        }`}
+                      />
+                    </div>
                     {showBccSuggestions && filteredBccSuggestions.length > 0 && (
                       <>
                         <div className="fixed inset-0 z-30" onClick={() => setShowBccSuggestions(false)} />
@@ -1512,7 +1687,13 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
                             <button
                               key={t.id}
                               type="button"
-                              onClick={() => { setComposeBcc(t.email); setShowBccSuggestions(false); }}
+                              onClick={() => {
+                                if (!composeBcc.some((r) => r.email.toLowerCase() === t.email.toLowerCase())) {
+                                  setComposeBcc([...composeBcc, t]);
+                                }
+                                setBccSearch("");
+                                setShowBccSuggestions(false);
+                              }}
                               className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left transition-colors ${
                                 theme === "light" ? "hover:bg-black/5 text-black" : "hover:bg-white/5 text-white"
                               }`}
@@ -1696,6 +1877,7 @@ export function CoordinatorEmail({ theme }: { theme: Theme }) {
         onClose={() => setIsPickerOpen(false)}
         onSelect={handleSelectResource}
         theme={theme}
+        contextText={`${composeSubject} ${composeBody.replace(/<[^>]*>/g, "")}`}
       />
 
       {/* Connect Account Modal */}

@@ -25,6 +25,7 @@ type TimetablePeriod = {
   };
   isOverridden?: boolean;
   overrideDetails?: OverrideEvent;
+  isPreview?: boolean;
 };
 
 type OverrideEvent = {
@@ -33,6 +34,7 @@ type OverrideEvent = {
   periodId: string;
   cohort: "dp1" | "dp2";
   type: string;
+  customType?: string;
   title: string;
   description?: string;
   affectedClasses: string[]; // subjects
@@ -195,10 +197,23 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
   const [formPeriodId, setFormPeriodId] = useState<string>("p3");
   const [formType, setFormType] = useState<string>("Guest Speaker");
   const [formTitle, setFormTitle] = useState<string>("");
+  const [formCustomType, setFormCustomType] = useState<string>("");
   const [formDescription, setFormDescription] = useState<string>("");
   const [formAffectedClasses, setFormAffectedClasses] = useState<string[]>([]);
   const [formReplacementBehavior, setFormReplacementBehavior] = useState<string>("Replace Classes Entirely");
   const [formNotifyUsers, setFormNotifyUsers] = useState<string[]>(["Students", "Faculty"]);
+
+  // Send Announcement along with Override states
+  const [sendAnnWithOverride, setSendAnnWithOverride] = useState<boolean>(true);
+  const [showAnnReviewModal, setShowAnnReviewModal] = useState<boolean>(false);
+  const [annDraftTitle, setAnnDraftTitle] = useState<string>("");
+  const [annDraftBody, setAnnDraftBody] = useState<string>("");
+  const [annDraftAudience, setAnnDraftAudience] = useState<string>("");
+  const [annDraftPriority, setAnnDraftPriority] = useState<"info" | "reminder" | "important" | "urgent" | "emergency">("important");
+
+  // Preview Mode State
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [previewCompareMode, setPreviewCompareMode] = useState<"proposed" | "current">("proposed");
 
   // Helper: show toast
   const triggerToast = (msg: string) => {
@@ -211,9 +226,44 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
     return getScheduleForDay(selectedDay);
   }, [selectedDay]);
 
+  // Lookup classes available for form settings
+  const currentFormPeriodClasses = useMemo(() => {
+    const dayPeriods = getScheduleForDay(formDay);
+    const p = dayPeriods.find((x) => x.id === formPeriodId);
+    if (!p) return [];
+    return formCohort === "dp1" ? p.classes.dp1 : p.classes.dp2;
+  }, [formDay, formPeriodId, formCohort]);
+
+  const previewOverride: OverrideEvent | null = useMemo(() => {
+    if (!formPeriodId) return null;
+    return {
+      id: "preview-temp",
+      day: formDay,
+      periodId: formPeriodId,
+      cohort: formCohort,
+      type: formType,
+      customType: formType === "Other" ? formCustomType : undefined,
+      title: formTitle || (formType === "Other" && formCustomType ? `${formCustomType} - Event Override` : `${formType} - Event Override`),
+      description: formDescription,
+      affectedClasses: formAffectedClasses.length ? formAffectedClasses : currentFormPeriodClasses.map(c => c.subject),
+      replacementBehavior: formReplacementBehavior,
+      notifyUsers: formNotifyUsers
+    };
+  }, [formDay, formPeriodId, formCohort, formType, formCustomType, formTitle, formDescription, formAffectedClasses, formReplacementBehavior, formNotifyUsers, currentFormPeriodClasses]);
+
   // Derived periods with overrides applied
   const periods = useMemo(() => {
     return rawPeriods.map((period) => {
+      // Inject preview override if we are in proposed comparison preview mode
+      if (isPreviewMode && previewCompareMode === "proposed" && previewOverride && previewOverride.day === selectedDay && previewOverride.periodId === period.id && previewOverride.cohort === selectedCohort) {
+        return {
+          ...period,
+          isOverridden: true,
+          overrideDetails: previewOverride,
+          isPreview: true
+        } as TimetablePeriod & { isPreview?: boolean };
+      }
+
       const match = overrides.find(
         (o) => o.day === selectedDay && o.periodId === period.id && o.cohort === selectedCohort
       );
@@ -226,7 +276,7 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
       }
       return period;
     });
-  }, [rawPeriods, overrides, selectedCohort, selectedDay]);
+  }, [rawPeriods, overrides, selectedCohort, selectedDay, isPreviewMode, previewCompareMode, previewOverride]);
 
   // Determine period status (simulation based on Monday)
   const getPeriodState = (periodId: string): "past" | "current" | "future" => {
@@ -243,6 +293,7 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
     setFormPeriodId(periodId);
     setFormType("Guest Speaker");
     setFormTitle("");
+    setFormCustomType("");
     setFormDescription("");
     setFormReplacementBehavior("Replace Classes Entirely");
     setFormNotifyUsers(["Students", "Faculty"]);
@@ -269,6 +320,7 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
     setFormPeriodId(periodId);
     setFormType("Room Change");
     setFormTitle(`Room Change: ${cls.subject}`);
+    setFormCustomType("");
     setFormDescription(`Relocating ${cls.subject} from ${cls.room} to newly allocated classroom.`);
     setFormAffectedClasses([cls.subject]);
     setFormReplacementBehavior("Alternate Room Assignment");
@@ -283,6 +335,7 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
     setFormPeriodId(periodId);
     setFormType("Substitute Cover");
     setFormTitle(`Substitute Cover: ${cls.subject}`);
+    setFormCustomType("");
     setFormDescription(`Assigning cover supervisor for ${cls.subject} during ${cls.teacher}'s scheduled absence.`);
     setFormAffectedClasses([cls.subject]);
     setFormReplacementBehavior("Assign Cover Supervisor");
@@ -290,33 +343,61 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
     setShowAddEventModal(true);
   };
 
-  // Lookup classes available for form settings
-  const currentFormPeriodClasses = useMemo(() => {
-    const dayPeriods = getScheduleForDay(formDay);
-    const p = dayPeriods.find((x) => x.id === formPeriodId);
-    if (!p) return [];
-    return formCohort === "dp1" ? p.classes.dp1 : p.classes.dp2;
-  }, [formDay, formPeriodId, formCohort]);
 
   // Compute Affected Counts for Confirmation Modal
   const confirmationImpact = useMemo(() => {
     const dayPeriods = getScheduleForDay(formDay);
     const p = dayPeriods.find((x) => x.id === formPeriodId);
-    if (!p) return { classes: 0, students: 0, teachers: [] as string[] };
+    if (!p) return { classes: 0, students: 0, teachers: [] as string[], rooms: 0 };
     const classes = formCohort === "dp1" ? p.classes.dp1 : p.classes.dp2;
     const selectedClassesInfo = classes.filter((c) => formAffectedClasses.includes(c.subject));
     
     const studentsCount = selectedClassesInfo.reduce((sum, c) => sum + c.studentsCount, 0);
     const teachersList = Array.from(new Set(selectedClassesInfo.map((c) => c.teacher)));
+    const roomsList = Array.from(new Set(selectedClassesInfo.map((c) => c.room)));
 
     return {
       classes: selectedClassesInfo.length,
       students: studentsCount,
-      teachers: teachersList
+      teachers: teachersList,
+      rooms: roomsList.length
     };
   }, [formDay, formPeriodId, formCohort, formAffectedClasses]);
 
-  // Save the Override event
+  // Generate the announcement draft based on override settings
+  const generateAnnouncementDraft = () => {
+    const periodName = rawPeriods.find(p => p.id === formPeriodId)?.name || formPeriodId;
+    const dateStr = formDay;
+    const cohortLabel = formCohort === "dp1" ? "DP1 (Grade 11)" : "DP2 (Grade 12)";
+    const displayType = formType === "Other" && formCustomType ? formCustomType : formType;
+    
+    const title = `Schedule Update: ${formTitle || displayType}`;
+    
+    let body = `Please note that on ${dateStr}, ${periodName} will be replaced by a ${displayType} session ("${formTitle || displayType}").\n\n`;
+    
+    if (formDescription.trim()) {
+      body += `Reason: ${formDescription}\n\n`;
+    }
+    
+    body += `Affected Cohort: ${cohortLabel}\n`;
+    body += `Affected Classes: ${formAffectedClasses.join(", ")}\n`;
+    body += `Replacement Behavior: ${formReplacementBehavior}\n\n`;
+    body += `Please check your updated timeline under the Programme Schedule in your Axis console.`;
+
+    setAnnDraftTitle(title);
+    setAnnDraftBody(body);
+    setAnnDraftAudience(formCohort === "dp1" ? "aud-dp1" : "aud-dp2");
+    
+    if (formType === "Emergency Closure") {
+      setAnnDraftPriority("emergency");
+    } else if (formType === "Guest Speaker" || formType === "TOK Workshop" || formType === "Exam Briefing") {
+      setAnnDraftPriority("important");
+    } else {
+      setAnnDraftPriority("reminder");
+    }
+  };
+
+  // Save the Override event & Optional Announcement
   const handleConfirmOverride = () => {
     const newOverride: OverrideEvent = {
       id: `override-${Date.now()}`,
@@ -324,16 +405,68 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
       periodId: formPeriodId,
       cohort: formCohort,
       type: formType,
-      title: formTitle || `${formType} - Event Override`,
+      customType: formType === "Other" ? formCustomType : undefined,
+      title: formTitle || (formType === "Other" && formCustomType ? `${formCustomType} - Event Override` : `${formType} - Event Override`),
       description: formDescription,
       affectedClasses: formAffectedClasses,
       replacementBehavior: formReplacementBehavior,
       notifyUsers: formNotifyUsers
     };
     setOverrides((prev) => [newOverride, ...prev]);
+
+    if (sendAnnWithOverride) {
+      try {
+        const saved = window.sessionStorage.getItem("axis-announcements");
+        let currentList = [];
+        if (saved) {
+          currentList = JSON.parse(saved);
+        }
+        
+        const cohortLabel = formCohort === "dp1" ? "DP1 (Grade 11)" : "DP2 (Grade 12)";
+        const recipientCount = formCohort === "dp1" ? 142 : 138;
+        
+        const newAnn = {
+          id: `ann-custom-${Date.now()}`,
+          title: annDraftTitle,
+          body: annDraftBody,
+          priority: annDraftPriority,
+          audience: [
+            { id: annDraftAudience, label: cohortLabel, count: recipientCount }
+          ],
+          author: {
+            name: "Sarah Chen",
+            role: "IB DP Coordinator",
+            department: "DP Administration",
+            initials: "SC"
+          },
+          postedAt: "Just now",
+          postedRelative: "Just now",
+          attachments: [],
+          pinned: false,
+          read: false,
+          readCount: 0,
+          totalRecipients: recipientCount,
+          category: "school-wide" as const,
+          contextSuggestions: []
+        };
+        
+        const updatedList = [newAnn, ...currentList];
+        window.sessionStorage.setItem("axis-announcements", JSON.stringify(updatedList));
+        window.dispatchEvent(new Event("axis-announcements-update"));
+      } catch (err) {
+        console.error("Failed to publish announcement along with override", err);
+      }
+    }
+
     setShowConfirmModal(false);
     setShowAddEventModal(false);
-    triggerToast("Timetable adjusted & synchronized successfully across all student consoles.");
+    setShowAnnReviewModal(false);
+    setIsPreviewMode(false);
+    triggerToast(
+      sendAnnWithOverride 
+        ? "Timetable override & DP Notice broadcasted successfully." 
+        : "Timetable adjusted successfully across all student consoles."
+    );
   };
 
   const getPeriodSubjectsText = (period: TimetablePeriod) => {
@@ -436,6 +569,142 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
           </div>
         </div>
 
+        {isPreviewMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className={`rounded-2xl border p-5 shadow-xl space-y-4 ${
+              isLight ? "bg-cyan-50/80 border-cyan-200 text-black" : "bg-cyan-950/20 border-cyan-500/30 text-white"
+            }`}
+          >
+            {/* Header info */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-cyan-500/20">
+              <div className="flex items-center gap-2.5">
+                <span className="size-2 rounded-full bg-cyan-400 animate-pulse" />
+                <div>
+                  <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">Proposed Change Preview</span>
+                  <h4 className="text-sm font-bold mt-0.5">
+                    {formTitle || (formType === "Other" && formCustomType ? `${formCustomType} - Event Override` : `${formType} - Event Override`)}
+                  </h4>
+                </div>
+              </div>
+
+              {/* Before/After Toggle Switcher */}
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-bold uppercase ${isLight ? "text-black/55" : "text-cyan-300/60"}`}>Schedule View:</span>
+                <div className={`flex rounded-lg p-0.5 border ${isLight ? "bg-black/5 border-black/5" : "bg-black/45 border-white/[0.05]"}`}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewCompareMode("current")}
+                    className={`px-3 py-1 rounded text-[9.5px] font-extrabold uppercase tracking-wider transition-all ${
+                      previewCompareMode === "current"
+                        ? isLight ? "bg-white text-black shadow-sm" : "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 animate-pulse"
+                        : "text-white/40 hover:text-white"
+                    }`}
+                  >
+                    Current (Before)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewCompareMode("proposed")}
+                    className={`px-3 py-1 rounded text-[9.5px] font-extrabold uppercase tracking-wider transition-all ${
+                      previewCompareMode === "proposed"
+                        ? isLight ? "bg-white text-black shadow-sm" : "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
+                        : "text-white/40 hover:text-white"
+                    }`}
+                  >
+                    Proposed (After)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Change Summary Panel */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 py-1 text-xs">
+              <div className={`p-3 rounded-xl border ${isLight ? "bg-white border-cyan-100" : "bg-black/25 border-cyan-950/50"}`}>
+                <span className={`block text-[8px] uppercase tracking-wider font-extrabold ${isLight ? "text-black/40" : "text-white/40"}`}>Affected Students</span>
+                <strong className="text-sm text-cyan-400 font-extrabold">{confirmationImpact.students}</strong>
+              </div>
+              <div className={`p-3 rounded-xl border ${isLight ? "bg-white border-cyan-100" : "bg-black/25 border-cyan-950/50"}`}>
+                <span className={`block text-[8px] uppercase tracking-wider font-extrabold ${isLight ? "text-black/40" : "text-white/40"}`}>Affected Classes</span>
+                <strong className="text-sm text-cyan-400 font-extrabold">{confirmationImpact.classes}</strong>
+              </div>
+              <div className={`p-3 rounded-xl border ${isLight ? "bg-white border-cyan-100" : "bg-black/25 border-cyan-950/50"}`}>
+                <span className={`block text-[8px] uppercase tracking-wider font-extrabold ${isLight ? "text-black/40" : "text-white/40"}`}>Affected Teachers</span>
+                <strong className="text-sm text-cyan-400 font-extrabold">{confirmationImpact.teachers.length}</strong>
+              </div>
+              <div className={`p-3 rounded-xl border ${isLight ? "bg-white border-cyan-100" : "bg-black/25 border-cyan-950/50"}`}>
+                <span className={`block text-[8px] uppercase tracking-wider font-extrabold ${isLight ? "text-black/40" : "text-white/40"}`}>Periods Modified</span>
+                <strong className="text-sm text-cyan-400 font-extrabold">1</strong>
+              </div>
+              <div className={`p-3 rounded-xl border ${isLight ? "bg-white border-cyan-100" : "bg-black/25 border-cyan-950/50"}`}>
+                <span className={`block text-[8px] uppercase tracking-wider font-extrabold ${isLight ? "text-black/40" : "text-white/40"}`}>Rooms Modified</span>
+                <strong className="text-sm text-cyan-400 font-extrabold">{confirmationImpact.rooms}</strong>
+              </div>
+            </div>
+
+            {/* Context Awareness Section */}
+            <div className={`p-3 rounded-xl border text-[10px] leading-relaxed space-y-1 ${
+              isLight ? "bg-white border-cyan-100 text-black/70" : "bg-black/15 border-cyan-950/40 text-white/70"
+            }`}>
+              <span className={`block text-[8px] uppercase tracking-wider font-extrabold ${isLight ? "text-cyan-600" : "text-cyan-400"}`}>Impacted Systems Overview</span>
+              <p>
+                This override adjusts <strong className={`${isLight ? "text-black font-bold" : "text-white font-bold"}`}>{formAffectedClasses.join(", ")}</strong> courses.
+                Upon publication, the Axis platform will automatically trigger:
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 font-semibold text-cyan-400">
+                <span className="flex items-center gap-1">✓ Calendar Synchronization</span>
+                <span className="flex items-center gap-1">✓ Attendance Flag Update</span>
+                <span className="flex items-center gap-1">✓ Push Notification Alert</span>
+                <span className="flex items-center gap-1">✓ Context Engine Invalidation</span>
+              </div>
+            </div>
+
+            {/* Preview Action Controls */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPreviewMode(false);
+                }}
+                className={`py-2 px-4 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  isLight ? "border-black/10 text-black/60 hover:bg-black/5" : "border-white/10 text-white/60 hover:bg-white/5"
+                }`}
+              >
+                Cancel Preview
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPreviewMode(false);
+                  setShowAddEventModal(true);
+                }}
+                className={`py-2 px-4 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  isLight ? "border-cyan-200 text-cyan-700 hover:bg-cyan-50" : "border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/10"
+                }`}
+              >
+                ← Edit Details
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (sendAnnWithOverride) {
+                    generateAnnouncementDraft();
+                    setShowAnnReviewModal(true);
+                  } else {
+                    handleConfirmOverride();
+                    setIsPreviewMode(false);
+                  }
+                }}
+                className={`flex-1 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-center transition-all ${styles.buttonPrimary}`}
+              >
+                Publish Override
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Day Navigator */}
         <div className={`flex rounded-xl p-1 border select-none ${
           isLight ? "bg-black/5 border-black/5" : "bg-white/[0.02] border-white/[0.05]"
@@ -507,7 +776,11 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                     key={period.id}
                     onClick={() => setExpandedPeriodId(isExpanded ? null : period.id)}
                     className={`relative rounded-2xl border transition-all duration-500 overflow-hidden cursor-pointer select-none ${
-                      state === "past"
+                      period.isPreview
+                        ? isLight
+                          ? "border-dashed border-blue-500 bg-blue-500/5 shadow-[0_4px_20px_rgba(59,130,246,0.15)] scale-[1.008]"
+                          : "border-dashed border-blue-500 bg-blue-500/[0.03] shadow-[0_8px_32px_rgba(59,130,246,0.15)] scale-[1.008]"
+                        : state === "past"
                         ? "opacity-50 border-white/[0.02] bg-white/[0.005] hover:opacity-75"
                         : state === "current"
                         ? isOverridden
@@ -529,6 +802,15 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                       />
                     )}
 
+                    {/* Proposed change preview border glow */}
+                    {period.isPreview && (
+                      <motion.div
+                        className="absolute inset-0 pointer-events-none rounded-2xl border border-blue-500/35"
+                        animate={{ opacity: [0.3, 0.7, 0.3] }}
+                        transition={{ duration: 2.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                      />
+                    )}
+
                     <div className="flex flex-col md:flex-row md:items-stretch min-h-[80px]">
                       
                       {/* Left side card block */}
@@ -546,17 +828,23 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                             {period.name}
                           </span>
                           
-                          {isOverridden && (
+                          {period.isPreview ? (
+                            <span className="rounded bg-blue-500/20 border border-blue-500/40 px-2 py-0.5 text-[8px] font-extrabold text-blue-400 uppercase tracking-widest leading-none">
+                              Proposed Preview Change
+                            </span>
+                          ) : isOverridden ? (
                             <span className="rounded bg-cyan-500/15 border border-cyan-400/30 px-2 py-0.5 text-[8px] font-extrabold text-cyan-400 uppercase tracking-widest leading-none">
                               Schedule Adjusted
                             </span>
-                          )}
+                          ) : null}
                         </div>
 
                         {/* Collapsed view subjects dot separation list */}
                         {!isExpanded && (
                           <div className={`text-xs font-medium tracking-tight ${
-                            isOverridden
+                            period.isPreview
+                              ? "text-blue-400 font-bold"
+                              : isOverridden
                               ? "text-cyan-400 font-bold"
                               : isLight
                               ? "text-black/85"
@@ -601,7 +889,9 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                           Status
                         </span>
                         <span className={`text-xs font-bold ${
-                          isOverridden
+                          period.isPreview
+                            ? "text-blue-400"
+                            : isOverridden
                             ? "text-cyan-400"
                             : state === "past"
                             ? "text-white/30"
@@ -611,7 +901,7 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                             ? "text-black/60"
                             : "text-white/60"
                         }`}>
-                          {isOverridden ? "Program Override" : state === "current" ? "Active Now" : state === "past" ? "Completed" : "Scheduled"}
+                          {period.isPreview ? "Proposed Preview" : isOverridden ? "Program Override" : state === "current" ? "Active Now" : state === "past" ? "Completed" : "Scheduled"}
                         </span>
                         <span className={`text-[9px] mt-1 ${isLight ? "text-black/45" : "text-white/45"}`}>
                           {period.type === "break" ? "Recess" : period.type === "lunch" ? "Dining" : `${cohortClasses.length} Courses`}
@@ -637,28 +927,34 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                           {isOverridden && override ? (
                             // Expanded Override View details
                             <div className={`p-4 rounded-xl border ${
-                              isLight ? "bg-cyan-50/50 border-cyan-200/50 text-black" : "bg-cyan-950/15 border-cyan-800/30 text-white"
+                              period.isPreview
+                                ? isLight ? "bg-blue-50/50 border-blue-200/50 text-black" : "bg-blue-950/15 border-blue-800/30 text-white"
+                                : isLight ? "bg-cyan-50/50 border-cyan-200/50 text-black" : "bg-cyan-950/15 border-cyan-800/30 text-white"
                             } space-y-3`}>
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">Coordinator Override</span>
+                                  <span className={`text-[9px] font-extrabold uppercase tracking-widest block font-mono ${period.isPreview ? "text-blue-400" : "text-cyan-400"}`}>
+                                    {period.isPreview ? "Proposed Preview Override" : "Coordinator Override"}
+                                  </span>
                                   <h4 className="text-sm font-bold mt-0.5">{override.title}</h4>
                                   {override.description && <p className={`text-xs mt-1 ${isLight ? "text-black/60" : "text-white/50"}`}>{override.description}</p>}
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    setOverrides(overrides.filter((o) => o.id !== override.id));
-                                    triggerToast("Override event cleared successfully.");
-                                  }}
-                                  className="px-2.5 py-1 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold uppercase transition-all"
-                                >
-                                  Delete Override
-                                </button>
+                                {!period.isPreview && (
+                                  <button
+                                    onClick={() => {
+                                      setOverrides(overrides.filter((o) => o.id !== override.id));
+                                      triggerToast("Override event cleared successfully.");
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold uppercase transition-all"
+                                  >
+                                    Delete Override
+                                  </button>
+                                )}
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-cyan-800/20 text-[10px]">
                                 <div>
                                   <span className={`block font-bold uppercase text-[9px] ${isLight ? "text-black/35" : "text-white/30"}`}>Impact Scope</span>
-                                  <span className="font-semibold text-cyan-400">
+                                  <span className={`font-semibold ${period.isPreview ? "text-blue-400" : "text-cyan-400"}`}>
                                     {override.affectedClasses.length === cohortClasses.length ? "All classes in period" : `${override.affectedClasses.length} selected class(es)`}
                                   </span>
                                 </div>
@@ -897,6 +1193,7 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                       <option value="Emergency Closure">Emergency Closure</option>
                       <option value="Room Change">Room Change</option>
                       <option value="Substitute Cover">Substitute Cover</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
                   <div>
@@ -912,6 +1209,25 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                     />
                   </div>
                 </div>
+
+                {formType === "Other" && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="space-y-1"
+                  >
+                    <label className={`block text-[9px] font-bold uppercase tracking-wide mb-1.5 ${isLight ? "text-black/40" : "text-white/35"}`}>Custom Event Type</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. University Admissions Workshop"
+                      value={formCustomType}
+                      onChange={(e) => setFormCustomType(e.target.value)}
+                      className={`w-full p-2.5 rounded-lg border outline-none font-bold ${
+                        isLight ? "bg-zinc-50 border-black/10 placeholder-black/30" : "bg-black/40 border-white/[0.08] placeholder-white/20"
+                      }`}
+                    />
+                  </motion.div>
+                )}
 
                 {/* Details / Description */}
                 <div>
@@ -1004,6 +1320,24 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                     })}
                   </div>
                 </div>
+
+                {/* Send Announcement Checkbox */}
+                <div className={`p-3 rounded-xl border mt-1.5 ${
+                  isLight ? "bg-cyan-500/5 border-cyan-500/10" : "bg-cyan-500/5 border-cyan-500/15"
+                }`}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sendAnnWithOverride}
+                      onChange={(e) => setSendAnnWithOverride(e.target.checked)}
+                      className="size-3.5 rounded border border-cyan-500/40 bg-transparent text-cyan-400"
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-extrabold text-[10px] text-cyan-400 uppercase tracking-wide">Send Announcement With Override</span>
+                      <span className="text-[9px] text-white/40 font-medium mt-0.5">Generate an announcement notice draft for review before publishing.</span>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -1028,7 +1362,10 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                       triggerToast("At least one affected class must be selected.");
                       return;
                     }
-                    setShowConfirmModal(true);
+                    setShowConfirmModal(false);
+                    setShowAddEventModal(false);
+                    setIsPreviewMode(true);
+                    setPreviewCompareMode("proposed");
                   }}
                   className={`rounded-xl px-5 py-2 text-xs font-bold transition-all uppercase tracking-wider ${styles.buttonPrimary}`}
                 >
@@ -1075,7 +1412,7 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
 
               <div className="space-y-4 text-xs">
                 <p className={`text-[11px] leading-relaxed ${isLight ? "text-black/60" : "text-white/60"}`}>
-                  Releasing this adjustment triggers a programme-wide schedule update. Please carefully review the calculated impact telemetry below:
+                  Releasing this adjustment triggers a programme-wide schedule update. Please carefully review the calculated impact details below:
                 </p>
 
                 <div className={`p-4 rounded-xl border space-y-3 ${
@@ -1083,10 +1420,25 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                 }`}>
                   <div>
                     <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Review Change Event</span>
-                    <strong className="text-xs text-cyan-400 font-bold">{formTitle} ({formType})</strong>
+                    <strong className="text-xs text-cyan-400 font-bold">
+                      {formTitle || (formType === "Other" && formCustomType ? `${formCustomType} - Event Override` : `${formType} - Event Override`)}
+                    </strong>
                     <span className={`block text-[10px] mt-0.5 ${isLight ? "text-black/60" : "text-white/50"}`}>
                       Allocated for {formDay} ({formCohort.toUpperCase()}) during {rawPeriods.find((x) => x.id === formPeriodId)?.name || formPeriodId}.
                     </span>
+                  </div>
+
+                  <div className={`grid grid-cols-2 gap-3 pt-1.5 border-t border-dashed ${isLight ? "border-black/5" : "border-white/5"}`}>
+                    <div>
+                      <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Event Type</span>
+                      <strong className="text-xs text-white">{formType}</strong>
+                    </div>
+                    {formType === "Other" && (
+                      <div>
+                        <span className={`block text-[8px] uppercase tracking-wider ${isLight ? "text-black/35" : "text-white/30"}`}>Custom Type</span>
+                        <strong className="text-xs text-cyan-400 font-bold">{formCustomType || "Not Specified"}</strong>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -1133,6 +1485,121 @@ export function AcademicScheduling({ theme }: { theme: string; activeProgramme?:
                   className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-wider text-center ${styles.buttonPrimary}`}
                 >
                   Confirm Update
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ANNOUNCEMENT DRAFT REVIEW MODAL */}
+      <AnimatePresence>
+        {showAnnReviewModal && (
+          <div className="fixed inset-0 z-[230] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAnnReviewModal(false)}
+              className="absolute inset-0 bg-black backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className={`relative w-full max-w-lg rounded-2xl border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.95)] text-left flex flex-col gap-4 max-h-[90vh] overflow-y-auto ${
+                isLight ? "bg-white border-black/[0.08] text-black" : "bg-[#0E0E10] border-white/[0.08] text-white"
+              }`}
+            >
+              <div className="flex items-center gap-3 border-b pb-3 border-white/5">
+                <svg className="size-5 text-cyan-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38a.867.867 0 01-1.186-.327 13.674 13.674 0 01-1.183-3.326m3.504-7.04a24.02 24.02 0 01.135 3.52M21.75 12c0 1.608-.401 3.12-1.104 4.443" />
+                </svg>
+                <div>
+                  <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-widest block font-mono">Workflow Step 2 of 2</span>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-cyan-400">Review Announcement Notice</h3>
+                </div>
+              </div>
+
+              <div className="space-y-4 text-xs font-semibold">
+                <p className={`text-[11px] leading-relaxed ${isLight ? "text-black/60" : "text-white/60"}`}>
+                  A draft announcement has been automatically generated for this override. Review, edit the wording, and broadcast it to target groups.
+                </p>
+
+                {/* Announcement Title */}
+                <div>
+                  <label className={`block text-[9px] uppercase tracking-wide mb-1 ${isLight ? "text-black/40" : "text-white/35"}`}>Announcement Title</label>
+                  <input
+                    type="text"
+                    value={annDraftTitle}
+                    onChange={(e) => setAnnDraftTitle(e.target.value)}
+                    className={`w-full p-2.5 rounded-lg border outline-none font-bold ${
+                      isLight ? "bg-zinc-50 border-black/10" : "bg-black/40 border-white/[0.08]"
+                    }`}
+                  />
+                </div>
+
+                {/* Message Body */}
+                <div>
+                  <label className={`block text-[9px] uppercase tracking-wide mb-1 ${isLight ? "text-black/40" : "text-white/35"}`}>Message Content</label>
+                  <textarea
+                    rows={6}
+                    value={annDraftBody}
+                    onChange={(e) => setAnnDraftBody(e.target.value)}
+                    className={`w-full p-2.5 rounded-lg border outline-none font-bold resize-none ${
+                      isLight ? "bg-zinc-50 border-black/10" : "bg-[#050506] border-white/[0.08]"
+                    }`}
+                  />
+                </div>
+
+                {/* Target Audience & Importance Display */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={`block text-[9px] uppercase tracking-wide mb-1 ${isLight ? "text-black/40" : "text-white/35"}`}>Target Audience</label>
+                    <div className={`p-2.5 rounded-lg border font-bold text-[10.5px] ${
+                      isLight ? "bg-zinc-50 border-black/10" : "bg-black/40 border-white/[0.08]"
+                    }`}>
+                      📢 {formCohort === "dp1" ? "DP1 (Grade 11)" : "DP2 (Grade 12)"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-[9px] uppercase tracking-wide mb-1 ${isLight ? "text-black/40" : "text-white/35"}`}>Priority Level</label>
+                    <select
+                      value={annDraftPriority}
+                      onChange={(e) => setAnnDraftPriority(e.target.value as "info" | "reminder" | "important" | "urgent" | "emergency")}
+                      className={`w-full p-2.5 rounded-lg border outline-none font-bold ${
+                        isLight ? "bg-zinc-50 border-black/10" : "bg-black/40 border-white/[0.08]"
+                      }`}
+                    >
+                      <option value="info">Info</option>
+                      <option value="reminder">Reminder</option>
+                      <option value="important">Important</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="emergency">Emergency</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="pt-4 border-t border-white/5 flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAnnReviewModal(false)}
+                  className={`flex-1 py-2.5 rounded-xl border text-xs font-semibold uppercase tracking-wider transition-all text-center ${
+                    isLight ? "border-black/10 text-black/65 hover:bg-black/5" : "border-white/10 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmOverride}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-wider text-center ${styles.buttonPrimary}`}
+                >
+                  Publish Broadcast & Override
                 </button>
               </div>
             </motion.div>

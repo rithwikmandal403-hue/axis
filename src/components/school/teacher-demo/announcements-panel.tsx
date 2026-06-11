@@ -3,9 +3,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { detectContextInText } from "./teacher-context-engine";
+import { MessageTextWithTeacherContext } from "./teacher-context-trigger";
+import { TeacherContextActionModal } from "./teacher-context-modals";
+import type { DetectedContext } from "./teacher-context-engine";
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Priority = "info" | "important" | "urgent";
+type Priority = "info" | "reminder" | "important" | "urgent" | "emergency";
 type AnnouncementStatus = "active" | "scheduled" | "archived" | "expired";
 
 type AudienceScope = {
@@ -69,15 +74,17 @@ type ComposeData = {
 // ── Demo Data & Configs ────────────────────────────────────────────────────────
 
 const AVAILABLE_AUDIENCES: AudienceScope[] = [
-  { id: "aud-1", label: "Grade 11 Physics (B)", type: "class", count: 28 },
-  { id: "aud-2", label: "Grade 12 Adv Physics (A)", type: "class", count: 24 },
-  { id: "aud-3", label: "Grade 10 Science (C)", type: "class", count: 31 },
-  { id: "aud-10", label: "Homeroom 10B", type: "homeroom", count: 26 },
-  { id: "aud-5", label: "Science Department", type: "department", count: 14 },
-  { id: "aud-6", label: "Year 10", type: "year-group", count: 156 },
-  { id: "aud-7", label: "Year 11", type: "year-group", count: 142 },
-  { id: "aud-8", label: "All Staff", type: "staff", count: 68 },
-  { id: "aud-9", label: "Whole School", type: "school", count: 820 },
+  { id: "aud-all", label: "All Users", type: "school", count: 950 },
+  { id: "aud-students", label: "All Students", type: "school", count: 720 },
+  { id: "aud-teachers", label: "All Teachers", type: "staff", count: 85 },
+  { id: "aud-parents", label: "All Parents", type: "school", count: 640 },
+  { id: "aud-dp1", label: "DP1 (Grade 11)", type: "year-group", count: 142 },
+  { id: "aud-dp2", label: "DP2 (Grade 12)", type: "year-group", count: 138 },
+  { id: "aud-cp1", label: "CP1 (Grade 11)", type: "year-group", count: 48 },
+  { id: "aud-cp2", label: "CP2 (Grade 12)", type: "year-group", count: 52 },
+  { id: "aud-science", label: "Science Department (Faculty Group)", type: "department", count: 14 },
+  { id: "aud-admin", label: "Administration Group", type: "staff", count: 18 },
+  { id: "aud-custom", label: "Custom Selection...", type: "homeroom", count: 0 }
 ];
 
 const PERSONAS = {
@@ -332,8 +339,10 @@ const INITIAL_ANNOUNCEMENTS: Announcement[] = [
 ];
 
 const priorityConfig: Record<Priority, { label: string; dot: string; bg: string; text: string; border: string }> = {
+  emergency: { label: "Emergency", dot: "bg-red-500 animate-pulse", bg: "bg-red-500/10", text: "text-red-300", border: "border-red-500/30" },
   urgent: { label: "Urgent", dot: "bg-rose-400", bg: "bg-rose-400/10", text: "text-rose-300", border: "border-rose-400/20" },
   important: { label: "Important", dot: "bg-amber-400", bg: "bg-amber-400/10", text: "text-amber-300", border: "border-amber-400/20" },
+  reminder: { label: "Reminder", dot: "bg-cyan-400", bg: "bg-cyan-400/10", text: "text-cyan-300", border: "border-cyan-400/20" },
   info: { label: "Info", dot: "bg-sky-400", bg: "bg-sky-400/10", text: "text-sky-300", border: "border-sky-400/20" },
 };
 
@@ -374,7 +383,178 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
   const [searchQuery, setSearchQuery] = useState("");
   const [showCompose, setShowCompose] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [currentPersona, setCurrentPersona] = useState<PersonaType>("subject_teacher");
+
+  // Synchronize with sessionStorage for cross-workspace real-time updates
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.sessionStorage.getItem("axis-announcements");
+      if (saved) {
+        setAnnouncements(JSON.parse(saved));
+      } else {
+        window.sessionStorage.setItem("axis-announcements", JSON.stringify(INITIAL_ANNOUNCEMENTS));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("axis-announcements", JSON.stringify(announcements));
+    }
+  }, [announcements]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      const saved = window.sessionStorage.getItem("axis-announcements");
+      if (saved) {
+        setAnnouncements(JSON.parse(saved));
+      }
+    };
+    window.addEventListener("axis-announcements-update", handleSync);
+    return () => window.removeEventListener("axis-announcements-update", handleSync);
+  }, []);
+
+  const [selectedContext, setSelectedContext] = useState<DetectedContext | null>(null);
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+  const [contextToast, setContextToast] = useState<string | null>(null);
+
+  const handleContextAction = (context: DetectedContext) => {
+    setSelectedContext(context);
+    setIsContextModalOpen(true);
+  };
+
+  const handleContextConfirm = (context: DetectedContext, formData: Record<string, string>) => {
+    const contextData = {
+      ...context,
+      title: formData.title || context.title,
+      description: formData.description || context.description,
+      date: formData.date || context.date,
+      time: formData.time || context.time,
+      targetGroup: formData.targetGroup || context.targetGroup,
+      participants: formData.participants ? formData.participants.split(",").map(p => p.trim()) : context.participants
+    };
+
+    if (context.type === "meeting") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingMeeting = contextData;
+      }
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "meeting",
+          autoOpen: true,
+          context: contextData
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "meetings", autoOpenModal: true }
+      }));
+    } else if (context.type === "task" || context.type === "assignment") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        if (context.type === "task") win.axisContextPendingTask = contextData;
+        else win.axisContextPendingAssignment = contextData;
+      }
+      const targetClass = contextData.targetGroup || "Grade 11 Physics (B)";
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: context.type,
+          autoOpen: true,
+          context: contextData,
+          targetClass
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "class-space", targetClass, autoOpenModal: true }
+      }));
+    } else if (context.type === "event" || context.type === "calendar") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingEvent = contextData;
+      }
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: context.type === "calendar" ? "calendar" : "event",
+          autoOpen: true,
+          context: contextData
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "calendar", autoOpenModal: true }
+      }));
+    } else if (context.type === "announcement") {
+      const matchedAudId = contextData.targetGroup
+        ? AVAILABLE_AUDIENCES.find(a => contextData.targetGroup && a.label.toLowerCase().includes(contextData.targetGroup.toLowerCase()))?.id
+        : undefined;
+      setComposeData(prev => ({
+        ...prev,
+        title: contextData.title || "Announcement",
+        body: contextData.description || "",
+        priority: "info",
+        selectedAudiences: matchedAudId ? [matchedAudId] : [AVAILABLE_AUDIENCES[0].id]
+      }));
+      setShowCompose(true);
+      setPanelOpen(true);
+    }
+
+    setContextToast(`✓ ${context.type.charAt(0).toUpperCase() + context.type.slice(1)} created successfully`);
+    setTimeout(() => setContextToast(null), 2500);
+  };
+
+  useEffect(() => {
+    const handleContextAutoAction = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.type === "announcement") {
+        const { context, autoOpen } = customEvent.detail;
+        if (context) {
+          const matchedAudId = context.targetGroup
+            ? AVAILABLE_AUDIENCES.find(a => context.targetGroup && a.label.toLowerCase().includes(context.targetGroup.toLowerCase()))?.id
+            : undefined;
+          setComposeData(prev => ({
+            ...prev,
+            title: context.title || "Announcement",
+            body: context.description || context.trigger || "",
+            priority: "info",
+            selectedAudiences: matchedAudId ? [matchedAudId] : [AVAILABLE_AUDIENCES[0].id]
+          }));
+          if (autoOpen) {
+            setShowCompose(true);
+            setPanelOpen(true);
+          }
+        }
+      }
+    };
+    window.addEventListener("axis-context-auto-action", handleContextAutoAction);
+    return () => {
+      window.removeEventListener("axis-context-auto-action", handleContextAutoAction);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      if (win.axisContextPendingAnnouncement) {
+        const context = win.axisContextPendingAnnouncement;
+        const matchedAudId = context.targetGroup
+          ? AVAILABLE_AUDIENCES.find(a => context.targetGroup && a.label.toLowerCase().includes(context.targetGroup.toLowerCase()))?.id
+          : undefined;
+        setComposeData(prev => ({
+          ...prev,
+          title: context.title || "Announcement",
+          body: context.description || context.trigger || "",
+          priority: "info",
+          selectedAudiences: matchedAudId ? [matchedAudId] : [AVAILABLE_AUDIENCES[0].id]
+        }));
+        setShowCompose(true);
+        setPanelOpen(true);
+        delete win.axisContextPendingAnnouncement;
+      }
+    }
+  }, []);
+  const [currentPersona, setCurrentPersona] = useState<PersonaType>("coordinator");
 
   const [composeData, setComposeData] = useState<ComposeData>({
     title: "",
@@ -632,7 +812,7 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
                     onClick={() => setPanelOpen(false)}
                     className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-1.5 text-white/35 hover:text-white hover:bg-white/[0.04] transition-all"
                   >
-                    <svg className="size-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -737,7 +917,16 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
                               {ann.title}
                             </p>
                             <p className={`text-[10px] text-white/45 mt-1 leading-normal ${isSelected ? "" : "line-clamp-2"}`}>
-                              {ann.body}
+                              {isSelected ? (() => {
+                                const detected = detectContextInText(ann.body);
+                                return detected.length > 0 ? (
+                                  <MessageTextWithTeacherContext
+                                    text={ann.body}
+                                    contexts={detected}
+                                    onAction={handleContextAction}
+                                  />
+                                ) : ann.body;
+                              })() : ann.body}
                             </p>
 
                             {/* Detail Drawer overlay elements inline when selected */}
@@ -763,14 +952,21 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
                                   <div className="space-y-1 pt-1">
                                     <p className="text-[8px] font-bold text-white/25 uppercase tracking-wider">Attachments</p>
                                     {ann.attachments.map((att) => (
-                                      <div key={att.id} className="flex items-center justify-between rounded-lg border border-white/[0.04] bg-white/[0.02] px-2 py-1.5 hover:bg-white/[0.04] transition-all">
+                                      <div key={att.id} className="flex items-center justify-between rounded-lg border border-white/[0.04] bg-white/[0.02] px-2.5 py-2 hover:bg-white/[0.04] transition-all w-full">
                                         <div className="flex items-center gap-1.5 min-w-0">
-                                          <svg className="size-3 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                          <svg className="size-3 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                                             <path strokeLinecap="round" strokeLinejoin="round" d={attachmentIcons[att.type] || attachmentIcons.document} />
                                           </svg>
-                                          <span className="text-[9.5px] text-white/60 truncate">{att.name}</span>
-                                          {att.size && <span className="text-[8px] text-white/25 shrink-0">{att.size}</span>}
+                                          <span className="text-[9.5px] text-white/80 font-bold truncate">{att.name}</span>
+                                          {att.size && <span className="text-[8px] text-white/30 shrink-0">{att.size}</span>}
                                         </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => alert(`Opening Connected Resource: ${att.name}`)}
+                                          className="text-[8.5px] text-cyan-400 hover:text-cyan-300 font-extrabold uppercase tracking-wider pl-2"
+                                        >
+                                          View Resource
+                                        </button>
                                       </div>
                                     ))}
                                   </div>
@@ -882,37 +1078,6 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
               {/* Body */}
               <div className="px-safe-lg py-safe-md space-y-safe-md max-h-[60vh] overflow-y-auto scrollbar-none">
 
-                {/* Persona Switcher (Scope Gating Demonstration) */}
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-safe-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[9px] font-bold text-white/25 uppercase tracking-wider">Demo Persona (Scope Control)</span>
-                    <span className="inline-flex items-center gap-1 text-[8px] bg-emerald-400/10 text-emerald-300 border border-emerald-400/10 px-1.5 py-0.5 rounded">
-                      <span className="size-1 rounded-full bg-emerald-400 animate-ping" />
-                      Auto-gating Active
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1 rounded-lg bg-white/[0.02] border border-white/[0.05] p-0.5">
-                    {(Object.keys(PERSONAS) as PersonaType[]).map((roleKey) => (
-                      <button
-                        key={roleKey}
-                        type="button"
-                        onClick={() => handlePersonaChange(roleKey)}
-                        className={`rounded-md py-1.5 text-[9px] font-medium transition-all ${
-                          currentPersona === roleKey
-                            ? "bg-white text-zinc-950 shadow-sm font-semibold"
-                            : "text-white/40 hover:text-white/70"
-                        }`}
-                      >
-                        {PERSONAS[roleKey].role.split(" ")[0]}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[8.5px] text-white/30 mt-2 leading-normal">
-                    Acting as <strong className="text-white/60">{PERSONAS[currentPersona].role}</strong>. Allowed scopes:{" "}
-                    <span className="text-white/50">{PERSONAS[currentPersona].allowedScopes.join(", ")}</span>. Others will be locked.
-                  </p>
-                </div>
-
                 {/* Title */}
                 <div>
                   <label className="text-[9px] font-bold text-white/25 uppercase tracking-wider">Title</label>
@@ -941,7 +1106,7 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
                 <div>
                   <label className="text-[9px] font-bold text-white/25 uppercase tracking-wider">Priority</label>
                   <div className="mt-2 flex gap-2">
-                    {(["info", "important", "urgent"] as Priority[]).map((p) => {
+                    {(["info", "reminder", "important", "urgent", "emergency"] as Priority[]).map((p) => {
                       const cfg = priorityConfig[p];
                       const isActive = composeData.priority === p;
                       return (
@@ -966,10 +1131,9 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
                   <label className="text-[9px] font-bold text-white/25 uppercase tracking-wider">Audience</label>
                   <p className="text-[10px] text-white/30 mt-1 mb-3">Select target audiences for the broadcast</p>
                   {[
-                    { label: "Homeroom", types: ["homeroom"] as const },
-                    { label: "Your Classes", types: ["class"] as const },
-                    { label: "Department", types: ["department"] as const },
-                    { label: "Year Groups, Staff & School", types: ["year-group", "staff", "school"] as const },
+                    { label: "School-Wide Audiences", types: ["school", "staff"] as const },
+                    { label: "Programme Cohorts (DP & CP)", types: ["year-group"] as const },
+                    { label: "Specific Departments & Groups", types: ["department", "homeroom"] as const },
                   ].map((group) => {
                     const items = AVAILABLE_AUDIENCES.filter((a) => (group.types as readonly string[]).includes(a.type));
                     if (items.length === 0) return null;
@@ -1127,6 +1291,29 @@ export function AnnouncementsPanel({ forceOpen, onOpenChange }: { forceOpen?: bo
                 </div>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <TeacherContextActionModal
+        context={selectedContext}
+        isOpen={isContextModalOpen}
+        onClose={() => {
+          setIsContextModalOpen(false);
+          setSelectedContext(null);
+        }}
+        onConfirm={handleContextConfirm}
+      />
+
+      <AnimatePresence>
+        {contextToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-xl border border-cyan-500/30 bg-[#0E0E10]/95 backdrop-blur-md shadow-2xl flex items-center gap-2.5 text-xs text-cyan-400 font-semibold"
+          >
+            {contextToast}
           </motion.div>
         )}
       </AnimatePresence>

@@ -397,6 +397,88 @@ export function CalendarWorkspace() {
     setShowAddReminder(false);
   }, [selectedDay]);
 
+  // Listen for context auto-action events (from Messages)
+  useEffect(() => {
+    const handleContextAutoAction = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { type, context, autoOpen } = customEvent.detail;
+
+      if (type === "event" && autoOpen && context) {
+        // Auto-fill form with context data
+        setEventTitle(context.title || "Event");
+        setEventDesc(context.description || "");
+        
+        // Set time if available
+        if (context.time) {
+          setEventStartTime(context.time);
+          const [hours, minutes] = context.time.split(':').map(Number);
+          const endHours = (hours + 1) % 24; // Add 1 hour
+          setEventEndTime(`${String(endHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+        }
+
+        // Set selected day to the context date
+        if (context.date) {
+          const parts = context.date.split('-');
+          const year = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+          const day = parseInt(parts[2], 10);
+          setViewYear(year);
+          setViewMonth(month);
+          
+          const contextDate = new Date(year, month, day);
+          const dayInfo: DayInfo = {
+            date: contextDate,
+            dayOfMonth: day,
+            isCurrentMonth: month === today.getMonth() && year === today.getFullYear(),
+            isToday: false,
+            isWeekend: contextDate.getDay() === 0 || contextDate.getDay() === 6,
+            events: []
+          };
+          setSelectedDay(dayInfo);
+        }
+
+        // Auto-open the event creation form
+        setShowAddEvent(true);
+      } else if (type === "meeting" && autoOpen && context) {
+        // Meetings also use event creation
+        setEventTitle(context.title || "Meeting");
+        setEventDesc(context.description || "");
+        
+        if (context.time) {
+          setEventStartTime(context.time);
+          const [hours, minutes] = context.time.split(':').map(Number);
+          const endHours = (hours + 1) % 24;
+          setEventEndTime(`${String(endHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+        }
+
+        if (context.date) {
+          const parts = context.date.split('-');
+          const year = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;
+          const day = parseInt(parts[2], 10);
+          setViewYear(year);
+          setViewMonth(month);
+          
+          const contextDate = new Date(year, month, day);
+          const dayInfo: DayInfo = {
+            date: contextDate,
+            dayOfMonth: day,
+            isCurrentMonth: month === today.getMonth() && year === today.getFullYear(),
+            isToday: false,
+            isWeekend: contextDate.getDay() === 0 || contextDate.getDay() === 6,
+            events: []
+          };
+          setSelectedDay(dayInfo);
+        }
+
+        setShowAddEvent(true);
+      }
+    };
+
+    window.addEventListener("axis-context-auto-action", handleContextAutoAction);
+    return () => window.removeEventListener("axis-context-auto-action", handleContextAutoAction);
+  }, [today]);
+
   const handleSaveEvent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventTitle.trim() || !selectedDay) return;

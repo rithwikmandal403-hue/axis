@@ -743,7 +743,7 @@ export function SettingsPanel({ theme = "dark" }: { theme?: Theme }) {
                 <div className="flex items-start justify-between p-3 rounded-xl bg-white/[0.01] border border-white/[0.04]">
                   <div className="space-y-0.5">
                     <h4 className="text-xs font-semibold text-white/80">Proximity Tracking Coordinator Coordinates</h4>
-                    <p className="text-[9px] text-white/40">Broadcasting coordinate telemetry to classroom nodes to allow automatic panel locks and unlocks.</p>
+                    <p className="text-[9px] text-white/40">Broadcasting coordinate signals to classroom nodes to allow automatic panel locks and unlocks.</p>
                   </div>
                   <button
                     onClick={() => setShareProximity(!shareProximity)}

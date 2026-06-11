@@ -20,10 +20,10 @@ import { CoordinatorMessages } from "./coordinator-messages";
 import { ClockSystem } from "../teacher-demo/clock-system";
 import { SharedDemoHeader } from "../shared-demo-header";
 import { CoordinatorEmail } from "./coordinator-email";
-import { ConnectedResourcesWorkspace, ResourcePickerModal } from "./connected-resources";
+import { ConnectedResourcesWorkspace, ResourcePickerModal, ResourceDoc, INITIAL_RESOURCES } from "./connected-resources";
 import { getThemeColors, type Theme, AXIS_TOKENS, getAxisTheme } from "@/lib/theme-utils";
 import { useDemoTutorial } from "@/components/school/demo-tutorial-context";
-import { GuidedTourOverlay } from "@/components/school/guided-tour-overlay";
+import { PersonalDatabaseWorkspace, PersonalFile, INITIAL_FILES } from "../personal-database";
 
 type AcademicProgramme = "pyp" | "myp" | "dp" | "cp";
 
@@ -163,8 +163,15 @@ const INITIAL_ESSENTIAL_ITEMS: EssentialItem[] = [
   { id: "es-2", type: "screenshot", title: "Screenshot — Attendance Anomaly Grade 11", content: "Captured screen snippet of attendance drop pattern for DP1 cohort during Period 3 across last 2 weeks.", tags: ["capture", "attendance", "DP1"], date: "Yesterday, 2:30 PM" },
   { id: "es-3", type: "request", title: "Saved Request — Science Reallocation Note", content: "Science department requested additional 2,400 for lab equipment. Approved pending VP sign-off.", tags: ["request", "budget", "science"], date: "2 days ago" },
   { id: "es-4", type: "resource", title: "Connected Resource — EE Guide 2026", content: "Extended Essay official regulation booklet. PDF format, 1.4 MB. Status: Verified.", tags: ["resource", "EE", "guidelines"], date: "3 days ago" },
-  { id: "es-5", type: "message", title: "Saved Message Thread — Ananya Rao", content: "Discussion regarding Physics IA cover assignment to Dr. Sarah. Confirmed availability for Period 5.", tags: ["message", "chemistry", "faculty"], date: "4 days ago" }
 ];
+
+const getStatusFromProgress = (value: number) => {
+  if (value >= 80) return { label: "Healthy", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", progressColor: "bg-emerald-400" };
+  if (value >= 70) return { label: "On Track", color: "text-cyan-400", bg: "bg-cyan-500/10 border-cyan-500/20", progressColor: "bg-cyan-400" };
+  if (value >= 60) return { label: "Needs Attention", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", progressColor: "bg-amber-400" };
+  if (value >= 50) return { label: "Watch", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20", progressColor: "bg-yellow-400" };
+  return { label: "At Risk", color: "text-rose-400", bg: "bg-rose-500/10 border-rose-500/20", progressColor: "bg-rose-400" };
+};
 
 export function CoordinatorDemoShell() {
   const router = useRouter();
@@ -185,15 +192,17 @@ export function CoordinatorDemoShell() {
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [noteTags, setNoteTags] = useState("");
-  const [spotlightQuery, setSpotlightQuery] = useState("");
-  const [isCaptureOverlayOpen, setIsCaptureOverlayOpen] = useState(false);
-  const [captureState, setCaptureState] = useState<"idle" | "selecting" | "capturing" | "scanning" | "preview">("idle");
-  const [_scanProgressText, _setScanProgressText] = useState("Initializing intelligence capture...");
-  const [_toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activePreviewItem, setActivePreviewItem] = useState<EssentialItem | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isDragOverAnn, setIsDragOverAnn] = useState(false);
+
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
+  const [spotlightQuery, setSpotlightQuery] = useState("");
+  const [isCaptureOverlayOpen, setIsCaptureOverlayOpen] = useState(false);
+  const [captureState, setCaptureState] = useState<"idle" | "selecting" | "capturing" | "scanning" | "preview">("idle");
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentPoint, setCurrentPoint] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -227,7 +236,123 @@ export function CoordinatorDemoShell() {
 
   const themeColors = getThemeColors(theme);
 
-  const { isTutorialActive } = useDemoTutorial();
+  const { steps, activeStepIndex, isTutorialActive, startTutorial, nextStep, prevStep, endTutorial } =
+    useDemoTutorial();
+
+  // Guided Onboarding states
+  const [showSkipWarning, setShowSkipWarning] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [hasRunTour, setHasRunTour] = useState(true);
+  const [isWelcomeScreenOpen, setIsWelcomeScreenOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("axis-tour-has-run");
+      if (stored !== "true") {
+        setIsWelcomeScreenOpen(true);
+        try {
+          startTutorial();
+        } catch (e) {
+          console.error("Failed to auto-start tutorial:", e);
+        }
+      }
+    }
+  }, [startTutorial]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("axis-tour-has-run");
+      setHasRunTour(stored === "true");
+    }
+  }, [isTutorialActive]);
+
+  const handleStartTourFromWelcome = () => {
+    setIsWelcomeScreenOpen(false);
+    startTutorial();
+  };
+
+  const handleExploreOnMyOwn = () => {
+    setIsWelcomeScreenOpen(false);
+    endTutorial();
+  };
+
+  const handleContinueTourFromWarning = () => {
+    setShowSkipWarning(false);
+    if (isWelcomeScreenOpen) {
+      setIsWelcomeScreenOpen(false);
+      startTutorial();
+    }
+  };
+
+  const handleSkipAnywayFromWarning = () => {
+    setShowSkipWarning(false);
+    localStorage.setItem("axis-tour-has-run", "true");
+    setHasRunTour(true);
+    setIsWelcomeScreenOpen(false);
+    endTutorial();
+  };
+
+  const handleSkipOrExit = () => {
+    if (!hasRunTour) {
+      setShowSkipWarning(true);
+    } else {
+      endTutorial();
+    }
+  };
+
+  const handleNext = () => {
+    if (activeStepIndex === steps.length - 1) {
+      setShowCompletionModal(true);
+    } else {
+      nextStep();
+    }
+  };
+
+  // Switch tabs automatically based on current walkthrough step
+  useEffect(() => {
+    if (!isTutorialActive) return;
+    switch (activeStepIndex) {
+      case 0: // Welcome to Axis
+      case 1: // Programme Overview
+        setActiveTab("home");
+        break;
+      case 2: // Students
+        setActiveTab("students");
+        break;
+      case 3: // Student Statistics Profiles
+        setActiveTab("students");
+        break;
+      case 4: // Analytics
+        setActiveTab("analytics");
+        break;
+      case 5: // Schedule Management
+        setActiveTab("schedule");
+        break;
+      case 6: // Meetings
+        setActiveTab("meetings");
+        break;
+      case 7: // Messages
+        setActiveTab("messages");
+        break;
+      case 8: // Connected Resources
+        setActiveTab("resources");
+        break;
+      case 9: // Requests & Operations
+        setActiveTab("requests");
+        break;
+      case 10: // Essential Space
+        setActiveTab("resources");
+        break;
+      case 11: // Context Engine
+        setActiveTab("home");
+        break;
+      case 12: // Final
+        setActiveTab("home");
+        break;
+      default:
+        break;
+    }
+  }, [activeStepIndex, isTutorialActive]);
 
   const [searchSelectedStudent, setSearchSelectedStudent] = useState<SearchItem | null>(null);
   const [searchSelectedTeacher, setSearchSelectedTeacher] = useState<SearchItem | null>(null);
@@ -292,6 +417,150 @@ export function CoordinatorDemoShell() {
   const handleDeleteItem = (id: string) => {
     setEssentialItems(prev => prev.filter(item => item.id !== id));
   };
+  const handleShareItem = (item: EssentialItem) => {
+    const secureLink = `https://axis.edu/secure/essential/${item.id}/${Date.now()}`;
+    navigator.clipboard.writeText(secureLink);
+    triggerToast(`Copied secure share link for "${item.title}"`);
+  };
+
+  // Essential Space Item Preview Modal
+  const renderItemPreviewModal = () => {
+    if (!activePreviewItem) return null;
+    const item = activePreviewItem;
+    
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 bg-black/85 backdrop-blur-sm">
+        <div className="fixed inset-0" onClick={() => setActivePreviewItem(null)} />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          className={`relative w-full max-w-lg border p-6 rounded-2xl shadow-2xl z-10 flex flex-col gap-4 bg-[#0E0E10] border-white/10 text-white`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b pb-3 border-white/10 shrink-0">
+            <div>
+              <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400 block font-mono">
+                {getEssentialItemLabel(item.type)} &middot; Captured
+              </span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">{item.title}</h3>
+            </div>
+            <button onClick={() => setActivePreviewItem(null)} className="text-white/40 hover:text-white text-xs font-semibold px-2 py-1 bg-white/5 rounded-lg">✕</button>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-4 my-2">
+            {/* Visual Telemetry Chart for Screenshots */}
+            {item.type === "screenshot" ? (
+              <div className="rounded-xl border border-white/5 bg-black/60 p-4 overflow-hidden relative flex flex-col items-center justify-center min-h-[160px]">
+                {/* Simulated Grid Background */}
+                <div className="absolute inset-0 bg-[radial-gradient(rgba(6,182,212,0.15)_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none opacity-40" />
+                
+                {/* Telemetry Chart Graphics */}
+                <div className="w-full flex justify-between items-center px-2 mb-2 z-10">
+                  <span className="text-[8px] font-mono text-cyan-400 uppercase tracking-widest">Live Cohort Telemetry</span>
+                  <span className="text-[8px] font-mono text-white/40">{item.date}</span>
+                </div>
+                
+                {/* SVG Graph */}
+                <svg className="w-full h-24 z-10 overflow-visible" viewBox="0 0 300 100">
+                  <defs>
+                    <linearGradient id="cyan-gradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  
+                  {/* Grid Lines */}
+                  <line x1="0" y1="20" x2="300" y2="20" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                  <line x1="0" y1="50" x2="300" y2="50" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                  <line x1="0" y1="80" x2="300" y2="80" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                  
+                  {/* Graph Line Area */}
+                  <path
+                    d="M 0 60 Q 40 30 80 40 T 160 85 T 240 25 T 300 50 L 300 100 L 0 100 Z"
+                    fill="url(#cyan-gradient)"
+                  />
+                  
+                  {/* Graph Line */}
+                  <path
+                    d="M 0 60 Q 40 30 80 40 T 160 85 T 240 25 T 300 50"
+                    fill="none"
+                    stroke="#06b6d4"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  
+                  {/* Data Points */}
+                  <circle cx="80" cy="40" r="3" fill="#06b6d4" />
+                  <circle cx="160" cy="85" r="3" fill="#f43f5e" />
+                  <circle cx="240" cy="25" r="3" fill="#10b981" />
+                </svg>
+
+                <div className="w-full text-center mt-3 z-10">
+                  <p className="text-[9px] text-white/50 leading-relaxed max-w-xs mx-auto">
+                    {item.content}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              // Note/Doc text display
+              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-left space-y-2">
+                <span className="text-[8px] font-mono text-zinc-500 uppercase font-bold tracking-wider">Note Content</span>
+                <p className="text-xs leading-relaxed text-white/80 whitespace-pre-wrap font-medium">
+                  {item.content}
+                </p>
+              </div>
+            )}
+
+            {/* Tags and Date */}
+            <div className="flex justify-between items-center text-[10px] text-white/40 border-t border-white/5 pt-3">
+              <span>Captured: {item.date}</span>
+              {item.tags.length > 0 && (
+                <div className="flex gap-1.5">
+                  {item.tags.map((tag) => (
+                    <span key={tag} className="bg-white/5 px-2 py-0.5 rounded text-[9px] text-cyan-400">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Actions Footer */}
+          <div className="flex gap-2.5 justify-end border-t border-white/5 pt-3.5 mt-1 shrink-0">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(item.content);
+                triggerToast("Note content copied to clipboard");
+              }}
+              className="px-3.5 py-2 border border-white/10 hover:bg-white/5 text-[10px] font-bold uppercase rounded-xl transition-colors"
+            >
+              Copy Text
+            </button>
+            <button
+              onClick={() => {
+                handleShareItem(item);
+              }}
+              className="px-3.5 py-2 border border-white/10 hover:bg-white/5 text-[10px] font-bold uppercase rounded-xl transition-colors"
+            >
+              Share Secure Link
+            </button>
+            <button
+              onClick={() => {
+                handleDeleteItem(item.id);
+                setActivePreviewItem(null);
+              }}
+              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-extrabold uppercase rounded-xl transition-colors"
+            >
+              Delete Item
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
   const handleMouseDown = (e: React.MouseEvent) => {
     if (captureState !== "capturing") return;
     setStartPoint({ x: e.clientX, y: e.clientY });
@@ -319,8 +588,8 @@ export function CoordinatorDemoShell() {
       
       if (activeTab === "home") {
         title = "Snippet — Coordinator Home";
-        content = "Operational telemetry and overview card clipping.";
-        tags = ["home", "telemetry"];
+        content = "Operational status and overview card clipping.";
+        tags = ["home", "status"];
       } else if (activeTab === "students") {
         title = "Snippet — Student Directory";
         content = "Academic records and cohort tracking clipping.";
@@ -471,6 +740,8 @@ export function CoordinatorDemoShell() {
 
   // Facility Overlay Modals
   const [activeFacilityModal, setActiveFacilityModal] = useState<FacilityKey | null>(null);
+  const [activeWorkflowModal, setActiveWorkflowModal] = useState<string | null>(null);
+  const [hoveredComponent, setHoveredComponent] = useState<string | null>(null);
 
   // Emergency States
   const [emergencyActive, setEmergencyActive] = useState(false);
@@ -504,6 +775,56 @@ export function CoordinatorDemoShell() {
       content: "The Extended Essay rough draft deadline has been extended by 3 days. Supervisors should update RPPF meeting notes and advisor review slots accordingly."
     },
   ]);
+
+  // Synchronize with sessionStorage for cross-workspace real-time updates
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.sessionStorage.getItem("axis-announcements");
+      if (saved) {
+        setAnnouncements(JSON.parse(saved));
+      } else {
+        const initialList: Announcement[] = [
+          {
+            id: "ann-1",
+            title: "Science Lab room assignment adjustments",
+            type: "room-change",
+            audience: "Science Department",
+            author: "Ananya Rao (Science Lead)",
+            date: "10 mins ago",
+            content: "Due to ventilation updates in Refraction Lab B, all Grade 11 Physics classes will route to Lab 4 for Period 2 blocks."
+          },
+          {
+            id: "ann-2",
+            title: "IB DP Extended Essay deadline extension",
+            type: "notice",
+            audience: "DP1 candidates & EE supervisors",
+            author: "Sarah Chen (IB DP Coordinator)",
+            date: "2 hours ago",
+            content: "The Extended Essay rough draft deadline has been extended by 3 days. Supervisors should update RPPF meeting notes and advisor review slots accordingly."
+          }
+        ];
+        window.sessionStorage.setItem("axis-announcements", JSON.stringify(initialList));
+        setAnnouncements(initialList);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("axis-announcements", JSON.stringify(announcements));
+    }
+  }, [announcements]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      const saved = window.sessionStorage.getItem("axis-announcements");
+      if (saved) {
+        setAnnouncements(JSON.parse(saved));
+      }
+    };
+    window.addEventListener("axis-announcements-update", handleSync);
+    return () => window.removeEventListener("axis-announcements-update", handleSync);
+  }, []);
 
   // Sync theme
   useEffect(() => {
@@ -560,7 +881,7 @@ export function CoordinatorDemoShell() {
   }, []);
 
   // Compute live school snapshot statistics
-  const telemetry = useMemo(() => {
+  const axisData = useMemo(() => {
     const defaultData = {
       roleLabel: "IB DP Coordinator",
       studentsPresent: "178 / 184",
@@ -581,17 +902,7 @@ export function CoordinatorDemoShell() {
     return defaultData;
   }, []);
 
-  const dpWorkflowMetrics: DPWorkflowMetric[] = [
-    { label: "TOK", value: "82%", detail: "TOK essay drafts verified; exhibition objects logged", tone: "watch" },
-    { label: "Extended Essay", value: "72%", detail: "Rough drafts reviewed; supervisor comments pending", tone: "urgent" },
-    { label: "CAS", value: "91%", detail: "CAS reflections and project evidence current", tone: "good" },
-    { label: "Internal Assessments", value: "76%", detail: "Group 4 and Group 5 IA moderation underway", tone: "watch" },
-    { label: "Predicted Grades", value: "64/88", detail: "DP2 predicted grades submitted for university references", tone: "watch" },
-    { label: "Subject Groups", value: "6/6", detail: "Six IB DP subject groups staffed and balanced", tone: "good" },
-    { label: "Exam Readiness", value: "88%", detail: "Mock exam access arrangements and invigilation mapped", tone: "good" },
-    { label: "University Deadlines", value: "11", detail: "Applications due in the next 14 days", tone: "urgent" },
-    { label: "Supervisor Allocation", value: "100%", detail: "EE supervisors assigned; two load-balancing reviews open", tone: "good" },
-  ];
+
 
   // Context Proactive Insights (Surfacing UI alerts based on curriculum status)
   const proactiveInsights = useMemo(() => {
@@ -618,7 +929,54 @@ export function CoordinatorDemoShell() {
   const spotlightResults = useMemo(() => {
     if (!spotlightQuery.trim()) return null;
     const query = spotlightQuery.toLowerCase().trim();
-    const filtered = ALL_SEARCH_ITEMS.filter(
+    
+    // Dynamic search files from Connected Resources
+    let schoolDocs: SearchItem[] = [];
+    try {
+      const saved = window.sessionStorage.getItem("axis-resources");
+      const docsList: ResourceDoc[] = saved ? JSON.parse(saved) : INITIAL_RESOURCES;
+      schoolDocs = docsList.map((doc: ResourceDoc) => ({
+        id: doc.id,
+        type: "Document",
+        title: doc.title,
+        subtitle: `Connected Resource · ${doc.category} · ${doc.size}`,
+        targetTab: "resources"
+      }));
+    } catch (e) {
+      schoolDocs = INITIAL_RESOURCES.map((doc: ResourceDoc) => ({
+        id: doc.id,
+        type: "Document",
+        title: doc.title,
+        subtitle: `Connected Resource · ${doc.category} · ${doc.size}`,
+        targetTab: "resources"
+      }));
+    }
+
+    // Dynamic search files from Personal Database
+    let personalDocs: SearchItem[] = [];
+    try {
+      const saved = window.sessionStorage.getItem("axis-personal-files");
+      const filesList: PersonalFile[] = saved ? JSON.parse(saved) : INITIAL_FILES;
+      personalDocs = filesList.map((file: PersonalFile) => ({
+        id: file.id,
+        type: "Document",
+        title: file.title,
+        subtitle: `Personal File · ${file.size} · Starred: ${file.isFavorite ? "Yes" : "No"}`,
+        targetTab: "personal-database"
+      }));
+    } catch (e) {
+      personalDocs = INITIAL_FILES.map((file: PersonalFile) => ({
+        id: file.id,
+        type: "Document",
+        title: file.title,
+        subtitle: `Personal File · ${file.size}`,
+        targetTab: "personal-database"
+      }));
+    }
+
+    const combinedSearchItems = [...ALL_SEARCH_ITEMS, ...schoolDocs, ...personalDocs];
+
+    const filtered = combinedSearchItems.filter(
       (item) =>
         item.title.toLowerCase().includes(query) ||
         item.subtitle.toLowerCase().includes(query) ||
@@ -630,7 +988,7 @@ export function CoordinatorDemoShell() {
       parents: filtered.filter((item) => item.type === "Parent"),
       facilities: filtered.filter((item) => item.type === "Facility" || item.type === "Room"),
       departments: filtered.filter((item) => item.type === "Department"),
-      meetings: filtered.filter((item) => item.type === "Event" || item.type === "Announcement" || item.id.startsWith("meet")),
+      meetings: filtered.filter((item) => item.type === "Event" || item.id.startsWith("meet")),
       documents: filtered.filter((item) => item.type === "Document"),
     };
   }, [spotlightQuery]);
@@ -650,12 +1008,10 @@ export function CoordinatorDemoShell() {
       setActiveFacilityModal(item.actionData.facility as FacilityKey);
     } else if (item.type === "Parent") {
       alert(`Parent Profile:\nName: ${item.title}\nRelation: ${item.subtitle}\nHotline: +1 (555) 892-0192\nEmail: robert.vance@axis.edu`);
+    } else if (item.targetTab) {
+      setActiveTab(item.targetTab);
     } else if (item.type === "Document") {
       alert(`Document Archive:\nTitle: ${item.title}\nType: IB Official Reference\nStatus: Verified\nFile size: 1.4 MB (PDF)`);
-    } else {
-      if (item.targetTab) {
-        setActiveTab(item.targetTab);
-      }
     }
   };
 
@@ -900,6 +1256,16 @@ export function CoordinatorDemoShell() {
               )
             },
             {
+              id: "personal-database",
+              label: "Personal Database",
+              sub: "Private files & documents",
+              icon: (
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                </svg>
+              )
+            },
+            {
               id: "settings",
               label: "Settings",
               sub: "Workspace preferences",
@@ -965,7 +1331,7 @@ export function CoordinatorDemoShell() {
 
 
         {/* ─── SCROLLABLE CONTENT VIEWPORT ───────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto overflow-x-visible p-6 scrollbar-none">
+        <main className="relative flex-1 overflow-y-auto px-safe-lg py-safe-lg md:px-safe-xl md:py-safe-xl scrollbar-none">
           <AnimatePresence mode="wait">
             
             {/* ─── TAB 1: OVERVIEW COCKPIT ──────────────────────────────────────── */}
@@ -974,7 +1340,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
-                className="grid grid-cols-1 gap-6 lg:grid-cols-12 overflow-visible"
+                className={`grid grid-cols-1 gap-6 lg:grid-cols-12 overflow-visible transition-all duration-300 ${isTutorialActive && activeStepIndex === 1 ? "tour-highlight" : ""}`}
                 data-tour-highlight="overview"
               >
                 
@@ -991,11 +1357,11 @@ export function CoordinatorDemoShell() {
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {[
-                        { key: "students", title: "DP Candidates", val: telemetry.studentsPresent, sub: "DP1 and DP2 attendance", color: "text-emerald-400" },
-                        { key: "staff", title: "Subject Leads", val: telemetry.teachersPresent, sub: "Supervisors and moderators", color: "text-cyan-400" },
+                        { key: "students", title: "DP Candidates", val: axisData.studentsPresent, sub: "DP1 and DP2 attendance", color: "text-emerald-400" },
+                        { key: "staff", title: "Subject Leads", val: axisData.teachersPresent, sub: "Supervisors and moderators", color: "text-cyan-400" },
                         { key: "rooms", title: "IA / EE Rooms", val: "18 Spaces", sub: "Labs, library and conference rooms", color: theme === "light" ? "text-black" : "text-white" },
                         { key: "admin", title: "University Reviews", val: "14 / 30", sub: "Counseling and reference slots", color: "text-purple-400" },
-                        { key: "infirmary", title: "CAS / Wellbeing", val: telemetry.infirmaryCount, sub: "Reflection and support follow-up", color: "text-amber-400" },
+                        { key: "infirmary", title: "CAS / Wellbeing", val: axisData.infirmaryCount, sub: "Reflection and support follow-up", color: "text-amber-400" },
                         { key: "cafeteria", title: "Exam Timetable", val: "DP mock cycle active", sub: "Invigilation and access arrangements", color: "text-indigo-400" },
                         { key: "sports", title: "TOK / CAS Events", val: "3 / 8 Active", sub: "Exhibition, meetings and service", color: "text-cyan-400" },
                         { key: "library", title: "TOK & EE Hub", val: "48 / 150 Seated", sub: "Research, supervision and drafting", color: "text-emerald-400" },
@@ -1021,26 +1387,135 @@ export function CoordinatorDemoShell() {
                     </div>
                   </div>
 
-                  <div className={`p-6 rounded-2xl border ${cardStyle} shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] space-y-5`}>
+                  <div className={`p-6 rounded-2xl border ${cardStyle} shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] space-y-5 overflow-visible relative`}>
                     <div>
                       <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block">DP Workflow Snapshot</span>
                       <h3 className={`text-sm font-bold uppercase tracking-wider mt-0.5 ${themeColors.textPrimary}`}>Core IB Programme Status</h3>
-                      <p className={`text-[11px] mt-0.5 ${themeColors.textMuted}`}>The coordinator view stays anchored to the IB Diploma Programme workflow.</p>
+                      <p className={`text-[11px] mt-0.5 ${themeColors.textMuted}`}>Click a component to drill down into candidate progress details.</p>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {dpWorkflowMetrics.map((metric) => (
-                        <div key={metric.label} className={`p-3 rounded-2xl border ${theme === "light" ? "bg-black/[0.01] border-black/[0.04]" : "bg-white/[0.01] border-white/[0.04]"}`}>
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-white/35">{metric.label}</span>
-                            <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border ${
-                              metric.tone === "good" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                              metric.tone === "urgent" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
-                              "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                            }`}>{metric.value}</span>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        {
+                          id: "CAS",
+                          name: "CAS",
+                          progress: 72,
+                          onTrackCount: 143,
+                          totalCount: 198,
+                          behindCount: 12,
+                          checkpoint: "15 September",
+                        },
+                        {
+                          id: "TOK",
+                          name: "TOK",
+                          progress: 81,
+                          onTrackCount: 160,
+                          totalCount: 198,
+                          behindCount: 5,
+                          checkpoint: "22 September (Exhibition log)",
+                        },
+                        {
+                          id: "EE",
+                          name: "EE",
+                          progress: 63,
+                          onTrackCount: 125,
+                          totalCount: 198,
+                          behindCount: 32,
+                          checkpoint: "10 September (Rough draft review)",
+                        },
+                        {
+                          id: "IA",
+                          name: "IA",
+                          progress: 57,
+                          onTrackCount: 113,
+                          totalCount: 198,
+                          behindCount: 45,
+                          checkpoint: "18 September (Science draft check)",
+                        },
+                      ].map((component) => {
+                        const status = getStatusFromProgress(component.progress);
+                        const isHovered = hoveredComponent === component.id;
+                        
+                        return (
+                           <div
+                            key={component.id}
+                            className={`p-4 rounded-xl border relative cursor-pointer overflow-hidden transition-all duration-300 min-h-[112px] flex flex-col justify-between ${
+                              theme === "light" 
+                                ? "bg-black/[0.01] border-black/[0.06] hover:bg-black/[0.02]" 
+                                : "bg-white/[0.01] border-white/[0.06] hover:bg-white/[0.02]"
+                            } hover:border-cyan-500/35 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)]`}
+                            onMouseEnter={() => setHoveredComponent(component.id)}
+                            onMouseLeave={() => setHoveredComponent(null)}
+                            onClick={() => setActiveWorkflowModal(component.id)}
+                          >
+                            <div>
+                              <div className="flex justify-between items-start mb-1.5">
+                                <span className={`text-[11px] font-black uppercase tracking-wider ${themeColors.textPrimary}`}>
+                                  {component.name}
+                                </span>
+                                <span className={`text-[8px] font-mono font-extrabold px-2 py-0.5 rounded-full border uppercase tracking-wider ${status.bg} ${status.color}`}>
+                                  {status.label}
+                                </span>
+                              </div>
+
+                              <div className="flex items-baseline justify-between mt-1">
+                                <span className={`text-[10px] font-semibold font-mono ${themeColors.textMuted}`}>
+                                  {component.onTrackCount} / {component.totalCount} on track
+                                </span>
+                                <span className={`text-xs font-black font-mono ${themeColors.textPrimary}`}>
+                                  {component.progress}%
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className={`h-1 w-full rounded-full overflow-hidden mt-2 ${theme === "light" ? "bg-black/5" : "bg-white/5"}`}>
+                              <div
+                                className={`h-full transition-all duration-500 ${status.progressColor}`}
+                                style={{ width: `${component.progress}%` }}
+                              />
+                            </div>
+
+                            {/* HOVER PANEL OVERLAY */}
+                            <AnimatePresence>
+                              {isHovered && (
+                                <motion.div
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="absolute inset-0 bg-[#0E0E10] border border-cyan-500/30 rounded-xl p-3 flex flex-col justify-between z-20 pointer-events-none shadow-2xl"
+                                >
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest">
+                                      {component.id} Details
+                                    </span>
+                                    <span className="text-[9.5px] font-black text-white font-mono">
+                                      {component.progress}% Complete
+                                    </span>
+                                  </div>
+                                  <div className="space-y-0.5 text-white/80 text-[9px]">
+                                    <div className="flex justify-between">
+                                      <span>Expected progress:</span>
+                                      <span className="font-bold text-emerald-400 font-mono">{component.onTrackCount} / {component.totalCount}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span>Behind schedule:</span>
+                                      <span className={`font-bold font-mono ${component.behindCount > 15 ? "text-rose-400" : "text-amber-400"}`}>{component.behindCount} students</span>
+                                    </div>
+                                    <div className="flex justify-between border-t border-white/5 pt-0.5">
+                                      <span>Next Checkpoint:</span>
+                                      <span className="font-bold text-cyan-400">{component.checkpoint}</span>
+                                    </div>
+                                  </div>
+                                  <span className="text-[7.5px] text-white/30 text-center block border-t border-white/5 pt-0.5 uppercase tracking-widest font-bold">
+                                    Click to open detailed overview
+                                  </span>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
-                          <p className={`text-[10px] mt-2 leading-relaxed ${themeColors.textMuted}`}>{metric.detail}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1355,7 +1830,7 @@ export function CoordinatorDemoShell() {
                       <p className="text-[11px] text-white/35">Real-time IB coordinator feed from supervisors, advisors, and deadline checkpoints.</p>
                     </div>
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {telemetry.logs.map((log) => (
+                      {axisData.logs.map((log) => (
                         <div key={log.id} className="p-3 bg-white/[0.01] border border-white/[0.04] rounded-xl flex items-center justify-between gap-4 text-xs font-semibold">
                           <div className="flex items-center gap-2.5">
                             <span className="size-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
@@ -1506,6 +1981,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                className={`transition-all duration-300 ${isTutorialActive && activeStepIndex === 2 ? "tour-highlight" : ""}`}
                 data-tour-highlight="students"
               >
                 <StudentIntelligence
@@ -1543,6 +2019,7 @@ export function CoordinatorDemoShell() {
                   onTriggerSubstitution={handleTriggerSubstitution}
                   selectedTeacherId={selectedTeacherId}
                   onClearSelectedTeacher={() => setSelectedTeacherId(null)}
+                  onSelectTeacherId={setSelectedTeacherId}
                 />
               </motion.div>
             )}
@@ -1553,6 +2030,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                className={`transition-all duration-300 ${isTutorialActive && activeStepIndex === 5 ? "tour-highlight" : ""}`}
                 data-tour-highlight="schedule"
               >
                 <AcademicScheduling
@@ -1579,6 +2057,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                className={`transition-all duration-300 ${isTutorialActive && activeStepIndex === 4 ? "tour-highlight" : ""}`}
                 data-tour-highlight="analytics"
               >
                 <SchoolAnalytics
@@ -1608,23 +2087,30 @@ export function CoordinatorDemoShell() {
                 
                 {/* Announcement Composer */}
                 <div
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOverAnn(true);
+                  }}
+                  onDragLeave={() => setIsDragOverAnn(false)}
                   onDrop={(e) => {
                     e.preventDefault();
+                    setIsDragOverAnn(false);
                     try {
                       const data = e.dataTransfer.getData("application/json");
                       if (data) {
                         const item = JSON.parse(data);
                         if (item && item.title) {
                           setAttachedResource(item.title);
-                          alert(`Attached "${item.title}" to announcement reference.`);
+                          triggerToast(`Attached "${item.title}" to announcement reference.`);
                         }
                       }
                     } catch (err) {
                       console.error(err);
                     }
                   }}
-                  className={`p-6 rounded-2xl border ${cardStyle} shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] space-y-6`}
+                  className={`p-6 rounded-2xl border ${cardStyle} shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] space-y-6 axis-drop-target transition-all duration-200 ${
+                    isDragOverAnn ? "ring-2 ring-cyan-400 border-cyan-400/50 bg-cyan-950/10 scale-[1.01]" : ""
+                  }`}
                 >
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block">Executive Broadcaster</span>
@@ -1766,6 +2252,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                className={`transition-all duration-300 ${isTutorialActive && activeStepIndex === 9 ? "tour-highlight" : ""}`}
                 data-tour-highlight="requests"
               >
                 <CoordinatorDashboard theme={theme} />
@@ -1778,6 +2265,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                className={`transition-all duration-300 ${isTutorialActive && activeStepIndex === 6 ? "tour-highlight" : ""}`}
                 data-tour-highlight="meetings"
               >
                 <CoordinatorMeetings theme={theme} />
@@ -1790,7 +2278,9 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                className={`transition-all duration-300 ${isTutorialActive && activeStepIndex === 7 ? "tour-highlight" : ""}`}
                 data-tour-highlight="messages"
+                style={isTutorialActive && activeStepIndex === 7 ? { overflow: 'visible' } : {}}
               >
                 <CoordinatorMessages
                   theme={theme}
@@ -1804,6 +2294,7 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
+                className={`transition-all duration-300 ${isTutorialActive && activeStepIndex === 11 ? "tour-highlight" : ""}`}
                 data-tour-highlight="context"
               >
                 <CoordinatorEmail theme={theme} />
@@ -1818,10 +2309,22 @@ export function CoordinatorDemoShell() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
-                className="max-w-6xl mx-auto w-full"
+                className={`max-w-6xl mx-auto w-full transition-all duration-300 ${isTutorialActive && activeStepIndex === 8 ? "tour-highlight" : ""}`}
                 data-tour-highlight="resources"
               >
                 <ConnectedResourcesWorkspace theme={theme} />
+              </motion.div>
+            )}
+
+            {/* ─── TAB 10.8: PERSONAL DATABASE ─────────────────────────────────────── */}
+            {activeTab === "personal-database" && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                className="max-w-6xl mx-auto w-full"
+              >
+                <PersonalDatabaseWorkspace theme={theme} />
               </motion.div>
             )}
 
@@ -1839,6 +2342,66 @@ export function CoordinatorDemoShell() {
 
           </AnimatePresence>
         </main>
+
+        {/* Tutorial popover guidance overlay */}
+        <AnimatePresence>
+          {isTutorialActive && steps[activeStepIndex] && (
+            <motion.aside
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[100] mx-auto w-[calc(100%-3rem)] max-w-xl rounded-2xl border border-white/15 bg-[#0E0E10]/95 px-6 py-5 shadow-[0_24px_64px_rgba(0,0,0,0.9)] backdrop-blur-xl"
+              role="dialog"
+              aria-label="Guided Tour Notification"
+            >
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-white/35 uppercase tracking-widest">
+                  Walkthrough · Step {activeStepIndex + 1} of {steps.length} · {Math.round(((activeStepIndex + 1) / steps.length) * 100)}% Complete
+                </span>
+                <h3 className="mt-2 text-sm font-semibold tracking-tight text-white">{steps[activeStepIndex].title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-white/50">{steps[activeStepIndex].description}</p>
+                
+                <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3.5">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={prevStep}
+                      disabled={activeStepIndex === 0}
+                      className="text-xs font-semibold text-white/45 hover:text-white transition-colors disabled:opacity-20 disabled:pointer-events-none"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-white/20">|</span>
+                    <button
+                      type="button"
+                      onClick={handleSkipOrExit}
+                      className="text-xs font-semibold text-white/40 hover:text-white transition-colors"
+                    >
+                      Skip Tour
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSkipOrExit}
+                      className="text-xs font-semibold text-white/40 hover:text-white transition-colors"
+                    >
+                      Exit Tour
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      className="rounded-lg bg-white px-4 py-1.5 text-xs font-bold text-black hover:opacity-90 transition-opacity"
+                    >
+                      {activeStepIndex === steps.length - 1 ? "Finish" : "Continue"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
 
       </div>
 
@@ -2451,6 +3014,229 @@ export function CoordinatorDemoShell() {
       )}
     </AnimatePresence>
 
+    {/* ─── CLICKABLE WORKFLOW OVERLAY MODALS ─────────────────────────────────────── */}
+    <AnimatePresence>
+      {activeWorkflowModal && (
+        <div className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="fixed inset-0" onClick={() => setActiveWorkflowModal(null)} />
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="relative bg-[#0E0E10] border border-cyan-500/20 rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-[0_0_50px_rgba(6,182,212,0.15)] z-10 text-white text-left"
+          >
+            <div className="flex justify-between items-start border-b border-white/[0.06] pb-3">
+              <div>
+                <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-widest block">Core Programme Audit</span>
+                <h4 className="text-sm font-bold text-white uppercase mt-0.5">
+                  {activeWorkflowModal === "CAS" && "CAS Progress Overview"}
+                  {activeWorkflowModal === "TOK" && "TOK Progress Overview"}
+                  {activeWorkflowModal === "EE" && "Extended Essay Progress Overview"}
+                  {activeWorkflowModal === "IA" && "Internal Assessment Progress Overview"}
+                </h4>
+              </div>
+              <button
+                onClick={() => setActiveWorkflowModal(null)}
+                className="text-white/40 hover:text-white text-xs font-bold font-mono"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* CAS Detailed View */}
+            {activeWorkflowModal === "CAS" && (
+              <div className="space-y-4 text-xs font-semibold text-white/80">
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Meeting expected</span>
+                    <strong className="text-emerald-400 text-sm font-mono block mt-1">143</strong>
+                    <span className="text-[7.5px] text-white/30">Candidates</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Behind schedule</span>
+                    <strong className="text-amber-400 text-sm font-mono block mt-1">12</strong>
+                    <span className="text-[7.5px] text-white/30">Immediate Action</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Not Started</span>
+                    <strong className="text-rose-400 text-sm font-mono block mt-1">43</strong>
+                    <span className="text-[7.5px] text-white/30">Needs Planning</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider block">Recent CAS Portfolio Updates</span>
+                  <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-none pr-1">
+                    {[
+                      { candidate: "Chloe Vance", action: "Uploaded reflection on 'Grade 11 tutoring service project'", time: "45 mins ago" },
+                      { candidate: "Lucas Gray", action: "Updated activity log: logged 6 hours for community garden setup", time: "3 hrs ago" },
+                      { candidate: "Emma Watson", action: "Submitted proposal: 'Music for Elder Care' collaborative project", time: "1 day ago" },
+                      { candidate: "Marcus Vance", action: "Completed midterm CAS reflection interview", time: "2 days ago" },
+                    ].map((item, idx) => (
+                      <div key={idx} className="p-2 border border-white/[0.03] bg-white/[0.01] rounded-lg flex justify-between items-center text-[10px]">
+                        <div>
+                          <span className="font-bold text-white/90">{item.candidate}</span>
+                          <p className="text-white/50 font-medium mt-0.5">{item.action}</p>
+                        </div>
+                        <span className="text-[8px] text-white/30 shrink-0">{item.time}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center border-t border-white/5 pt-3">
+                  <span className="text-[9px] text-white/40">Supervisors: 12 Active Leads</span>
+                  <button onClick={() => { setActiveWorkflowModal(null); setActiveTab("teachers"); }} className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black text-[9px] font-extrabold uppercase tracking-wider rounded-lg transition-colors">
+                    Coordinate Supervisors
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TOK Detailed View */}
+            {activeWorkflowModal === "TOK" && (
+              <div className="space-y-4 text-xs font-semibold text-white/80">
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Exhibition Objects</span>
+                    <strong className="text-emerald-400 text-sm font-mono block mt-1">198 / 198</strong>
+                    <span className="text-[7.5px] text-white/30">Logged & Approved</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Draft essay logged</span>
+                    <strong className="text-cyan-400 text-sm font-mono block mt-1">160</strong>
+                    <span className="text-[7.5px] text-white/30">Under supervisor review</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Conferences Overdue</span>
+                    <strong className="text-rose-400 text-sm font-mono block mt-1">5</strong>
+                    <span className="text-[7.5px] text-white/30">Intervention needed</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider block">TOK Exhibition object review</span>
+                  <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-none pr-1">
+                    {[
+                      { candidate: "Grade 12 Cohort", action: "Exhibition layout approved. 198 object write-ups locked", time: "Yesterday" },
+                      { candidate: "Supervisor Group B", action: "Moderation comments uploaded for Group 3 TOK drafts", time: "2 days ago" },
+                      { candidate: "Sarah Chen", action: "Scheduled final TOK essay moderation checks with department heads", time: "3 days ago" },
+                    ].map((item, idx) => (
+                      <div key={idx} className="p-2 border border-white/[0.03] bg-white/[0.01] rounded-lg flex justify-between items-center text-[10px]">
+                        <div>
+                          <span className="font-bold text-white/90">{item.candidate}</span>
+                          <p className="text-white/50 font-medium mt-0.5">{item.action}</p>
+                        </div>
+                        <span className="text-[8px] text-white/30 shrink-0">{item.time}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center border-t border-white/5 pt-3">
+                  <span className="text-[9px] text-white/40">Moderator: Ms. Sarah Thompson</span>
+                  <button onClick={() => { setActiveWorkflowModal(null); setActiveTab("schedule"); }} className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black text-[9px] font-extrabold uppercase tracking-wider rounded-lg transition-colors">
+                    Check Exhibition Calendar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* EE Detailed View */}
+            {activeWorkflowModal === "EE" && (
+              <div className="space-y-4 text-xs font-semibold text-white/80">
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">RQ Locked</span>
+                    <strong className="text-emerald-400 text-sm font-mono block mt-1">198 / 198</strong>
+                    <span className="text-[7.5px] text-white/30">Research Questions</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Rough Drafts Checked</span>
+                    <strong className="text-amber-400 text-sm font-mono block mt-1">125</strong>
+                    <span className="text-[7.5px] text-white/30">73 pending reviews</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                    <span className="text-[8px] text-white/40 uppercase tracking-wider block">Overdue Drafts</span>
+                    <strong className="text-rose-400 text-sm font-mono block mt-1">32</strong>
+                    <span className="text-[7.5px] text-white/30">Candidates flagged</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <span className="text-[9px] text-yellow-400 font-bold uppercase tracking-wider block">Supervision Load Alert (Overdue comments)</span>
+                  <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-none pr-1">
+                    {[
+                      { supervisor: "Aarav Chen", detail: "4 drafts pending supervisor feedback review", action: "Send email nudge" },
+                      { supervisor: "Marcus Vance", detail: "3 drafts pending supervisor feedback review", action: "Send email nudge" },
+                      { supervisor: "Ananya Rao", detail: "2 drafts pending supervisor feedback review", action: "Send email nudge" },
+                    ].map((item, idx) => (
+                      <div key={idx} className="p-2 border border-yellow-500/10 bg-yellow-500/[0.02] rounded-lg flex justify-between items-center text-[10px]">
+                        <div>
+                          <span className="font-bold text-white/90">{item.supervisor}</span>
+                          <p className="text-white/50 font-medium mt-0.5">{item.detail}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            alert(`Nudge sent to EE supervisor: ${item.supervisor}`);
+                          }}
+                          className="px-2 py-1 bg-yellow-500/10 hover:bg-yellow-500/25 border border-yellow-500/20 text-yellow-400 text-[8px] font-extrabold uppercase rounded"
+                        >
+                          {item.action}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center border-t border-white/5 pt-3">
+                  <span className="text-[9px] text-white/40">IB internal check: 10 September</span>
+                  <button onClick={() => { setActiveWorkflowModal(null); setActiveTab("email"); }} className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black text-[9px] font-extrabold uppercase tracking-wider rounded-lg transition-colors">
+                    Supervisor Broadcast Nudge
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* IA Detailed View */}
+            {activeWorkflowModal === "IA" && (
+              <div className="space-y-4 text-xs font-semibold text-white/80">
+                <div className="space-y-2">
+                  <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider block">Subject group moderation progress</span>
+                  <div className="space-y-2 font-mono text-[10px]">
+                    {[
+                      { group: "Group 1: Studies in Lang & Lit", progress: "88%", width: "88%", color: "bg-emerald-500" },
+                      { group: "Group 3: Individuals & Societies", progress: "62%", width: "62%", color: "bg-yellow-500" },
+                      { group: "Group 4: Sciences (Group 4 Project)", progress: "45%", width: "45%", color: "bg-rose-500", detail: "Lab data compilation lagging" },
+                      { group: "Group 5: Mathematics", progress: "33%", width: "33%", color: "bg-rose-500", detail: "Supervisor checklists pending" },
+                    ].map((g, idx) => (
+                      <div key={idx} className="p-2 border border-white/[0.03] bg-white/[0.01] rounded-lg space-y-1.5 font-sans">
+                        <div className="flex justify-between text-[9px] font-bold text-white/70">
+                          <span>{g.group}</span>
+                          <span>{g.progress}</span>
+                        </div>
+                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div className={`h-full ${g.color}`} style={{ width: g.width }} />
+                        </div>
+                        {g.detail && <span className="text-[8px] text-rose-400 font-medium block">{g.detail}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center border-t border-white/5 pt-3">
+                  <span className="text-[9px] text-white/40">Lab Blocks: 18 Spaces active</span>
+                  <button onClick={() => { setActiveWorkflowModal(null); setActiveTab("map"); }} className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black text-[9px] font-extrabold uppercase tracking-wider rounded-lg transition-colors">
+                    Check Lab Allocation
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+
     {/* ─── SEARCH RESULT: STUDENT DETAIL OVERLAY SHEET ─────────────────────────────────────── */}
     <AnimatePresence>
       {searchSelectedStudent && (
@@ -2472,7 +3258,7 @@ export function CoordinatorDemoShell() {
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
                 <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest">
-                  Search Profile Telemetry
+                  Search Profile Overview
                 </span>
                 <button
                   onClick={() => setSearchSelectedStudent(null)}
@@ -2559,7 +3345,7 @@ export function CoordinatorDemoShell() {
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
                 <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest">
-                  Search Faculty Telemetry
+                  Search Faculty Overview
                 </span>
                 <button
                   onClick={() => setSearchSelectedTeacher(null)}
@@ -2658,7 +3444,7 @@ export function CoordinatorDemoShell() {
             ? "border-black/15 bg-black/[0.04] text-black/45 shadow-black/[0.06]"
             : "border-white/15 bg-white/[0.04] text-white/35 shadow-white/[0.03]"
         }`}>
-          ⌘K
+          Ctrl K
         </kbd>
       </button>
     </div>
@@ -2702,7 +3488,7 @@ export function CoordinatorDemoShell() {
               theme === "light"
                 ? "bg-white/95 border-black/10 text-black"
                 : "bg-[#0A0A0C]/95 border-white/[0.08] text-white"
-            }`}
+            } transition-all duration-300 ${isTutorialActive && activeStepIndex === 10 ? "tour-highlight" : ""}`}
             data-tour-highlight="essential-space"
           >
             {/* Tray Header */}
@@ -2811,15 +3597,56 @@ export function CoordinatorDemoShell() {
                       e.dataTransfer.setData("application/json", JSON.stringify(item));
                       e.dataTransfer.setData("text/plain", `${item.title}: ${item.content}`);
                       e.dataTransfer.effectAllowed = "copy";
+                      document.body.setAttribute("data-axis-dragging", "true");
+
+                      // Custom Drag Ghost Pill
+                      if (typeof document !== "undefined") {
+                        const ghost = document.createElement("div");
+                        ghost.style.padding = "6px 14px";
+                        ghost.style.background = "#0A0A0C";
+                        ghost.style.border = "1.5px solid #06b6d4";
+                        ghost.style.borderRadius = "20px";
+                        ghost.style.color = "#ffffff";
+                        ghost.style.fontSize = "10px";
+                        ghost.style.fontWeight = "800";
+                        ghost.style.fontFamily = "system-ui, -apple-system, sans-serif";
+                        ghost.style.position = "absolute";
+                        ghost.style.top = "-1000px";
+                        ghost.style.display = "flex";
+                        ghost.style.alignItems = "center";
+                        ghost.style.gap = "6px";
+                        ghost.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.7)";
+                        ghost.style.zIndex = "-9999";
+                        ghost.style.whiteSpace = "nowrap";
+
+                        const emoji = item.type === "screenshot" ? "📸" : item.type === "note" ? "📝" : "📄";
+                        ghost.innerHTML = `<span>${emoji}</span><span>${item.title.length > 25 ? item.title.substring(0, 25) + '...' : item.title}</span>`;
+                        document.body.appendChild(ghost);
+                        e.dataTransfer.setDragImage(ghost, 15, 15);
+                        setTimeout(() => {
+                          if (document.body.contains(ghost)) {
+                            document.body.removeChild(ghost);
+                          }
+                        }, 0);
+                      }
                     }}
-                    className={`group rounded-xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing ${
+                    onDragEnd={() => {
+                      document.body.removeAttribute("data-axis-dragging");
+                    }}
+                    onClick={() => setActivePreviewItem(item)}
+                    className={`group rounded-xl border p-3 transition-all duration-200 cursor-grab active:cursor-grabbing hover:scale-[1.01] ${
                       theme === "light"
                         ? "bg-black/[0.01] border-black/[0.06] hover:border-black/[0.12] hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
                         : "bg-white/[0.01] border-white/[0.05] hover:border-white/[0.12] hover:shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
                     }`}
+                    title="Drag item to drop zones, or click to preview"
                   >
                     <div className="flex items-start gap-2.5">
-                      <div className={`mt-0.5 size-6 rounded-lg flex items-center justify-center shrink-0 ${getEssentialItemIconColor(item.type)}`}>
+                      {/* Grab Handle indicator */}
+                      <div className="cursor-grab active:cursor-grabbing text-zinc-600 group-hover:text-cyan-500/50 transition-colors text-xs font-mono font-bold leading-none select-none mt-1">
+                        ⋮⋮
+                      </div>
+                      <div className={`size-6 rounded-lg flex items-center justify-center shrink-0 ${getEssentialItemIconColor(item.type)}`}>
                         {getEssentialItemIcon(item.type)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -2839,14 +3666,17 @@ export function CoordinatorDemoShell() {
                     </div>
                     <div className={`flex items-center justify-between mt-2.5 pt-2 border-t border-dashed ${theme === "light" ? "border-black/[0.05]" : "border-white/[0.04]"}`}>
                       <span className={`text-[8px] ${theme === "light" ? "text-black/25" : "text-white/20"}`}>{item.date}</span>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleCopyItem(item)} className={`p-1 rounded transition-all ${theme === "light" ? "hover:bg-black/5 text-black/30 hover:text-black" : "hover:bg-white/[0.06] text-white/25 hover:text-white"}`} title="Copy">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleShareItem(item)} className={`p-1 rounded transition-all ${theme === "light" ? "hover:bg-black/5 text-black/30 hover:text-black" : "hover:bg-white/[0.06] text-white/25 hover:text-white"}`} title="Share Secure Link">
+                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l4.828-2.414m0 5.344l-4.828-2.414m8.718-4.122a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm-8.718 4.414a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm8.718 4.414a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" /></svg>
+                        </button>
+                        <button onClick={() => handleCopyItem(item)} className={`p-1 rounded transition-all ${theme === "light" ? "hover:bg-black/5 text-black/30 hover:text-black" : "hover:bg-white/[0.06] text-white/25 hover:text-white"}`} title="Copy Text">
                           <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>
                         </button>
-                        <button onClick={() => handleDownloadItem(item)} className={`p-1 rounded transition-all ${theme === "light" ? "hover:bg-black/5 text-black/30 hover:text-black" : "hover:bg-white/[0.06] text-white/25 hover:text-white"}`} title="Download">
+                        <button onClick={() => handleDownloadItem(item)} className={`p-1 rounded transition-all ${theme === "light" ? "hover:bg-black/5 text-black/30 hover:text-black" : "hover:bg-white/[0.06] text-white/25 hover:text-white"}`} title="Download File">
                           <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                         </button>
-                        <button onClick={() => handleDeleteItem(item.id)} className="p-1 rounded transition-all hover:bg-rose-500/10 text-rose-400/40 hover:text-rose-400" title="Delete">
+                        <button onClick={() => handleDeleteItem(item.id)} className="p-1 rounded transition-all hover:bg-rose-500/10 text-rose-400/40 hover:text-rose-400" title="Delete Item">
                           <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                         </button>
                       </div>
@@ -3050,7 +3880,7 @@ export function CoordinatorDemoShell() {
           box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.6), 0 0 45px rgba(6, 182, 212, 0.35) !important;
           border-color: rgba(6, 182, 212, 0.8) !important;
           pointer-events: auto !important;
-          transition: all 0.4s ease-in-out;
+          transition: all 0.2s ease-out;
         }
         .theme-light .tour-highlight {
           box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.5), 0 0 40px rgba(6, 182, 212, 0.2) !important;
@@ -3408,8 +4238,258 @@ export function CoordinatorDemoShell() {
         )}
       </AnimatePresence>
 
-      {/* Guided Tour Overlay */}
-      <GuidedTourOverlay theme={theme} />
+      {/* Welcome Screen */}
+      <AnimatePresence>
+        {isWelcomeScreenOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#050607]/95 backdrop-blur-xl text-white p-6 antialiased"
+          >
+            <div
+              className="pointer-events-none absolute inset-0 z-0"
+              style={{
+                background: "radial-gradient(circle 900px at 50% 50%, rgba(34,211,238,0.05) 0%, transparent 85%)",
+              }}
+            />
+            
+            <div className="relative z-10 max-w-xl w-full text-center space-y-6 px-4">
+              <div className="space-y-3">
+                <motion.div 
+                  initial={{ y: 15, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.15, duration: 0.5 }}
+                  className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-white text-[#0A0A0B] font-extrabold text-2xl tracking-tighter shadow-[0_0_40px_rgba(255,255,255,0.1)]"
+                >
+                  A
+                </motion.div>
+                <motion.h2 
+                  initial={{ y: 15, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.25, duration: 0.5 }}
+                  className="text-2xl font-bold tracking-tight text-white md:text-3xl"
+                >
+                  Welcome to Axis.
+                </motion.h2>
+                <motion.p 
+                  initial={{ y: 15, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.35, duration: 0.5 }}
+                  className="text-xs md:text-sm text-white/70 leading-relaxed max-w-md mx-auto"
+                >
+                  This demo contains a complete guided walkthrough of the platform.<br />
+                  For the best experience, start with the Guided Tour.
+                </motion.p>
+              </div>
+
+              <motion.div 
+                initial={{ y: 15, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.01] backdrop-blur-xl max-w-md mx-auto space-y-3"
+              >
+                <div className="text-left">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block mb-2">The tour explains:</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-left text-xs text-white/60 font-medium font-sans">
+                  {[
+                    "Programme Overview",
+                    "Students",
+                    "Student Profiles",
+                    "Analytics",
+                    "Schedule",
+                    "Meetings",
+                    "Messages",
+                    "Resources",
+                    "Requests",
+                    "Essential Space",
+                    "Context"
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-2">
+                      <span className="size-1.5 rounded-full bg-cyan-500/80 shrink-0" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+
+              <motion.div 
+                initial={{ y: 15, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.65, duration: 0.5 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-sm mx-auto pt-2"
+              >
+                <button
+                  type="button"
+                  onClick={handleStartTourFromWelcome}
+                  className="w-full px-6 py-3.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-zinc-950 font-bold text-xs shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-102 active:scale-98 transition-all shrink-0 uppercase tracking-wider"
+                >
+                  Start Guided Tour
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExploreOnMyOwn}
+                  className="w-full px-6 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-transparent text-white/60 hover:text-white font-semibold text-xs hover:bg-white/5 hover:scale-102 active:scale-98 transition-all shrink-0 uppercase tracking-wider"
+                >
+                  Explore On My Own
+                </button>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Skip Warning Modal */}
+      <AnimatePresence>
+        {showSkipWarning && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+            <div className="fixed inset-0" onClick={() => setShowSkipWarning(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="relative w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0E0E10]/95 p-6 shadow-2xl text-white space-y-4 text-center z-10"
+            >
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Skip Guided Tour?</h3>
+              <div className="h-px bg-white/[0.06] w-full" />
+              <p className="text-xs text-white/60 leading-relaxed text-left">
+                Axis works differently from traditional school platforms. Skipping the tour may make it harder to understand how the platform connects communication, resources, scheduling, and operations.
+              </p>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleContinueTourFromWarning}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all"
+                >
+                  Continue Tour
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSkipAnywayFromWarning}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs transition-all"
+                >
+                  Skip Anyway
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Completion Modal */}
+      <AnimatePresence>
+        {showCompletionModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+            <div className="fixed inset-0" onClick={() => setShowCompletionModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="relative w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0E0E10]/95 p-6 shadow-2xl text-white space-y-4 text-center z-10"
+            >
+              <div className="size-12 mx-auto rounded-full bg-cyan-500/20 flex items-center justify-center mb-2">
+                <svg className="size-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white">Tour Complete!</h3>
+              <p className="text-xs text-white/60 leading-relaxed">
+                You&apos;ve completed the Axis Guided Tour. You can now explore the platform on your own or replay the tour anytime from the header.
+              </p>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCompletionModal(false);
+                    endTutorial();
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all"
+                >
+                  Explore Axis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCompletionModal(false);
+                    localStorage.removeItem("axis-tour-has-run");
+                    setHasRunTour(false);
+                    startTutorial();
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs transition-all"
+                >
+                  Replay Tour
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {activePreviewItem && renderItemPreviewModal()}
+
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
+            animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
+            transition={{ duration: 0.22 }}
+            className={`fixed bottom-10 left-1/2 z-[250] border px-5 py-3 rounded-full text-xs flex items-center gap-2.5 backdrop-blur-md shadow-2xl ${
+              theme === "light"
+                ? "bg-white border-black/10 text-black shadow-black/10"
+                : "bg-[#0E0E10] border-white/[0.08] text-white shadow-black/50"
+            }`}
+          >
+            <span className="size-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.6)] animate-pulse" />
+            <span className="font-semibold text-[11px]">{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tour dim overlay */}
+      {isTutorialActive && (
+        <div className="tour-dim-overlay" onClick={(e) => e.stopPropagation()} />
+      )}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .tour-dim-overlay {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(0.5px);
+          z-index: 35;
+          pointer-events: auto;
+          transition: all 0.4s ease-in-out;
+        }
+        .tour-highlight {
+          position: relative;
+          z-index: 40 !important;
+          box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.6), 0 0 45px rgba(6, 182, 212, 0.35) !important;
+          border-color: rgba(6, 182, 212, 0.8) !important;
+          pointer-events: auto !important;
+          transition: all 0.4s ease-in-out;
+        }
+        .theme-light .tour-highlight {
+          box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.5), 0 0 40px rgba(6, 182, 212, 0.2) !important;
+        }
+        .tour-highlight * {
+          pointer-events: auto !important;
+        }
+        @keyframes guided-tour-pulse {
+          0%, 100% {
+            border-color: rgba(34, 211, 238, 0.2);
+            box-shadow: 0 0 0 0px rgba(34, 211, 238, 0.1);
+          }
+          50% {
+            border-color: rgba(34, 211, 238, 0.75);
+            box-shadow: 0 0 10px 2px rgba(34, 211, 238, 0.3);
+          }
+        }
+        .guided-tour-pulse-btn {
+          animation: guided-tour-pulse 2.2s infinite ease-in-out;
+        }
+      ` }} />
     </div>
   );
 }

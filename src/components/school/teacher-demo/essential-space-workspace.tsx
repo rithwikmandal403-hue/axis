@@ -78,50 +78,63 @@ function ContextTrigger({
       </span>
       {mounted && typeof document !== "undefined" && createPortal(
         <AnimatePresence>
-          {isHovered && coords ? (
-            <motion.span
-              key="context-panel"
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 5 }}
-              transition={{ duration: 0.15 }}
-              onMouseEnter={() => {
-                if (timeoutRef.current) clearTimeout(timeoutRef.current);
-              }}
-              onMouseLeave={handleMouseLeave}
-              className="fixed z-[9999] p-4 rounded-xl border border-cyan-500/30 bg-[#0E0E10] shadow-2xl w-60 text-left flex flex-col gap-2 pointer-events-auto"
-              style={{
-                left: `${coords.left + coords.width / 2}px`,
-                top: `${coords.top}px`,
-                transform: "translate(-50%, -100%)",
-                marginTop: "-8px",
-                filter: "drop-shadow(0 10px 25px rgba(0,0,0,0.6))",
-              }}
-            >
-              <span className="flex items-center gap-1.5">
-                <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400">Context Detected</span>
-                <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20 uppercase tracking-widest leading-none">
-                  {contextType}
+          {isHovered && coords ? (() => {
+            const margin = 12;
+            const tooltipWidth = 240; // w-60 = 240px
+            const leftCenter = coords.left + coords.width / 2;
+            const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
+            const adjustedLeft = Math.max(margin + tooltipWidth / 2, Math.min(windowWidth - margin - tooltipWidth / 2, leftCenter));
+            
+            const showBelow = coords.top < 180;
+            const topPos = showBelow ? coords.top + coords.height : coords.top;
+            const transformVal = showBelow ? "translate(-50%, 0)" : "translate(-50%, -100%)";
+            const marginTopVal = showBelow ? "8px" : "-8px";
+
+            return (
+              <motion.span
+                key="context-panel"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 5 }}
+                transition={{ duration: 0.15 }}
+                onMouseEnter={() => {
+                  if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                }}
+                onMouseLeave={handleMouseLeave}
+                className="fixed z-[9999] p-4 rounded-xl border border-cyan-500/30 bg-[#0E0E10] shadow-2xl w-60 text-left flex flex-col gap-2 pointer-events-auto"
+                style={{
+                  left: `${adjustedLeft}px`,
+                  top: `${topPos}px`,
+                  transform: transformVal,
+                  marginTop: marginTopVal,
+                  filter: "drop-shadow(0 10px 25px rgba(0,0,0,0.6))",
+                }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span className="text-[8px] font-extrabold uppercase tracking-widest text-cyan-400">Context Detected</span>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20 uppercase tracking-widest leading-none">
+                    {contextType}
+                  </span>
                 </span>
-              </span>
-              <p className="text-[10px] text-white/70 leading-normal">{contextTitle}</p>
-              <div className="flex flex-col gap-1.5 mt-1">
-                {actions.map((act, idx) => (
-                  <button
-                    key={idx}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      act.onAction();
-                      setIsHovered(false);
-                    }}
-                    className="w-full px-3 py-1.5 rounded bg-cyan-500 text-black text-[9px] font-extrabold hover:bg-cyan-400 transition-colors uppercase tracking-wider text-center cursor-pointer"
-                  >
-                    {act.label}
-                  </button>
-                ))}
-              </div>
-            </motion.span>
-          ) : null}
+                <p className="text-[10px] text-white/70 leading-normal">{contextTitle}</p>
+                <div className="flex flex-col gap-1.5 mt-1">
+                  {actions.map((act, idx) => (
+                    <button
+                      key={idx}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        act.onAction();
+                        setIsHovered(false);
+                      }}
+                      className="w-full px-3 py-1.5 rounded bg-cyan-500 text-black text-[9px] font-extrabold hover:bg-cyan-400 transition-colors uppercase tracking-wider text-center cursor-pointer"
+                    >
+                      {act.label}
+                    </button>
+                  ))}
+                </div>
+              </motion.span>
+            );
+          })() : null}
         </AnimatePresence>,
         document.body
       )}

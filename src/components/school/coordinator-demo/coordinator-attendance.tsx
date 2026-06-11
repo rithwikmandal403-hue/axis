@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAxisTheme, AXIS_TOKENS, type Theme } from "@/lib/theme-utils";
+import { StudentSupportFlag, ACCOMMODATIONS_MAP, type StudentSupportInfo } from "../student-support-context";
+import { StudentStatisticsProfile } from "./student-statistics-profile";
 
 type AttendanceStatus = "present" | "absent" | "late" | "medical" | "excused";
 
@@ -139,10 +141,71 @@ const ATTENDANCE_DATABASE: GradeData = {
   }
 };
 
+const HOMEROOM_DATABASE: ClassInfo[] = [
+  {
+    name: "DP1-A Homeroom",
+    period: "Homeroom (8:00 - 8:25)",
+    room: "Room 101",
+    teacher: "Sarah Chen",
+    attendancePercent: 94,
+    trends: [96, 92, 94, 94, 94],
+    roster: generateRoster(["present", "present", "present", "present", "late", "present"])
+  },
+  {
+    name: "DP1-B Homeroom",
+    period: "Homeroom (8:00 - 8:25)",
+    room: "Room 102",
+    teacher: "Aarav Chen",
+    attendancePercent: 90,
+    trends: [92, 90, 88, 95, 90],
+    roster: generateRoster(["present", "absent", "present", "present", "present", "excused"])
+  },
+  {
+    name: "DP2-A Homeroom",
+    period: "Homeroom (8:00 - 8:25)",
+    room: "Room 201",
+    teacher: "Marcus Vance",
+    attendancePercent: 96,
+    trends: [98, 96, 96, 92, 96],
+    roster: generateRoster(["present", "present", "present", "present", "present", "present"])
+  },
+  {
+    name: "DP2-B Homeroom",
+    period: "Homeroom (8:00 - 8:25)",
+    room: "Room 202",
+    teacher: "Robert Blake",
+    attendancePercent: 92,
+    trends: [92, 92, 88, 95, 92],
+    roster: generateRoster(["present", "absent", "present", "present", "late", "present"])
+  },
+  {
+    name: "CP1 Homeroom",
+    period: "Homeroom (8:00 - 8:25)",
+    room: "Room 103",
+    teacher: "Clara Dupont",
+    attendancePercent: 95,
+    trends: [95, 92, 95, 95, 95],
+    roster: generateRoster(["present", "present", "present", "present", "late", "present"])
+  },
+  {
+    name: "CP2 Homeroom",
+    period: "Homeroom (8:00 - 8:25)",
+    room: "Room 104",
+    teacher: "Ananya Rao",
+    attendancePercent: 88,
+    trends: [92, 88, 85, 92, 88],
+    roster: generateRoster(["present", "absent", "late", "absent", "present", "medical"])
+  }
+];
+
 export function CoordinatorAttendance({ theme }: { theme: Theme }) {
   const [selectedGrade, setSelectedGrade] = useState<"DP1" | "DP2">("DP1");
   const [selectedDay, setSelectedDay] = useState<string>("Monday");
-  const [selectedClassIndex, setSelectedClassIndex] = useState<number>(0);
+  const [selectedClassIndex, setSelectedClassIndex] = useState<number | null>(0);
+  const [selectedHomeroomName, setSelectedHomeroomName] = useState<string | null>(null);
+  const [isHomeroomExpanded, setIsHomeroomExpanded] = useState(false);
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null);
+  const [showClassAccommodations, setShowClassAccommodations] = useState(false);
 
   const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -151,12 +214,28 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
     return ATTENDANCE_DATABASE[selectedGrade]?.[selectedDay] || [];
   }, [selectedGrade, selectedDay]);
 
-  // Adjust active class index if it goes out of bounds
+  // Adjust active class index if it goes out of bounds, or return selected homeroom
   const activeClass = useMemo(() => {
+    if (selectedHomeroomName) {
+      return HOMEROOM_DATABASE.find((hr) => hr.name === selectedHomeroomName) || null;
+    }
     if (classesForDay.length === 0) return null;
-    const index = selectedClassIndex >= classesForDay.length ? 0 : selectedClassIndex;
+    const index = selectedClassIndex === null || selectedClassIndex >= classesForDay.length ? 0 : selectedClassIndex;
     return classesForDay[index];
-  }, [classesForDay, selectedClassIndex]);
+  }, [classesForDay, selectedClassIndex, selectedHomeroomName]);
+
+  const classAccommodations = useMemo(() => {
+    if (!activeClass) return [];
+    return activeClass.roster
+      .map((student) => {
+        const info = ACCOMMODATIONS_MAP[student.name];
+        if (info && info.planActive) {
+          return { student, ...info };
+        }
+        return null;
+      })
+      .filter(Boolean) as (StudentSupportInfo & { student: StudentAttendance })[];
+  }, [activeClass]);
 
   // Compute stats for current active class roster
   const stats = useMemo(() => {
@@ -199,6 +278,8 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
                   onClick={() => {
                     setSelectedGrade(grade);
                     setSelectedClassIndex(0);
+                    setSelectedHomeroomName(null);
+                    setIsHomeroomExpanded(false);
                   }}
                   className={`rounded-xl border px-4 py-1.5 text-xs font-bold transition-all ${
                     selectedGrade === grade
@@ -228,6 +309,8 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
                   onClick={() => {
                     setSelectedDay(day);
                     setSelectedClassIndex(0);
+                    setSelectedHomeroomName(null);
+                    setIsHomeroomExpanded(false);
                   }}
                   className={`rounded-xl border p-3.5 text-left transition-all duration-300 ${
                     isSelected
@@ -248,50 +331,132 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
         </div>
 
         {/* Step 3: Day scheduled classes selection */}
-        <div className="space-y-2 pt-2">
+        <div className="space-y-3 pt-2">
           <span className={`text-[9px] font-extrabold uppercase tracking-widest block ${styles.textSecondary}`}>
             Classes on {selectedDay} (Select to inspect)
           </span>
-          <div className="flex flex-wrap gap-2">
-            {classesForDay.map((cls, idx) => {
-              const isSelected = selectedClassIndex === idx;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedClassIndex(idx)}
-                  className={`rounded-xl border px-4 py-2.5 text-xs font-semibold tracking-tight transition-all text-left flex items-center gap-2 ${
-                    isSelected
-                      ? styles.buttonPrimary
-                      : styles.buttonSecondary
-                  }`}
-                >
-                  <span className={`size-1.5 rounded-full ${isSelected ? (theme === "light" ? "bg-white" : "bg-black") : "bg-cyan-400"}`} />
+
+          <div className="flex flex-col gap-3">
+            {/* Homeroom Collapsible Category Section */}
+            <div className={`rounded-xl border ${styles.border} ${styles.inputBg} p-2.5 transition-all`}>
+              <button
+                type="button"
+                onClick={() => setIsHomeroomExpanded(!isHomeroomExpanded)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={`size-2 rounded-full ${selectedHomeroomName ? "bg-cyan-400 animate-pulse" : "bg-zinc-600"}`} />
                   <div className="flex flex-col">
-                    <span className="font-bold">{cls.name}</span>
-                    <span className={`text-[8px] leading-none mt-0.5 ${isSelected ? (theme === "light" ? "text-white/70" : "text-black/60") : styles.textSecondary}`}>{cls.period.split(" ")[0]}</span>
+                    <span className={`text-xs font-bold ${styles.textPrimary}`}>Homeroom Attendance</span>
+                    <span className={`text-[8px] ${styles.textSecondary}`}>Collapsible Dropdown • 6 Groups</span>
                   </div>
-                </button>
-              );
-            })}
+                  {selectedHomeroomName && (
+                    <span className="ml-2 text-[8px] font-black uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      Active: {selectedHomeroomName.replace(" Homeroom", "")}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[9px] uppercase font-bold tracking-wider ${styles.textSecondary}`}>
+                    {selectedHomeroomName ? "Selected" : "Expand"}
+                  </span>
+                  <svg
+                    className={`size-3.5 transition-transform duration-200 ${styles.textSecondary} ${
+                      isHomeroomExpanded ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              <AnimatePresence initial={false}>
+                {isHomeroomExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-3">
+                      {["DP1-A", "DP1-B", "DP2-A", "DP2-B", "CP1", "CP2"].map((hrKey) => {
+                        const hrFullName = `${hrKey} Homeroom`;
+                        const isSelected = selectedHomeroomName === hrFullName;
+                        return (
+                          <button
+                            key={hrKey}
+                            type="button"
+                            onClick={() => {
+                              setSelectedHomeroomName(hrFullName);
+                              setSelectedClassIndex(null);
+                            }}
+                            className={`rounded-xl border px-3 py-2 text-xs font-bold tracking-tight transition-all text-center ${
+                              isSelected
+                                ? styles.buttonPrimary
+                                : styles.buttonSecondary
+                            }`}
+                          >
+                            {hrKey}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Academic period classes */}
+            <div className="flex flex-wrap gap-2">
+              {classesForDay.map((cls, idx) => {
+                const isSelected = selectedClassIndex === idx && !selectedHomeroomName;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedClassIndex(idx);
+                      setSelectedHomeroomName(null);
+                    }}
+                    className={`rounded-xl border px-4 py-2.5 text-xs font-semibold tracking-tight transition-all text-left flex items-center gap-2 ${
+                      isSelected
+                        ? styles.buttonPrimary
+                        : styles.buttonSecondary
+                    }`}
+                  >
+                    <span className={`size-1.5 rounded-full ${isSelected ? (theme === "light" ? "bg-white" : "bg-black") : "bg-cyan-400"}`} />
+                    <div className="flex flex-col">
+                      <span className="font-bold">{cls.name}</span>
+                      <span className={`text-[8px] leading-none mt-0.5 ${isSelected ? (theme === "light" ? "text-white/70" : "text-black/60") : styles.textSecondary}`}>{cls.period.split(" ")[0]}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Step 4: Attendance details and telemetry */}
+        {/* Step 4: Attendance details and statistics */}
         <AnimatePresence mode="wait">
           {activeClass && (
             <motion.div
-              key={`${selectedGrade}-${selectedDay}-${selectedClassIndex}`}
+              key={`${selectedGrade}-${selectedDay}-${selectedClassIndex}-${selectedHomeroomName}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
               className={`grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4 border-t ${styles.border}`}
             >
-              {/* Telemetry Stats Column */}
+              {/* Class Stats Column */}
               <div className={`rounded-xl border p-5 flex flex-col justify-between ${styles.plansBg}`}>
                 <div>
                   <span className="text-[9px] font-extrabold text-cyan-400 uppercase tracking-widest block">
-                    Class Telemetry & Oversight
+                    Class Sync & Oversight
                   </span>
                   <h4 className={`text-base font-bold mt-1 ${styles.textPrimary}`}>
                     {activeClass.name}
@@ -364,6 +529,52 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
                     <span className="tracking-wider uppercase">READ-ONLY OVERSIGHT MODE</span>
                     <span className="opacity-70">TIMELINE LIVE</span>
                   </div>
+
+                  {/* Access Arrangements Overview Block */}
+                  {classAccommodations.length > 0 && (
+                    <div className={`pt-3 border-t ${styles.border} space-y-2`}>
+                      <div className="flex justify-between items-center">
+                        <span className={`text-[9px] font-extrabold uppercase tracking-widest block ${styles.textSecondary}`}>
+                          Access Arrangements ({classAccommodations.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowClassAccommodations(!showClassAccommodations)}
+                          className="text-[8px] uppercase tracking-wider font-extrabold text-cyan-400 hover:text-cyan-300 transition-colors"
+                        >
+                          {showClassAccommodations ? "[Collapse]" : "[Expand]"}
+                        </button>
+                      </div>
+                      {showClassAccommodations && (
+                        <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                          {classAccommodations.map(({ student, provisions, status }) => (
+                            <div key={student.id} className="p-2 rounded bg-white/[0.02] border border-white/5 space-y-1 text-[10px]">
+                              <div className="flex justify-between items-center">
+                                <span className={`font-bold ${styles.textPrimary} flex items-center`}>
+                                  {student.name}
+                                  <StudentSupportFlag studentName={student.name} onViewProfile={() => setProfileStudentId(student.name === "Chloe Vance" ? "std-1" : "std-4")} />
+                                </span>
+                                <span className={`px-1.5 py-0.2 rounded text-[7px] font-black uppercase border ${
+                                  status === "Verified by IB"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                }`}>
+                                  {status.split(" ")[0]}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {provisions.map((p: string) => (
+                                  <span key={p} className="px-1 py-0.2 rounded bg-cyan-500/5 text-cyan-300/80 border border-cyan-500/10 text-[8px] font-medium">
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -378,7 +589,7 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
                     <thead>
                       <tr className={`border-b text-[9px] uppercase tracking-wider ${styles.border} ${styles.textSecondary} opacity-60`}>
                         <th className="pb-3 pl-2">Student</th>
-                        <th className="pb-3 text-center">Telemetry Sync</th>
+                        <th className="pb-3 text-center">System Sync</th>
                         <th className="pb-3 text-center">Verified Check-in</th>
                         <th className="pb-3 text-right">Roster Status</th>
                       </tr>
@@ -390,8 +601,9 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
                             <div className={`flex size-7 items-center justify-center rounded-full text-[10px] font-bold ${styles.inputBg}`}>
                               {student.avatar}
                             </div>
-                            <span className={`text-xs font-semibold ${styles.textPrimary}`}>
+                            <span className={`text-xs font-semibold ${styles.textPrimary} flex items-center`}>
                               {student.name}
+                              <StudentSupportFlag studentName={student.name} onViewProfile={() => setProfileStudentId(student.name === "Chloe Vance" ? "std-1" : student.name === "Lucas Gray" ? "std-4" : null)} />
                             </span>
                           </td>
                           <td className="py-3 text-center text-xs">
@@ -447,6 +659,35 @@ export function CoordinatorAttendance({ theme }: { theme: Theme }) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Coordinator Slide-Over Support Profile Drawer */}
+      <AnimatePresence>
+        {profileStudentId && (
+          <div className="fixed inset-0 z-[150] flex justify-end text-left normal-case">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setProfileStudentId(null)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="relative z-10 w-full max-w-2xl bg-zinc-950 border-l border-white/10 p-6 overflow-y-auto shadow-2xl"
+            >
+              <StudentStatisticsProfile
+                theme="axis"
+                selectedStudentId={profileStudentId}
+                isTeacher={false}
+                onBack={() => setProfileStudentId(null)}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

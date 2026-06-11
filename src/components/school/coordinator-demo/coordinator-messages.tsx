@@ -144,14 +144,26 @@ type ContextInfo = {
   lastActive?: string;
 };
 
+type GroupMember = {
+  name: string;
+  role: string;
+  avatar: string;
+  status: "joined" | "pending" | "declined";
+};
+
 type GroupInvite = {
   id: string;
   name: string;
+  type: string;
   inviter: string;
   inviterRole: string;
-  description: string;
+  dateInvited: string;
   membersCount: number;
-  status: "pending" | "accepted" | "declined";
+  description: string;
+  purpose: string;
+  createdBy: string;
+  activitySummary: string;
+  members: GroupMember[];
 };
 
 type Conversation = {
@@ -307,20 +319,81 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
     {
       id: "inv-1",
       name: "TOK Review Board",
+      type: "DP Coordination",
       inviter: "Mr. Michael Torres",
       inviterRole: "Head of School",
-      description: "Discussion of TOK exhibition evaluations and advisor moderation notes.",
+      dateInvited: "June 10, 2026",
       membersCount: 4,
-      status: "pending"
+      description: "Discussion of TOK exhibition evaluations and advisor moderation notes.",
+      purpose: "Evaluate core IB TOK exhibition metrics, cross-moderate student grades, and align feedback structures before final grade upload.",
+      createdBy: "Mr. Michael Torres",
+      activitySummary: "3 files shared recently · Active 2h ago",
+      members: [
+        { name: "Mr. Michael Torres", role: "Head of School", avatar: "MT", status: "joined" },
+        { name: "Sarah Chen", role: "Guidance Counselor", avatar: "SC", status: "joined" },
+        { name: "Aarav Chen", role: "TOK Facilitator", avatar: "AC", status: "joined" },
+        { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "pending" }
+      ]
     },
     {
       id: "inv-2",
-      name: "Extended Essay Moderation",
-      inviter: "Aarav Chen",
-      inviterRole: "Physics Lead",
+      name: "Physics Department",
+      type: "Science Faculty",
+      inviter: "Dr. Martinez",
+      inviterRole: "Science Department Head",
+      dateInvited: "June 9, 2026",
+      membersCount: 5,
       description: "EE draft review and advisor assignment updates for DP1 candidates.",
+      purpose: "Review and calibrate Science Department rubrics, coordinate equipment allocations for physics lab work, and synchronize deadlines.",
+      createdBy: "Dr. Martinez",
+      activitySummary: "Calibration sheet uploaded · Active 1d ago",
+      members: [
+        { name: "Dr. Martinez", role: "Science Dept Head", avatar: "DM", status: "joined" },
+        { name: "Aarav Chen", role: "Physics Lead", avatar: "AC", status: "joined" },
+        { name: "James Lee", role: "Chemistry Lead", avatar: "JL", status: "joined" },
+        { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "pending" },
+        { name: "Marcus Vance", role: "Lab Tech", avatar: "MV", status: "joined" }
+      ]
+    },
+    {
+      id: "inv-3",
+      name: "Grade 11 Advisory Team",
+      type: "Student Support Group",
+      inviter: "Sarah Chen",
+      inviterRole: "Guidance Counselor",
+      dateInvited: "June 11, 2026",
       membersCount: 6,
-      status: "pending"
+      description: "Monitoring academic progress, attendance concerns, and overall student wellbeing for the current Grade 11 cohort.",
+      purpose: "Collaboratively track student support flags, coordinate interventions with counselors, and align home-room policies.",
+      createdBy: "Sarah Chen",
+      activitySummary: "Chloe Vance case flagged · Active 4h ago",
+      members: [
+        { name: "Sarah Chen", role: "Guidance Counselor", avatar: "SC", status: "joined" },
+        { name: "Aarav Chen", role: "Advisory Teacher", avatar: "AC", status: "joined" },
+        { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "pending" },
+        { name: "Dr. Martinez", role: "Subject Teacher", avatar: "DM", status: "joined" },
+        { name: "Mr. Michael Torres", role: "Head of School", avatar: "MT", status: "joined" },
+        { name: "James Lee", role: "Subject Teacher", avatar: "JL", status: "declined" }
+      ]
+    },
+    {
+      id: "inv-4",
+      name: "CAS Supervisors",
+      type: "Core Requirements",
+      inviter: "Aarav Chen",
+      inviterRole: "CAS Coordinator",
+      dateInvited: "June 8, 2026",
+      membersCount: 4,
+      description: "Cross-perspective moderation of student Creativity, Activity, Service portfolios and advisor logs.",
+      purpose: "Review and approve student CAS portfolios, check completion progress, and plan the upcoming CAS project presentation day.",
+      createdBy: "Aarav Chen",
+      activitySummary: "CAS presentation schedule drafted · Active 3d ago",
+      members: [
+        { name: "Aarav Chen", role: "CAS Coordinator", avatar: "AC", status: "joined" },
+        { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "pending" },
+        { name: "Sarah Chen", role: "Guidance Counselor", avatar: "SC", status: "joined" },
+        { name: "James Lee", role: "Supervisor", avatar: "JL", status: "pending" }
+      ]
     }
   ]);
 
@@ -399,9 +472,10 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
     const invite = invitations.find(i => i.id === inviteId);
     if (!invite) return;
 
-    // Remove from invitations
-    setInvitations(prev => prev.filter(i => i.id !== inviteId));
-    setActiveInviteId(invitations.find(i => i.id !== inviteId)?.id || null);
+    // Remove from invitations and compute next selection
+    const remaining = invitations.filter(i => i.id !== inviteId);
+    setInvitations(remaining);
+    setActiveInviteId(remaining[0]?.id || null);
 
     // Add to conversations
     const newConv: Conversation = {
@@ -430,8 +504,9 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
   };
 
   const handleDeclineInvite = (inviteId: string) => {
-    setInvitations(prev => prev.filter(i => i.id !== inviteId));
-    setActiveInviteId(invitations.find(i => i.id !== inviteId)?.id || null);
+    const remaining = invitations.filter(i => i.id !== inviteId);
+    setInvitations(remaining);
+    setActiveInviteId(remaining[0]?.id || null);
   };
 
   const filteredConversations = useMemo(() => {
@@ -664,14 +739,211 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
         </div>
       </div>
 
-      {/* ─── 2. CENTER PANEL (CHAT OR INVITATION DETAIL) ────────────────── */}
-      <div className={`flex flex-col relative min-w-0 ${
-        theme === "light" 
-          ? "bg-black/[0.01]" 
-          : theme === "high-contrast" 
-            ? "bg-black" 
-            : "bg-[#0A0A0C]/40"
-      }`}>
+      {activeTab === "invitations" ? (
+        <div className="col-span-2 grid grid-cols-1 xl:grid-cols-[1fr_360px] h-full min-w-0 divide-x divide-white/[0.06] overflow-hidden">
+          {/* Left Sub-pane: Invitations Grid / Hub */}
+          <div className={`flex flex-col h-full overflow-y-auto p-6 space-y-6 ${
+            theme === "light" ? "bg-black/[0.01]" : "bg-zinc-950/20"
+          }`}>
+            {/* Hub Title */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className={`text-sm font-bold ${styles.textPrimary}`}>Pending Group Invitations</h2>
+                <p className={`text-[10px] mt-1 ${styles.textSecondary}`}>
+                  Review and onboard into shared coordination spaces and departments.
+                </p>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20`}>
+                {pendingInvitesCount} Waiting
+              </span>
+            </div>
+
+            {/* Cards Grid */}
+            {invitations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+                <div className="size-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
+                  <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className={`text-xs font-semibold ${styles.textPrimary}`}>All Caught Up!</h4>
+                  <p className={`text-[10px] mt-1 ${styles.textSecondary}`}>
+                    You have no pending group invitations.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {invitations.map((invite) => {
+                  const isSelected = activeInviteId === invite.id;
+                  return (
+                    <button
+                      key={invite.id}
+                      onClick={() => setActiveInviteId(invite.id)}
+                      className={`flex flex-col p-4 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? "bg-cyan-500/[0.04] border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.08)]"
+                          : theme === "light"
+                            ? "bg-white border-black/5 hover:border-black/15 shadow-sm"
+                            : theme === "high-contrast"
+                              ? "bg-black border-white hover:bg-white/10"
+                              : "bg-[#0E0E10]/40 border-white/[0.05] hover:border-white/15"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between w-full">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex size-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-extrabold">
+                            {invite.name.split(" ").map(w => w[0]).join("")}
+                          </div>
+                          <div>
+                            <h4 className={`text-xs font-bold ${styles.textPrimary}`}>{invite.name}</h4>
+                            <span className="text-[9px] text-cyan-400 font-semibold">{invite.type}</span>
+                          </div>
+                        </div>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase bg-white/5 ${styles.textSecondary}`}>
+                          {invite.membersCount} Members
+                        </span>
+                      </div>
+                      <p className={`text-[10px] mt-3 line-clamp-2 leading-relaxed ${styles.textSecondary}`}>
+                        {invite.description}
+                      </p>
+                      <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between w-full text-[9px]">
+                        <span className={styles.textSecondary}>
+                          Invited by <strong className={styles.textPrimary}>{invite.inviter}</strong>
+                        </span>
+                        <span className="opacity-40">{invite.dateInvited}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right Sub-pane: Detailed Group Preview Panel */}
+          <div className={`flex flex-col h-full overflow-y-auto p-6 ${
+            theme === "light" ? "bg-black/[0.02]" : "bg-[#0C0C0E]/60"
+          }`}>
+            {activeInvitation ? (
+              <div className="flex flex-col h-full justify-between">
+                <div className="space-y-6">
+                  {/* Preview Header */}
+                  <div>
+                    <span className="text-[8px] font-extrabold tracking-widest text-cyan-400 uppercase bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                      {activeInvitation.type}
+                    </span>
+                    <h3 className={`text-sm font-black mt-2 leading-tight ${styles.textPrimary}`}>
+                      {activeInvitation.name}
+                    </h3>
+                    <p className={`text-[10px] mt-1 ${styles.textSecondary}`}>
+                      Created by {activeInvitation.createdBy}
+                    </p>
+                  </div>
+
+                  {/* Purpose */}
+                  <div className="space-y-1.5">
+                    <span className={`text-[9px] uppercase font-bold tracking-wider ${styles.textSecondary} opacity-60`}>Group Purpose</span>
+                    <p className={`text-[10px] leading-relaxed ${styles.textPrimary}`}>
+                      {activeInvitation.purpose}
+                    </p>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1.5">
+                    <span className={`text-[9px] uppercase font-bold tracking-wider ${styles.textSecondary} opacity-60`}>Scope & Description</span>
+                    <p className={`text-[10px] leading-relaxed ${styles.textSecondary}`}>
+                      {activeInvitation.description}
+                    </p>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <div className="space-y-1.5">
+                    <span className={`text-[9px] uppercase font-bold tracking-wider ${styles.textSecondary} opacity-60`}>Recent Activity</span>
+                    <div className="flex items-center gap-2 text-[10px] text-amber-400 font-semibold bg-amber-500/[0.03] border border-amber-500/10 p-2.5 rounded-lg">
+                      <span className="size-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                      {activeInvitation.activitySummary}
+                    </div>
+                  </div>
+
+                  {/* Members Ledger */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[9px] uppercase font-bold tracking-wider ${styles.textSecondary} opacity-60`}>Members Directory</span>
+                      <span className="text-[8px] font-semibold text-cyan-400">
+                        {activeInvitation.members.filter(m => m.status === "joined").length} Joined · {activeInvitation.members.filter(m => m.status === "pending").length} Pending
+                      </span>
+                    </div>
+                    <div className="max-h-[160px] overflow-y-auto border border-white/[0.04] rounded-lg divide-y divide-white/[0.04] p-1 bg-black/10">
+                      {activeInvitation.members.map((member, mIdx) => (
+                        <div key={mIdx} className="flex items-center justify-between p-2 text-[10px]">
+                          <div className="flex items-center gap-2">
+                            <div className="size-6 rounded-md bg-white/5 flex items-center justify-center font-bold text-[9px] border border-white/10">
+                              {member.avatar}
+                            </div>
+                            <div>
+                              <span className={`font-semibold block ${styles.textPrimary}`}>{member.name}</span>
+                              <span className="text-[8px] block opacity-50">{member.role}</span>
+                            </div>
+                          </div>
+                          <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                            member.status === "joined"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : member.status === "declined"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-amber-500/10 text-amber-400"
+                          }`}>
+                            {member.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Action buttons */}
+                <div className="pt-6 border-t border-white/[0.04] flex items-center gap-3">
+                  <button
+                    onClick={() => handleDeclineInvite(activeInvitation.id)}
+                    className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl border border-red-500/20 hover:bg-red-500/5 text-red-400 transition-all"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => handleAcceptInvite(activeInvitation.id)}
+                    className="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black shadow-lg shadow-cyan-500/10 transition-all"
+                  >
+                    Accept Group Invitation
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+                <div className="size-12 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-white/30">
+                  <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 11.517 1.282l-.548.077m-.041-.02v1.5m0 2.25h.008v.008H12v-.008zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className={`text-xs font-semibold ${styles.textPrimary}`}>No Group Selected</h4>
+                  <p className={`text-[10px] mt-1 ${styles.textSecondary}`}>
+                    Select a pending invitation card to preview its details, scope, and roster.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ─── 2. CENTER PANEL (CHAT OR INVITATION DETAIL) ────────────────── */}
+          <div className={`flex flex-col relative min-w-0 ${
+            theme === "light" 
+              ? "bg-black/[0.01]" 
+              : theme === "high-contrast" 
+                ? "bg-black" 
+                : "bg-[#0A0A0C]/40"
+          }`}>
         
         {/* Tab Header */}
         <div className={`h-16 border-b px-6 flex items-center justify-between shrink-0 ${styles.border}`}>
@@ -924,7 +1196,7 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
                 console.error("Failed to drop item in messages panel", err);
               }
             }}
-            className={`p-4 border-t shrink-0 ${styles.border} flex flex-col gap-2 transition-all duration-200 ${
+            className={`p-4 border-t shrink-0 ${styles.border} flex flex-col gap-2 transition-all duration-200 axis-drop-target ${
               isDragOver ? "ring-2 ring-cyan-400 border-cyan-400/50 bg-cyan-950/10 scale-[1.01]" : ""
             }`}
           >
@@ -1042,12 +1314,14 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
               </span>
             </div>
           </>
-        ) : (
-          <div className={`text-center py-20 text-[10px] ${styles.textSecondary}`}>
-            Select a conversation channel or review invites ledger.
+            ) : (
+              <div className={`text-center py-20 text-[10px] ${styles.textSecondary}`}>
+                Select a conversation channel or review invites ledger.
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
       {/* Persistent Toast notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -1157,6 +1431,7 @@ export function CoordinatorMessages({ theme }: { theme: Theme }) {
         onClose={() => setIsPickerOpen(false)}
         onSelect={(doc) => setAttachedResource(doc.title)}
         theme={theme}
+        contextText={activeConversation ? `${activeConversation.messages[activeConversation.messages.length - 1]?.text || ""} ${inputText}` : inputText}
       />
     </div>
   );

@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { StudentSupportFlag, ACCOMMODATIONS_MAP, type StudentSupportInfo } from "../student-support-context";
+import { StudentStatisticsProfile } from "../coordinator-demo/student-statistics-profile";
+
+import { detectContextInText } from "./teacher-context-engine";
+import { MessageTextWithTeacherContext } from "./teacher-context-trigger";
+import { TeacherContextActionModal } from "./teacher-context-modals";
+import type { DetectedContext } from "./teacher-context-engine";
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -77,6 +85,16 @@ type Submission = {
   rubricScores?: Record<string, number>;
 };
 
+type ClassStudent = {
+  id: string;
+  name: string;
+  avatar: string;
+  avatarColor: string;
+  grade: string;
+  attendanceRate: string;
+  supportFlags: string[];
+};
+
 // ─── DEMO DATA ──────────────────────────────────────────────────────────────────────────────────
 
 const INITIAL_UNITS: UnitPlan[] = [
@@ -130,6 +148,16 @@ const CLASSES: ClassItem[] = [
   { id: "cls-4", name: "MYP 4 Science", unit: "Ecosystems & Bio-Energy", studentCount: 22, activeTasks: 2, pendingGrading: 1, color: "from-amber-500/20 to-rose-500/20", code: "SCI-MYP4" },
   { id: "cls-5", name: "Homeroom 11-F", unit: "Advisory & Personal Mentorship", studentCount: 26, activeTasks: 1, pendingGrading: 0, color: "from-pink-500/20 to-orange-500/20", code: "HR-11F" },
 ];
+
+const CLASS_STUDENTS: Record<string, ClassStudent[]> = {
+  "cls-1": [
+    { id: "std-1", name: "Chloe Vance", avatar: "CV", avatarColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/25", grade: "5", attendanceRate: "97.4%", supportFlags: ["ADHD", "Extra Time"] },
+    { id: "std-2", name: "Lucas Gray", avatar: "LG", avatarColor: "bg-amber-500/10 text-amber-400 border-amber-500/25", grade: "5", attendanceRate: "91.2%", supportFlags: ["Rest Breaks", "Learning Support"] },
+    { id: "std-5", name: "Bruce Wayne", avatar: "BW", avatarColor: "bg-indigo-500/10 text-indigo-400 border-indigo-500/25", grade: "7", attendanceRate: "99.1%", supportFlags: [] },
+    { id: "std-6", name: "Emma Davis", avatar: "ED", avatarColor: "bg-rose-500/10 text-rose-400 border-rose-500/25", grade: "6", attendanceRate: "100%", supportFlags: [] },
+    { id: "std-7", name: "Liam Wilson", avatar: "LW", avatarColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", grade: "4", attendanceRate: "88.5%", supportFlags: ["Counseling"] },
+  ]
+};
 
 const INITIAL_TASKS: Task[] = [
   {
@@ -258,11 +286,125 @@ const INITIAL_SUBMISSIONS: Submission[] = [
   },
 ];
 
+const CLASS_ROSTERS: Record<string, string[]> = {
+  "cls-1": ["Chloe Vance", "Dilan Patel", "Emma Watson", "Lucas Gray", "Aria Thorne"], // DP1 Physics HL
+  "cls-2": ["Dilan Patel", "Emma Watson", "Aria Thorne"], // DP1 Chemistry HL
+  "cls-3": ["Bruce Wayne", "Clark Kent", "Diana Prince"], // DP2 Physics HL
+  "cls-4": ["Peter Parker", "Tony Stark"], // MYP 4 Science
+  "cls-5": ["Chloe Vance", "Lucas Gray"], // Homeroom 11-F
+};
+
 // ─── COMPONENT ──────────────────────────────────────────────────────────────
 
 export function ClassSpaceWorkspace() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [activePane, setActivePane] = useState<"overview" | "planning" | "tasks" | "resources" | "submissions" | "grading">("overview");
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null);
+  const [showAccommodationDetails, setShowAccommodationDetails] = useState(false);
+
+  const enrolledAccommodations = useMemo(() => {
+    if (!selectedClassId) return [];
+    const studentNames = CLASS_ROSTERS[selectedClassId] || [];
+    return studentNames
+      .map((name) => {
+        const info = ACCOMMODATIONS_MAP[name];
+        if (info && info.planActive) {
+          return { name, ...info };
+        }
+        return null;
+      })
+      .filter(Boolean) as (StudentSupportInfo & { name: string })[];
+  }, [selectedClassId]);
+
+  const [selectedContext, setSelectedContext] = useState<DetectedContext | null>(null);
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+  const [contextToast, setContextToast] = useState<string | null>(null);
+
+  const handleContextAction = (context: DetectedContext) => {
+    setSelectedContext(context);
+    setIsContextModalOpen(true);
+  };
+
+  const handleContextConfirm = (context: DetectedContext, formData: Record<string, string>) => {
+    const contextData = {
+      ...context,
+      title: formData.title || context.title,
+      description: formData.description || context.description,
+      date: formData.date || context.date,
+      time: formData.time || context.time,
+      targetGroup: formData.targetGroup || context.targetGroup,
+      participants: formData.participants ? formData.participants.split(",").map(p => p.trim()) : context.participants
+    };
+
+    if (context.type === "meeting") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingMeeting = contextData;
+      }
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "meeting",
+          autoOpen: true,
+          context: contextData
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "meetings", autoOpenModal: true }
+      }));
+    } else if (context.type === "task" || context.type === "assignment") {
+      const matchedClass = CLASSES.find(c => 
+        c.code.includes("Physics") || 
+        c.name.includes("Grade 11") ||
+        (contextData.targetGroup && contextData.targetGroup.includes(c.code))
+      );
+      if (matchedClass) {
+        setSelectedClassId(matchedClass.id);
+      }
+      setTaskForm(prev => ({
+        ...prev,
+        title: contextData.title || "Student Task",
+        description: contextData.description || "",
+        dueDate: contextData.date || "",
+        criteria: "Criterion A",
+        maxMarks: 10,
+        visibility: "published"
+      }));
+      setIsCreatingTask(true);
+      setActivePane("tasks");
+    } else if (context.type === "event" || context.type === "calendar") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingEvent = contextData;
+      }
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: context.type === "calendar" ? "calendar" : "event",
+          autoOpen: true,
+          context: contextData
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "calendar", autoOpenModal: true }
+      }));
+    } else if (context.type === "announcement") {
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "announcement",
+          autoOpen: true,
+          context: contextData,
+          targetClass: contextData.targetGroup || "Grade 11 Physics (B)"
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "home", autoOpenModal: true }
+      }));
+    }
+
+    setContextToast(`✓ ${context.type.charAt(0).toUpperCase() + context.type.slice(1)} created successfully`);
+    setTimeout(() => setContextToast(null), 2500);
+  };
 
   // Core App states
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
@@ -335,6 +477,89 @@ export function ClassSpaceWorkspace() {
     comments: "",
     criterionScores: { "Criterion B": 0, "Criterion C": 0 } as Record<string, number>,
   });
+
+  // Listen for context auto-action events (from Messages)
+  useEffect(() => {
+    const handleContextAutoAction = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { type, context, autoOpen, targetClass } = customEvent.detail;
+
+      if ((type === "task" || type === "assignment") && autoOpen && context) {
+        // Find the class that matches the target group
+        let classId = selectedClassId;
+        if (targetClass) {
+          // Try to match the target class with an existing class
+          // For demo: Grade 11 Physics -> cls-1, etc.
+          const classes = CLASSES;
+          const matched = classes.find(c => 
+            c.code.includes("Physics") || 
+            c.name.includes("Grade 11") ||
+            targetClass.includes(c.code)
+          );
+          if (matched) {
+            classId = matched.id;
+          }
+        }
+
+        // Set the selected class
+        setSelectedClassId(classId);
+
+        // Auto-fill task form with context data
+        setTaskForm(prev => ({
+          ...prev,
+          title: context.title || "Student Task",
+          description: context.description || "",
+          dueDate: context.date || "",
+          criteria: "Criterion A",
+          maxMarks: 10,
+          visibility: "published"
+        }));
+
+        // Auto-open task creation modal
+        setIsCreatingTask(true);
+
+        // Switch to tasks pane
+        setActivePane("tasks");
+      }
+    };
+
+    window.addEventListener("axis-context-auto-action", handleContextAutoAction);
+    return () => window.removeEventListener("axis-context-auto-action", handleContextAutoAction);
+  }, [selectedClassId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      if (win.axisContextPendingTask || win.axisContextPendingAssignment) {
+        const context = win.axisContextPendingTask || win.axisContextPendingAssignment;
+        const targetClass = context.targetGroup || "Grade 11 Physics (B)";
+        const classes = CLASSES;
+        const matched = classes.find(c => 
+          c.code.includes("Physics") || 
+          c.name.includes("Grade 11") ||
+          targetClass.includes(c.code)
+        );
+        if (matched) {
+          setSelectedClassId(matched.id);
+        }
+        setTaskForm(prev => ({
+          ...prev,
+          title: context.title || "Student Task",
+          description: context.description || "",
+          dueDate: context.date || "",
+          criteria: "Criterion A",
+          maxMarks: 10,
+          visibility: "published"
+        }));
+        setIsCreatingTask(true);
+        setActivePane("tasks");
+        
+        delete win.axisContextPendingTask;
+        delete win.axisContextPendingAssignment;
+      }
+    }
+  }, []);
 
   // ─── COMPUTED DATA ────────────────────────────────────────────────────────
 
@@ -801,8 +1026,61 @@ export function ClassSpaceWorkspace() {
       <div className="min-h-[50vh]">
         {/* ─── PANE 1: OVERVIEW ─── */}
         {activePane === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-safe-lg">
-            <div className="space-y-safe-lg">
+          <div className="space-y-safe-lg">
+            {/* Student Directory Roster */}
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.01] p-safe-md">
+              <div className="flex items-center justify-between mb-safe-md">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-bold text-white/90">Student Directory</h3>
+                  <span className="text-[10px] font-medium text-white/40 bg-white/[0.05] px-2 py-0.5 rounded-full">
+                    {CLASS_STUDENTS[selectedClassId]?.length || 0} Students
+                  </span>
+                </div>
+                <button className="text-[10px] font-semibold text-white/40 hover:text-white transition-colors">
+                  View Full Roster →
+                </button>
+              </div>
+              
+              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x" style={{ scrollbarWidth: 'none' }}>
+                {CLASS_STUDENTS[selectedClassId]?.map((student) => (
+                  <button
+                    key={student.id}
+                    onClick={() => setProfileStudentId(student.id)}
+                    className="snap-start flex-none w-48 rounded-xl border border-white/[0.04] bg-white/[0.02] p-4 text-left transition-all hover:bg-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`shrink-0 flex size-10 items-center justify-center rounded-full border text-xs font-bold ${student.avatarColor}`}>
+                        {student.avatar}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate text-sm font-semibold text-white/90 group-hover:text-white transition-colors">{student.name}</span>
+                        <span className="text-[10px] text-white/40 mt-0.5">Current Grade: {student.grade}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 flex items-center justify-between text-[10px]">
+                      <span className="text-white/40">Attendance</span>
+                      <span className={`font-medium ${parseFloat(student.attendanceRate) > 95 ? "text-emerald-400" : parseFloat(student.attendanceRate) > 90 ? "text-amber-400" : "text-rose-400"}`}>
+                        {student.attendanceRate}
+                      </span>
+                    </div>
+
+                    {student.supportFlags.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {student.supportFlags.map(flag => (
+                          <span key={flag} className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-[8px] font-semibold text-sky-400 whitespace-nowrap">
+                            {flag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-safe-lg">
+              <div className="space-y-safe-lg">
               {/* Core summary metrics cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-safe-md">
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-safe-md flex flex-col justify-between h-32">
@@ -896,6 +1174,7 @@ export function ClassSpaceWorkspace() {
                   )}
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}
@@ -1353,6 +1632,60 @@ export function ClassSpaceWorkspace() {
                     </div>
                   </div>
 
+                  {/* Accommodations Warning Card */}
+                  {enrolledAccommodations.length > 0 && (
+                    <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5 font-mono">
+                          <span className="size-2 rounded-full bg-indigo-400 animate-pulse shadow-[0_0_6px_#818cf8]" />
+                          {enrolledAccommodations.length} student{enrolledAccommodations.length > 1 ? "s" : ""} require verified accommodations for this assessment.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowAccommodationDetails(!showAccommodationDetails)}
+                          className="text-[9px] uppercase tracking-wider font-extrabold text-indigo-400 hover:text-indigo-300 transition-colors"
+                        >
+                          {showAccommodationDetails ? "[Collapse Details]" : "[Expand Details]"}
+                        </button>
+                      </div>
+                      {showAccommodationDetails && (
+                        <div className="overflow-x-auto border-t border-indigo-500/10 pt-2.5">
+                          <table className="w-full text-left border-collapse text-[10.5px]">
+                            <thead>
+                              <tr className="text-[8px] font-bold uppercase tracking-widest text-indigo-400/60 border-b border-indigo-500/10">
+                                <th className="pb-1.5">Student Name</th>
+                                <th className="pb-1.5">Provisions</th>
+                                <th className="pb-1.5 text-right">Verification Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-indigo-500/5 text-white/80">
+                              {enrolledAccommodations.map((item) => (
+                                <tr key={item.name} className="hover:bg-indigo-500/[0.02] transition-colors">
+                                  <td className="py-2 font-semibold flex items-center gap-1">
+                                    {item.name}
+                                    <StudentSupportFlag studentName={item.name} onViewProfile={() => setProfileStudentId(item.name === "Chloe Vance" ? "std-1" : "std-4")} />
+                                  </td>
+                                  <td className="py-2 font-medium">
+                                    {item.provisions.join(" · ")}
+                                  </td>
+                                  <td className="py-2 text-right">
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${
+                                      item.status === "Verified by IB"
+                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                        : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                    }`}>
+                                      {item.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="pt-4 border-t border-white/[0.06] flex items-center justify-end gap-2">
                     <button
                       onClick={() => {
@@ -1757,7 +2090,10 @@ export function ClassSpaceWorkspace() {
                           <span className="flex size-7 items-center justify-center rounded-full bg-white/10 text-[9px] font-bold text-white/80">
                             {sub.avatar}
                           </span>
-                          <span className="font-semibold text-white/90">{sub.studentName}</span>
+                          <span className="font-semibold text-white/90 flex items-center">
+                            {sub.studentName}
+                            <StudentSupportFlag studentName={sub.studentName} onViewProfile={() => setProfileStudentId(sub.studentId)} />
+                          </span>
                         </td>
                         <td className="p-4 text-white/50">{sub.submittedAt || " - "}</td>
                         <td className="p-4 text-white/60 font-mono text-[11px] max-w-xs truncate">{sub.fileName || " - "}</td>
@@ -1816,7 +2152,10 @@ export function ClassSpaceWorkspace() {
                         <span className="flex size-6 items-center justify-center rounded-full bg-white/10 text-[8px] font-bold text-white/80">
                           {sub.avatar}
                         </span>
-                        <span className="font-semibold truncate">{sub.studentName}</span>
+                        <span className="font-semibold truncate flex items-center">
+                          {sub.studentName}
+                          <StudentSupportFlag studentName={sub.studentName} onViewProfile={() => setProfileStudentId(sub.studentId)} />
+                        </span>
                       </div>
                       <span className={`size-1.5 rounded-full ${
                         sub.status === "graded" ? "bg-emerald-400" : sub.status === "submitted" ? "bg-sky-400" : "bg-white/20"
@@ -1947,6 +2286,35 @@ export function ClassSpaceWorkspace() {
           </div>
         )}
       </div>
+
+      {/* Teacher-Side Slide-Over Support Profile Drawer */}
+      <AnimatePresence>
+        {profileStudentId && (
+          <div className="fixed inset-0 z-[150] flex justify-end text-left normal-case">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setProfileStudentId(null)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="relative z-10 w-full max-w-2xl bg-zinc-950 border-l border-white/10 p-6 overflow-y-auto shadow-2xl"
+            >
+              <StudentStatisticsProfile
+                theme="axis"
+                selectedStudentId={profileStudentId}
+                isTeacher={true}
+                onBack={() => setProfileStudentId(null)}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { ClassSpaceWorkspace } from "./class-space-workspace";
 import { SharedDemoHeader } from "../shared-demo-header";
 import { DeviceCalibration } from "./device-calibration";
 import { ConnectedResources } from "./connected-resources-workspace";
+import { PersonalDatabaseWorkspace } from "../personal-database";
 import { playNotificationSound } from "./audio-system";
 import { EssentialSpaceWorkspace } from "./essential-space-workspace";
 import { WorkspaceWorkspace, type WorkspaceItem } from "./workspace-workspace";
@@ -630,7 +631,7 @@ export function TeacherDemoShell({
   }, [theme, updateEngagement]);
   // Console logging for verification of engagement progress
   useEffect(() => {
-    console.log("[Axis Engagement Telemetry]", {
+    console.log("[Axis Engagement Sync]", {
       score: engagementScore,
       completedTour: engagement.completedTour,
       exploredSectionsCount: engagement.exploredSections && Array.isArray(engagement.exploredSections) ? engagement.exploredSections.length : 0,
@@ -752,9 +753,25 @@ export function TeacherDemoShell({
         setIsQuickContextOpen(true);
       }
     };
+    const handleNavigateWorkspace = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.workspace) {
+        setActiveTab(customEvent.detail.workspace);
+      }
+    };
+    const handleNavigateTab = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.tab) {
+        setActiveTab(customEvent.detail.tab);
+      }
+    };
     window.addEventListener("axis-add-context-item", handleAddContextItem);
+    window.addEventListener("axis-navigate-workspace", handleNavigateWorkspace);
+    window.addEventListener("axis-navigate-tab", handleNavigateTab);
     return () => {
       window.removeEventListener("axis-add-context-item", handleAddContextItem);
+      window.removeEventListener("axis-navigate-workspace", handleNavigateWorkspace);
+      window.removeEventListener("axis-navigate-tab", handleNavigateTab);
     };
   }, []);
 
@@ -1403,7 +1420,7 @@ export function TeacherDemoShell({
         />
 
         {/* Scrollable Dashboard Grid Content */}
-        <main className="relative z-10 flex-1 overflow-y-auto px-safe-lg py-safe-lg md:px-safe-xl md:py-safe-xl scrollbar-none">
+        <main className="relative flex-1 overflow-y-auto px-safe-lg py-safe-lg md:px-safe-xl md:py-safe-xl scrollbar-none">
           <AnimatePresence mode="wait">
             {activeTab === "home" && (
               <motion.div
@@ -1524,6 +1541,17 @@ export function TeacherDemoShell({
               </motion.div>
             )}
 
+            {activeTab === "personal-database" && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                className="max-w-6xl mx-auto w-full"
+              >
+                <PersonalDatabaseWorkspace theme={theme} />
+              </motion.div>
+            )}
+
             {activeTab === "settings" && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
@@ -1629,7 +1657,7 @@ export function TeacherDemoShell({
               </motion.div>
             )}
 
-            {!["home", "timetable", "attendance", "context", "settings", "messages", "email", "meetings", "class-space", "calendar", "connected-resources", "essential-space", "workspace"].includes(activeTab) && (
+            {!["home", "timetable", "attendance", "context", "settings", "messages", "email", "meetings", "class-space", "calendar", "connected-resources", "personal-database", "essential-space", "workspace"].includes(activeTab) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

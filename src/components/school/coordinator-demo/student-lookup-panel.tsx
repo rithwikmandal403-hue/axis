@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { StudentSupportFlag } from "../student-support-context";
 
 export type StudentStatus = "present" | "absent" | "infirmary" | "counselor" | "library" | "leave";
 
@@ -650,7 +651,10 @@ export function StudentLookupPanel({
                     {student.avatar}
                   </div>
                   <div>
-                    <h4 className={`text-sm font-bold tracking-tight ${styles.textPrimary}`}>{student.name}</h4>
+                    <h4 className={`text-sm font-bold tracking-tight ${styles.textPrimary} flex items-center`}>
+                      {student.name}
+                      <StudentSupportFlag studentName={student.name} theme={theme} onViewProfile={onViewStatistics ? () => onViewStatistics(student.id) : undefined} />
+                    </h4>
                     <span className={`text-[10px] uppercase font-semibold tracking-wider text-cyan-400`}>
                       {student.grade} · {student.program.toUpperCase()}
                     </span>
@@ -713,7 +717,10 @@ export function StudentLookupPanel({
                     <div className="size-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center font-bold text-[9px] text-cyan-400">
                       {student.avatar}
                     </div>
-                    {student.name}
+                    <span className="flex items-center">
+                      {student.name}
+                      <StudentSupportFlag studentName={student.name} theme={theme} onViewProfile={onViewStatistics ? () => onViewStatistics(student.id) : undefined} />
+                    </span>
                   </td>
                   <td className="p-4 text-cyan-200/60 font-semibold">
                     {student.grade} <span className="text-[9px] px-1 py-0.2 bg-white/5 rounded border border-white/10 ml-1 font-bold text-cyan-400">{student.program.toUpperCase()}</span>
@@ -753,7 +760,10 @@ export function StudentLookupPanel({
                   onClick={() => setSelectedStudent(student)}
                   className="hover:bg-white/[0.02] cursor-pointer transition-colors"
                 >
-                  <td className="py-2 px-3 font-bold text-white">{student.name}</td>
+                  <td className="py-2 px-3 font-bold text-white flex items-center">
+                    {student.name}
+                    <StudentSupportFlag studentName={student.name} theme={theme} onViewProfile={onViewStatistics ? () => onViewStatistics(student.id) : undefined} />
+                  </td>
                   <td className="py-2 px-3 text-white/50">{student.grade} ({student.program.toUpperCase()})</td>
                   <td className="py-2 px-3 truncate max-w-[180px]">{student.currentClass}</td>
                   <td className="py-2 px-3 font-mono text-cyan-400/80">{student.currentRoom}</td>
@@ -793,7 +803,7 @@ export function StudentLookupPanel({
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
                   <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest">
-                    Student Position Telemetry
+                    Student Position Overview
                   </span>
                   <button
                     onClick={() => setSelectedStudent(null)}
@@ -811,7 +821,10 @@ export function StudentLookupPanel({
                     {selectedStudent.avatar}
                   </div>
                   <div className="space-y-1">
-                    <h3 className={`text-base font-black tracking-tight ${styles.textPrimary}`}>{selectedStudent.name}</h3>
+                    <h3 className={`text-base font-black tracking-tight ${styles.textPrimary} flex items-center`}>
+                      {selectedStudent.name}
+                      <StudentSupportFlag studentName={selectedStudent.name} theme={theme} onViewProfile={onViewStatistics ? () => onViewStatistics(selectedStudent.id) : undefined} />
+                    </h3>
                     <p className={`text-xs ${styles.textSecondary}`}>
                       {selectedStudent.grade} · Homeroom: <strong>{selectedStudent.homeroom}</strong>
                     </p>

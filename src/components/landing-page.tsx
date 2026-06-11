@@ -21,7 +21,7 @@ const programmeData = {
   dp: {
     title: "Diploma Programme (DP)",
     description: "Manages Extended Essay advisor assignments, CAS deadlines, TOK essay handoffs, and mock exam calendars. Coordinates student study paths and teacher review pipelines in a unified schedule canvas.",
-    signal: "EE advisor review live · CAS telemetry synced"
+    signal: "EE advisor review live · CAS records synced"
   },
   cp: {
     title: "Career-related Programme (CP)",
@@ -159,7 +159,7 @@ export function LandingPage() {
           </h2>
           <div className="my-10 h-px w-24 bg-white/20 mx-auto" />
           <p className="text-lg md:text-xl text-zinc-400 leading-relaxed max-w-[640px] mx-auto">
-            Axis doesn&apos;t add another layer of noise. By connecting your active timetable, presence telemetry, and communication structures, it reveals scheduling opportunities dynamically and unifies daily coordination.
+            Axis doesn&apos;t add another layer of noise. By connecting your active timetable, presence tracking, and communication structures, it reveals scheduling opportunities dynamically and unifies daily coordination.
           </p>
           <p className="text-lg md:text-xl text-zinc-400 leading-relaxed max-w-[640px] mx-auto">
             When schedules shift or events occur, the system responds instantly — directing notifications only to affected members, preserving focus, and restoring absolute operational clarity.
@@ -215,7 +215,7 @@ export function LandingPage() {
             </div>
 
             <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-              <span className="text-[11px] font-mono text-zinc-500">TELEMETRY SIGNAL:</span>
+              <span className="text-[11px] font-mono text-zinc-500">AXIS SIGNAL:</span>
               <span className="text-[11px] font-mono text-emerald-400 animate-pulse flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-emerald-400" />
                 {programmeData[activeProg].signal}

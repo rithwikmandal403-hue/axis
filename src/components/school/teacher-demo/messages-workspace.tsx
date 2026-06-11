@@ -2,6 +2,12 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { StudentSupportFlag } from "../student-support-context";
+import { StudentStatisticsProfile } from "../coordinator-demo/student-statistics-profile";
+import { detectContextInText, type DetectedContext } from "./teacher-context-engine";
+import { MessageTextWithTeacherContext } from "./teacher-context-trigger";
+import { TeacherContextActionModal } from "./teacher-context-modals";
+import { ResourcePickerModal } from "../coordinator-demo/connected-resources";
 
 type Message = {
   id: string;
@@ -35,6 +41,28 @@ type Conversation = {
   context: ContextInfo;
 };
 
+type GroupMember = {
+  name: string;
+  role: string;
+  avatar: string;
+  status: "joined" | "pending" | "declined";
+};
+
+type GroupInvite = {
+  id: string;
+  name: string;
+  type: string;
+  inviter: string;
+  inviterRole: string;
+  dateInvited: string;
+  membersCount: number;
+  description: string;
+  purpose: string;
+  createdBy: string;
+  activitySummary: string;
+  members: GroupMember[];
+};
+
 type StudentRequest = {
   id: string;
   studentName: string;
@@ -57,8 +85,9 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
     messages: [
       { id: "m1", sender: "other", senderName: "Marcus Vance", text: "Has anyone booked Lab 3 for tomorrow's revision?", time: "10:14 AM" },
       { id: "m2", sender: "teacher", senderName: "Aarav Chen", text: "I have it reserved for Period 2 with Grade 11 Physics (B).", time: "10:15 AM" },
-      { id: "m3", sender: "other", senderName: "Marcus Vance", text: "Ah, I need to run a collision experiment. Can we do a switch, or is there an available time slot later in the afternoon?", time: "10:18 AM" },
-      { id: "m4", sender: "other", senderName: "Sarah Chen", text: "Aarav, let's schedule an emergency coordination meeting to clear the afternoon schedules.", time: "10:20 AM" },
+      { id: "m3", sender: "other", senderName: "Marcus Vance", text: "Can we meet Friday after school to coordinate the revision schedule?", time: "10:18 AM" },
+      { id: "m4", sender: "other", senderName: "Sarah Chen", text: "All Grade 11 students must submit their Physics IA by Friday before noon.", time: "10:20 AM" },
+      { id: "m4-event", sender: "other", senderName: "Marcus Vance", text: "Can we schedule a Grade 11 parent information evening next Wednesday?", time: "10:22 AM" },
     ],
     context: {
       room: "Lab 3",
@@ -79,7 +108,7 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
     messages: [
       { id: "m5", sender: "other", senderName: "Sarah Chen", text: "Hi Aarav, I noticed Chloe Vance has been late twice this week. Proximity sync shows her device logged in but outside Room 102.", time: "Yesterday" },
       { id: "m6", sender: "teacher", senderName: "Aarav Chen", text: "Thanks Sarah, she's submitted her Physics IA draft but mentioned workload stress. Let's sync.", time: "Yesterday" },
-      { id: "m7", sender: "other", senderName: "Sarah Chen", text: "Great. I am available in Room 102 now if you want to run through the support guidelines.", time: "09:30 AM" },
+      { id: "m7", sender: "other", senderName: "Sarah Chen", text: "Are you available for a meeting tomorrow morning to discuss her support plan?", time: "09:30 AM" },
     ],
     context: {
       room: "Room 102",
@@ -99,7 +128,7 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
     messages: [
       { id: "m8", sender: "other", senderName: "Dilan Patel", text: "Mr. Chen, for the Physics IA, does our model need to include air resistance calculation for the project?", time: "08:15 AM" },
       { id: "m9", sender: "teacher", senderName: "Aarav Chen", text: "Yes Dilan, it makes the error analysis section much more comprehensive. Check page 4 of the guidelines.", time: "08:22 AM" },
-      { id: "m10", sender: "other", senderName: "Dilan Patel", text: "Understood. Can I confirm the guidelines during free period tomorrow?", time: "08:45 AM" },
+      { id: "m10", sender: "other", senderName: "Dilan Patel", text: "Thanks! Can I confirm the guidelines during my free period tomorrow?", time: "08:45 AM" },
     ],
     context: {
       classGroup: "Grade 11 Physics (B)",
@@ -126,6 +155,22 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
       iaStatus: "Draft Review Required",
     },
   },
+  {
+    id: "conv-5",
+    name: "Department Meeting",
+    type: "channel",
+    avatar: "DM",
+    isPinned: false,
+    unread: true,
+    messages: [
+      { id: "m13", sender: "other", senderName: "Dr. Martinez", text: "Reminder: Grade 10 students need to submit their lab reports by next Monday.", time: "2:30 PM" },
+      { id: "m14", sender: "other", senderName: "James Lee", text: "Should we schedule a calibration meeting for the new spectrometer before the practicum?", time: "2:45 PM" },
+    ],
+    context: {
+      room: "Science Lab",
+      actionRequired: "Lab report deadline coordination",
+    },
+  },
 ];
 
 const INITIAL_REQUESTS: StudentRequest[] = [
@@ -147,16 +192,104 @@ const INITIAL_REQUESTS: StudentRequest[] = [
   },
 ];
 
+const SEEDED_INVITATIONS: GroupInvite[] = [
+  {
+    id: "inv-1",
+    name: "TOK Review Board",
+    type: "DP Coordination",
+    inviter: "Mr. Michael Torres",
+    inviterRole: "Head of School",
+    dateInvited: "June 10, 2026",
+    membersCount: 4,
+    description: "Discussion of TOK exhibition evaluations and advisor moderation notes.",
+    purpose: "Evaluate core IB TOK exhibition metrics, cross-moderate student grades, and align feedback structures before final grade upload.",
+    createdBy: "Mr. Michael Torres",
+    activitySummary: "3 files shared recently · Active 2h ago",
+    members: [
+      { name: "Mr. Michael Torres", role: "Head of School", avatar: "MT", status: "joined" },
+      { name: "Sarah Chen", role: "Guidance Counselor", avatar: "SC", status: "joined" },
+      { name: "Aarav Chen", role: "TOK Facilitator", avatar: "AC", status: "pending" },
+      { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "joined" }
+    ]
+  },
+  {
+    id: "inv-2",
+    name: "Physics Department",
+    type: "Science Faculty",
+    inviter: "Dr. Martinez",
+    inviterRole: "Science Department Head",
+    dateInvited: "June 9, 2026",
+    membersCount: 5,
+    description: "EE draft review and advisor assignment updates for DP1 candidates.",
+    purpose: "Review and calibrate Science Department rubrics, coordinate equipment allocations for physics lab work, and synchronize deadlines.",
+    createdBy: "Dr. Martinez",
+    activitySummary: "Calibration sheet uploaded · Active 1d ago",
+    members: [
+      { name: "Dr. Martinez", role: "Science Dept Head", avatar: "DM", status: "joined" },
+      { name: "Aarav Chen", role: "Physics Lead", avatar: "AC", status: "pending" },
+      { name: "James Lee", role: "Chemistry Lead", avatar: "JL", status: "joined" },
+      { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "joined" },
+      { name: "Marcus Vance", role: "Lab Tech", avatar: "MV", status: "joined" }
+    ]
+  },
+  {
+    id: "inv-3",
+    name: "Grade 11 Advisory Team",
+    type: "Student Support Group",
+    inviter: "Sarah Chen",
+    inviterRole: "Guidance Counselor",
+    dateInvited: "June 11, 2026",
+    membersCount: 6,
+    description: "Monitoring academic progress, attendance concerns, and overall student wellbeing for the current Grade 11 cohort.",
+    purpose: "Collaboratively track student support flags, coordinate interventions with counselors, and align home-room policies.",
+    createdBy: "Sarah Chen",
+    activitySummary: "Chloe Vance case flagged · Active 4h ago",
+    members: [
+      { name: "Sarah Chen", role: "Guidance Counselor", avatar: "SC", status: "joined" },
+      { name: "Aarav Chen", role: "Advisory Teacher", avatar: "AC", status: "pending" },
+      { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "joined" },
+      { name: "Dr. Martinez", role: "Subject Teacher", avatar: "DM", status: "joined" },
+      { name: "Mr. Michael Torres", role: "Head of School", avatar: "MT", status: "joined" },
+      { name: "James Lee", role: "Subject Teacher", avatar: "JL", status: "declined" }
+    ]
+  },
+  {
+    id: "inv-4",
+    name: "CAS Supervisors",
+    type: "Core Requirements",
+    inviter: "Sarah Chen",
+    inviterRole: "Guidance Counselor",
+    dateInvited: "June 8, 2026",
+    membersCount: 4,
+    description: "Cross-perspective moderation of student Creativity, Activity, Service portfolios and advisor logs.",
+    purpose: "Review and approve student CAS portfolios, check completion progress, and plan the upcoming CAS project presentation day.",
+    createdBy: "Sarah Chen",
+    activitySummary: "CAS presentation schedule drafted · Active 3d ago",
+    members: [
+      { name: "Aarav Chen", role: "CAS Coordinator", avatar: "AC", status: "pending" },
+      { name: "Ms. Sarah Thompson", role: "DP Coordinator", avatar: "ST", status: "joined" },
+      { name: "Sarah Chen", role: "Guidance Counselor", avatar: "SC", status: "joined" },
+      { name: "James Lee", role: "Supervisor", avatar: "JL", status: "pending" }
+    ]
+  }
+];
+
 export function MessagesWorkspace() {
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [studentRequests, setStudentRequests] = useState<StudentRequest[]>(INITIAL_REQUESTS);
   const [activeConvId, setActiveConvId] = useState<string>("conv-1");
   const [searchQuery, setSearchQuery] = useState("");
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null);
   const [presenceStatus, setPresenceStatus] = useState<string>("available");
   const [presenceDropdownOpen, setPresenceDropdownOpen] = useState(false);
   const [inputText, setInputText] = useState("");
   const [showNav, setShowNav] = useState(true);
   const [isRequestsOpen, setIsRequestsOpen] = useState(false);
+
+  // Invitations states
+  const [invitations, setInvitations] = useState<GroupInvite[]>(SEEDED_INVITATIONS);
+  const [activeTab, setActiveTab] = useState<string>("conversations"); // "conversations" or "invitations"
+  const [activeInviteId, setActiveInviteId] = useState<string | null>("inv-1");
 
   // Active meeting states
   const [isInMeeting, setIsInMeeting] = useState(false);
@@ -164,6 +297,12 @@ export function MessagesWorkspace() {
   const [meetingTimerString, setMeetingTimerString] = useState("00:00");
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
+
+  // Attachment states
+  const [attachedResource, setAttachedResource] = useState<string | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isAttachDropdownOpen, setIsAttachDropdownOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Highlight Overlay Popover state
   const [highlightOverlay, setHighlightOverlay] = useState<{
@@ -176,9 +315,20 @@ export function MessagesWorkspace() {
     y: number;
   } | null>(null);
 
+  // Teacher Context Modal state
+  const [selectedContext, setSelectedContext] = useState<DetectedContext | null>(null);
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+  const [contextToast, setContextToast] = useState<string | null>(null);
+
   const activeConversation = useMemo(() => {
     return conversations.find((c) => c.id === activeConvId);
   }, [conversations, activeConvId]);
+
+  const activeInvitation = useMemo(() => {
+    return invitations.find((i) => i.id === activeInviteId);
+  }, [invitations, activeInviteId]);
+
+  const pendingInvitesCount = invitations.length;
 
   // Presence Configuration
   const statuses = [
@@ -213,6 +363,8 @@ export function MessagesWorkspace() {
     );
   }, [studentRequests, searchQuery]);
 
+
+
   // Meeting system timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -233,14 +385,18 @@ export function MessagesWorkspace() {
 
   // Send message implementation
   const handleSendMessage = () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !attachedResource) return;
     const now = new Date();
     const timeString = `${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}`;
+    const textToSend = attachedResource
+      ? `${inputText}\n\n📎 Attached Document: ${attachedResource}`
+      : inputText;
+
     const newMsg: Message = {
       id: `m-sent-${Date.now()}`,
       sender: "teacher",
       senderName: "Aarav Chen",
-      text: inputText,
+      text: textToSend,
       time: timeString,
     };
 
@@ -252,6 +408,48 @@ export function MessagesWorkspace() {
       )
     );
     setInputText("");
+    setAttachedResource(null);
+  };
+
+  const handleAcceptInvite = (inviteId: string) => {
+    const invite = invitations.find(i => i.id === inviteId);
+    if (!invite) return;
+
+    // Remove from invitations and compute next selection
+    const remaining = invitations.filter(i => i.id !== inviteId);
+    setInvitations(remaining);
+    setActiveInviteId(remaining[0]?.id || null);
+
+    // Add to conversations
+    const newConv: Conversation = {
+      id: `c-added-${Date.now()}`,
+      name: invite.name,
+      type: "channel",
+      avatar: invite.name.split(" ").map(w => w[0]).join(""),
+      messages: [
+        {
+          id: `m-init-${Date.now()}`,
+          sender: "other",
+          senderName: invite.inviter,
+          text: `Welcome to the ${invite.name} channel. This group was created to coordinate ${invite.description}`,
+          time: "Just now"
+        }
+      ],
+      context: {
+        topic: invite.name,
+        actionRequired: "Review group guidelines"
+      }
+    };
+
+    setConversations(prev => [newConv, ...prev]);
+    setActiveConvId(newConv.id);
+    setActiveTab("conversations");
+  };
+
+  const handleDeclineInvite = (inviteId: string) => {
+    const remaining = invitations.filter(i => i.id !== inviteId);
+    setInvitations(remaining);
+    setActiveInviteId(remaining[0]?.id || null);
   };
 
   // Student Request action handlers
@@ -300,6 +498,163 @@ export function MessagesWorkspace() {
         setActiveConvId(newConv.id);
       }
     }
+  };
+
+  // Teacher Context action handler - Full end-to-end flow with navigation & auto-modal opening
+  const handleContextAction = (context: DetectedContext) => {
+    // Store full context in window for target workspace to access
+    const contextData = {
+      id: context.id,
+      type: context.type,
+      trigger: context.trigger,
+      confidence: context.confidence,
+      title: context.title,
+      description: context.description,
+      date: context.date,
+      time: context.time,
+      targetGroup: context.targetGroup,
+      participants: context.participants,
+      timestamp: Date.now(),
+      autoOpen: true // Signal to auto-open modal
+    };
+
+    if (context.type === "meeting") {
+      // Store meeting context and navigate
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingMeeting = contextData;
+      }
+      
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "meeting",
+          autoOpen: true,
+          context: contextData,
+          meeting: {
+            id: `meet-${Date.now()}`,
+            title: context.title || "Coordination Meeting",
+            description: context.trigger,
+            date: context.date || new Date().toISOString().split('T')[0],
+            time: context.time || "14:30",
+            duration: "1h",
+            type: "in-person",
+            attendees: context.participants || ["Aarav Chen"],
+            location: "TBD",
+            priority: "medium"
+          }
+        }
+      }));
+      
+      // Navigate to meetings workspace
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "meetings", autoOpenModal: true }
+      }));
+      
+    } else if (context.type === "task") {
+      // Store task context, extract class/grade, navigate to class-space
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingTask = contextData;
+      }
+
+      // Determine which class to navigate to (e.g., "Grade 11 Physics (B)")
+      const targetClass = context.targetGroup || "Grade 11 Physics";
+
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "task",
+          autoOpen: true,
+          context: contextData,
+          task: {
+            id: `task-${Date.now()}`,
+            title: context.title || "Student Task",
+            description: context.trigger,
+            dueDate: context.date || new Date().toISOString().split('T')[0],
+            targetGroup: context.targetGroup || "Grade 11 Students",
+            priority: "high"
+          },
+          targetClass
+        }
+      }));
+      
+      // Navigate to class-space (specific class) with auto-modal flag
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { 
+          workspace: "class-space", 
+          targetClass,
+          autoOpenModal: true 
+        }
+      }));
+      
+    } else if (context.type === "event") {
+      // Store event context and navigate to calendar
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingEvent = contextData;
+      }
+
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "event",
+          autoOpen: true,
+          context: contextData,
+          event: {
+            id: `evt-${Date.now()}`,
+            title: context.title || "Event",
+            description: context.trigger,
+            date: context.date || new Date().toISOString().split('T')[0],
+            time: context.time || "14:30",
+            type: "event"
+          }
+        }
+      }));
+      
+      // Navigate to calendar with auto-modal flag
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "calendar", autoOpenModal: true }
+      }));
+      
+    } else if (context.type === "assignment") {
+      // Assignments go to Class Space too
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingAssignment = contextData;
+      }
+
+      const targetClass = context.targetGroup || "Grade 11";
+
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "assignment",
+          autoOpen: true,
+          context: contextData,
+          targetClass
+        }
+      }));
+      
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { 
+          workspace: "class-space", 
+          targetClass,
+          autoOpenModal: true 
+        }
+      }));
+      
+    } else if (context.type === "reminder") {
+      // Reminders are simple - just show toast
+      setContextToast("✓ Reminder created successfully");
+      setTimeout(() => setContextToast(null), 2500);
+    }
+  };
+
+  // Context confirmation handler
+  const handleContextConfirm = (context: DetectedContext) => {
+    setContextToast(`✓ ${context.type.charAt(0).toUpperCase() + context.type.slice(1)} created successfully`);
+    setTimeout(() => setContextToast(null), 2500);
   };
 
   // Entity highlights data
@@ -515,58 +870,318 @@ export function MessagesWorkspace() {
           </div>
         </div>
 
+        {/* Workspace selector tabs */}
+        <div className="grid grid-cols-2 p-2 border-b border-white/[0.06] gap-1 shrink-0">
+          <button
+            onClick={() => setActiveTab("conversations")}
+            className={`py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-155 ${
+              activeTab === "conversations"
+                ? "bg-white text-black font-extrabold"
+                : "text-white/40 hover:bg-white/5"
+            }`}
+          >
+            Conversations
+          </button>
+          <button
+            onClick={() => setActiveTab("invitations")}
+            className={`py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-155 flex items-center justify-center gap-1.5 ${
+              activeTab === "invitations"
+                ? "bg-white text-black font-extrabold"
+                : "text-white/40 hover:bg-white/5"
+            }`}
+          >
+            Invites
+            {pendingInvitesCount > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-extrabold ${
+                activeTab === "invitations"
+                  ? "bg-black text-white"
+                  : "bg-cyan-500 text-black"
+              }`}>
+                {pendingInvitesCount}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Conversation Navigation List */}
         <div className="flex-1 overflow-y-auto px-safe-sm py-safe-md space-y-safe-md scrollbar-none">
-          {/* Section 1: Pinned Channels & DMs */}
-          <div>
-            <span className="px-safe-sm text-[9px] font-bold text-white/25 uppercase tracking-wider block mb-safe-sm">
-              School Coordination
-            </span>
-            <div className="space-y-0.5">
-              {filteredConversations.map((conv) => {
-                const isActive = conv.id === activeConvId;
-                return (
-                  <button
-                    key={conv.id}
-                    onClick={() => setActiveConvId(conv.id)}
-                    className={`flex w-full items-center gap-safe-sm rounded-lg px-safe-sm py-safe-sm transition-all text-left group ${
-                      isActive ? "bg-white/[0.05] text-white" : "text-white/45 hover:bg-white/[0.02] hover:text-white/80"
-                    }`}
-                  >
-                    <div className="relative flex size-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.02] text-xs font-semibold text-white/80 group-hover:border-white/20 transition-all">
-                      {conv.avatar}
-                      {conv.presence && (
-                        <span className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-[#0A0A0B] ${
-                          conv.presence === "available" ? "bg-emerald-500" :
-                          conv.presence === "focus" ? "bg-purple-500" :
-                          conv.presence === "in-meeting" ? "bg-blue-500" : "bg-neutral-500"
-                        }`} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[11px] font-semibold tracking-tight truncate leading-none">
-                          {conv.name}
-                        </span>
-                        {conv.unread && (
-                          <span className="size-1.5 rounded-full bg-sky-400" />
+          {activeTab === "conversations" ? (
+            <div>
+              <span className="px-safe-sm text-[9px] font-bold text-white/25 uppercase tracking-wider block mb-safe-sm">
+                School Coordination
+              </span>
+              <div className="space-y-0.5">
+                {filteredConversations.map((conv) => {
+                  const isActive = conv.id === activeConvId;
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => {
+                        setActiveConvId(conv.id);
+                        if (showNav) setShowNav(false);
+                      }}
+                      className={`flex w-full items-center gap-safe-sm rounded-lg px-safe-sm py-safe-sm transition-all text-left group ${
+                        isActive ? "bg-white/[0.05] text-white" : "text-white/45 hover:bg-white/[0.02] hover:text-white/80"
+                      }`}
+                    >
+                      <div className="relative flex size-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.02] text-xs font-semibold text-white/80 group-hover:border-white/20 transition-all">
+                        {conv.avatar}
+                        {conv.presence && (
+                          <span className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-[#0A0A0B] ${
+                            conv.presence === "available" ? "bg-emerald-500" :
+                            conv.presence === "focus" ? "bg-purple-500" :
+                            conv.presence === "in-meeting" ? "bg-blue-500" : "bg-neutral-500"
+                          }`} />
                         )}
                       </div>
-                      <span className="text-[9px] text-white/30 truncate block mt-1 leading-none font-medium">
-                        {conv.messages[conv.messages.length - 1]?.text || conv.role || "No messages"}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[11px] font-semibold tracking-tight truncate leading-none flex items-center gap-1.5">
+                            {conv.name}
+                            <StudentSupportFlag studentName={conv.name} onViewProfile={() => setProfileStudentId(conv.name === "Chloe Vance" ? "std-1" : conv.name === "Lucas Gray" ? "std-4" : null)} />
+                          </span>
+                          {conv.unread && (
+                            <span className="size-1.5 rounded-full bg-sky-400" />
+                          )}
+                        </div>
+                        <span className="text-[9px] text-white/30 truncate block mt-1 leading-none font-medium">
+                          {conv.messages[conv.messages.length - 1]?.text || conv.role || "No messages"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-
+          ) : (
+            <div>
+              <span className="px-safe-sm text-[9px] font-bold text-white/25 uppercase tracking-wider block mb-safe-sm">
+                Pending Group Invitations
+              </span>
+              <div className="space-y-0.5">
+                {invitations.map((invite) => {
+                  const isActive = activeInviteId === invite.id;
+                  return (
+                    <button
+                      key={invite.id}
+                      onClick={() => setActiveInviteId(invite.id)}
+                      className={`flex w-full items-center gap-safe-sm rounded-lg px-safe-sm py-safe-sm transition-all text-left group border ${
+                        isActive
+                          ? "bg-white/[0.05] border-white/10 text-white"
+                          : "border-transparent text-white/45 hover:bg-white/[0.02] hover:text-white/80"
+                      }`}
+                    >
+                      <div className="relative flex size-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-semibold text-cyan-400">
+                        {invite.name.split(" ").map(w => w[0]).join("")}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] font-semibold tracking-tight truncate block leading-none text-white/95">
+                          {invite.name}
+                        </span>
+                        <span className="text-[9px] text-cyan-400/90 truncate block mt-1 leading-none font-medium">
+                          From {invite.inviter}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 2. CENTER PANEL (MAIN CHAT AREA / MEETING CANVAS) */}
-      <div className="flex flex-col bg-[#0A0A0C]/40 relative min-w-0">
+      {activeTab === "invitations" ? (
+        <div className="col-span-2 grid grid-cols-1 xl:grid-cols-[1fr_360px] h-full min-w-0 divide-x divide-white/[0.06] overflow-hidden">
+          {/* Left Sub-pane: Invitations Grid / Hub */}
+          <div className="flex flex-col h-full overflow-y-auto p-6 space-y-6 bg-zinc-950/20">
+            {/* Hub Title */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-white/90">Pending Group Invitations</h2>
+                <p className="text-[10px] mt-1 text-white/40">
+                  Review and onboard into shared coordination spaces and departments.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                {pendingInvitesCount} Waiting
+              </span>
+            </div>
+
+            {/* Cards Grid */}
+            {invitations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+                <div className="size-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
+                  <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-white/90">All Caught Up!</h4>
+                  <p className="text-[10px] mt-1 text-white/40">
+                    You have no pending group invitations.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {invitations.map((invite) => {
+                  const isSelected = activeInviteId === invite.id;
+                  return (
+                    <button
+                      key={invite.id}
+                      onClick={() => setActiveInviteId(invite.id)}
+                      className={`flex flex-col p-4 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? "bg-cyan-500/[0.04] border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.08)]"
+                          : "bg-white/[0.01] border-white/[0.05] hover:border-white/15"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between w-full">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex size-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-extrabold">
+                            {invite.name.split(" ").map(w => w[0]).join("")}
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-white/90">{invite.name}</h4>
+                            <span className="text-[9px] text-cyan-400 font-semibold">{invite.type}</span>
+                          </div>
+                        </div>
+                        <span className="text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase bg-white/5 text-white/40">
+                          {invite.membersCount} Members
+                        </span>
+                      </div>
+                      <p className="text-[10px] mt-3 line-clamp-2 leading-relaxed text-white/40">
+                        {invite.description}
+                      </p>
+                      <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between w-full text-[9px]">
+                        <span className="text-white/40">
+                          Invited by <strong className="text-white/90">{invite.inviter}</strong>
+                        </span>
+                        <span className="opacity-40">{invite.dateInvited}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right Sub-pane: Detailed Group Preview Panel */}
+          <div className="flex flex-col h-full overflow-y-auto p-6 bg-[#0C0C0E]/60">
+            {activeInvitation ? (
+              <div className="flex flex-col h-full justify-between">
+                <div className="space-y-6">
+                  {/* Preview Header */}
+                  <div>
+                    <span className="text-[8px] font-extrabold tracking-widest text-cyan-400 uppercase bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                      {activeInvitation.type}
+                    </span>
+                    <h3 className="text-sm font-black mt-2 leading-tight text-white/90">
+                      {activeInvitation.name}
+                    </h3>
+                    <p className="text-[10px] mt-1 text-white/40">
+                      Created by {activeInvitation.createdBy}
+                    </p>
+                  </div>
+
+                  {/* Purpose */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-white/40 opacity-60">Group Purpose</span>
+                    <p className="text-[10px] leading-relaxed text-white/90">
+                      {activeInvitation.purpose}
+                    </p>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-white/40 opacity-60">Scope & Description</span>
+                    <p className="text-[10px] leading-relaxed text-white/40">
+                      {activeInvitation.description}
+                    </p>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-white/40 opacity-60">Recent Activity</span>
+                    <div className="flex items-center gap-2 text-[10px] text-amber-400 font-semibold bg-amber-500/[0.03] border border-amber-500/10 p-2.5 rounded-lg">
+                      <span className="size-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                      {activeInvitation.activitySummary}
+                    </div>
+                  </div>
+
+                  {/* Members Ledger */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-white/40 opacity-60">Members Directory</span>
+                      <span className="text-[8px] font-semibold text-cyan-400">
+                        {activeInvitation.members.filter(m => m.status === "joined").length} Joined · {activeInvitation.members.filter(m => m.status === "pending").length} Pending
+                      </span>
+                    </div>
+                    <div className="max-h-[160px] overflow-y-auto border border-white/[0.04] rounded-lg divide-y divide-white/[0.04] p-1 bg-black/10">
+                      {activeInvitation.members.map((member, mIdx) => (
+                        <div key={mIdx} className="flex items-center justify-between p-2 text-[10px]">
+                          <div className="flex items-center gap-2">
+                            <div className="size-6 rounded-md bg-white/5 flex items-center justify-center font-bold text-[9px] border border-white/10">
+                              {member.avatar}
+                            </div>
+                            <div>
+                              <span className="font-semibold block text-white/90">{member.name}</span>
+                              <span className="text-[8px] block opacity-50">{member.role}</span>
+                            </div>
+                          </div>
+                          <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                            member.status === "joined"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : member.status === "declined"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-amber-500/10 text-amber-400"
+                          }`}>
+                            {member.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Action buttons */}
+                <div className="pt-6 border-t border-white/[0.04] flex items-center gap-3">
+                  <button
+                    onClick={() => handleDeclineInvite(activeInvitation.id)}
+                    className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl border border-red-500/20 hover:bg-red-500/5 text-red-400 transition-all"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => handleAcceptInvite(activeInvitation.id)}
+                    className="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black shadow-lg shadow-cyan-500/10 transition-all"
+                  >
+                    Accept Group Invitation
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+                <div className="size-12 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-white/30">
+                  <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 11.517 1.282l-.548.077m-.041-.02v1.5m0 2.25h.008v.008H12v-.008zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-white/90">No Group Selected</h4>
+                  <p className="text-[10px] mt-1 text-white/40">
+                    Select a pending invitation card to preview its details, scope, and roster.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 2. CENTER PANEL (MAIN CHAT AREA / MEETING CANVAS) */}
+          <div className="flex flex-col bg-[#0A0A0C]/40 relative min-w-0">
         
         {/* Active high-priority overlay banner */}
         {activeConversation?.context.actionRequired && !isInMeeting && (
@@ -598,8 +1213,9 @@ export function MessagesWorkspace() {
               </svg>
             </button>
             <div className="flex flex-col">
-              <h2 className="text-xs font-semibold text-white/90">
+              <h2 className="text-xs font-semibold text-white/90 flex items-center gap-1.5">
                 {isInMeeting ? `Meeting: ${activeConversation?.name}` : activeConversation?.name}
+                {activeConversation && <StudentSupportFlag studentName={activeConversation.name} onViewProfile={() => setProfileStudentId(activeConversation.name === "Chloe Vance" ? "std-1" : activeConversation.name === "Lucas Gray" ? "std-4" : null)} />}
               </h2>
               <span className="text-[9px] text-white/30 mt-0.5 leading-none">
                 {isInMeeting ? "Live video coordination room" : activeConversation?.role || "Active Room Channel"}
@@ -645,6 +1261,9 @@ export function MessagesWorkspace() {
               >
                 {activeConversation?.messages.map((msg, index) => {
                   const isTeacher = msg.sender === "teacher";
+                  // Detect context in non-teacher messages
+                  const detectedContexts = !isTeacher ? detectContextInText(msg.text) : [];
+                  
                   return (
                     <motion.div
                       key={msg.id}
@@ -668,7 +1287,17 @@ export function MessagesWorkspace() {
                             : "bg-white/[0.03] border border-white/[0.06] text-white/80 rounded-tl-sm hover:border-white/10"
                         }`}
                       >
-                        {isTeacher ? msg.text : renderHighlightedMessage(msg.text)}
+                        {isTeacher ? msg.text : (
+                          detectedContexts.length > 0 ? (
+                            <MessageTextWithTeacherContext
+                              text={msg.text}
+                              contexts={detectedContexts}
+                              onAction={handleContextAction}
+                            />
+                          ) : (
+                            renderHighlightedMessage(msg.text)
+                          )
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -819,28 +1448,99 @@ export function MessagesWorkspace() {
 
         {/* INPUT BOX BAR */}
         {!isInMeeting && (
-          <div className="h-20 border-t border-white/[0.06] px-safe-lg flex items-center gap-safe-md bg-[#0A0A0C]/50 shrink-0">
-            <button className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.02] text-white/50 hover:text-white transition-all">
-              <svg className="size-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32a1.5 1.5 0 01-2.12-2.121L16.222 6.42" />
-              </svg>
-            </button>
-            <input
-              type="text"
-              placeholder={`Message ${activeConversation?.name}... (type 'Lab 3' or 'Physics IA' to see contextual highlighting)`}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSendMessage();
-              }}
-              className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-xs text-white placeholder-white/20 focus:border-white/20 focus:bg-white/[0.04] focus:outline-none transition-all"
-            />
-            <button
-              onClick={handleSendMessage}
-              className="rounded-lg bg-white hover:opacity-90 px-4 py-2.5 text-xs font-bold text-black transition-all"
-            >
-              Send
-            </button>
+          <div className="min-h-20 border-t border-white/[0.06] px-safe-lg py-3 flex flex-col gap-2 bg-[#0A0A0C]/50 shrink-0 relative justify-center">
+            {attachedResource && (
+              <div className="flex items-center gap-2 p-1.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold w-fit">
+                <span className="flex items-center gap-1.5">
+                  <svg className="size-3 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  {attachedResource}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAttachedResource(null)}
+                  className="text-white/40 hover:text-red-400 font-extrabold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-safe-md w-full">
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsAttachDropdownOpen(!isAttachDropdownOpen)}
+                  className="flex size-8 items-center justify-center rounded-lg border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.02] text-white/50 hover:text-white transition-all"
+                  title="Attach item"
+                >
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32a1.5 1.5 0 01-2.12-2.121L16.222 6.42" />
+                  </svg>
+                </button>
+
+                {isAttachDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsAttachDropdownOpen(false)} />
+                    <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl border border-white/[0.08] bg-[#0E0E10] p-1.5 shadow-2xl z-40 flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAttachDropdownOpen(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="w-full text-left px-3 py-2 text-[10px] font-semibold text-white/70 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <svg className="size-3.5 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                        </svg>
+                        Upload files from computer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAttachDropdownOpen(false);
+                          setIsPickerOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-2 text-[10px] font-semibold text-white/70 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <svg className="size-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                        </svg>
+                        Use connected resources
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setAttachedResource(file.name);
+                  }
+                }}
+                className="hidden"
+              />
+              <input
+                type="text"
+                placeholder={`Message ${activeConversation?.name}... (type 'Lab 3' or 'Physics IA' to see contextual highlighting)`}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSendMessage();
+                }}
+                className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-xs text-white placeholder-white/20 focus:border-white/20 focus:bg-white/[0.04] focus:outline-none transition-all"
+              />
+              <button
+                onClick={handleSendMessage}
+                className="rounded-lg bg-white hover:opacity-90 px-4 py-2.5 text-xs font-bold text-black transition-all shrink-0"
+              >
+                Send
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -858,7 +1558,10 @@ export function MessagesWorkspace() {
             {/* Dynamic Metadata details */}
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.01] p-safe-sm">
               <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest">Active Scope</span>
-              <h3 className="text-xs font-semibold text-white/95 mt-1">{activeConversation.name}</h3>
+              <h3 className="text-xs font-semibold text-white/95 mt-1 flex items-center gap-1.5">
+                {activeConversation.name}
+                <StudentSupportFlag studentName={activeConversation.name} onViewProfile={() => setProfileStudentId(activeConversation.name === "Chloe Vance" ? "std-1" : activeConversation.name === "Lucas Gray" ? "std-4" : null)} />
+              </h3>
               <p className="text-[10px] text-white/40 leading-snug mt-1">
                 {activeConversation.role || "Collaboration group for coordinator overrides and scheduling logistics."}
               </p>
@@ -952,6 +1655,8 @@ export function MessagesWorkspace() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* 4. CONTEXT-AWARE HOVER OVERLAY (MODAL POPOVER) */}
       <AnimatePresence>
@@ -1111,6 +1816,68 @@ export function MessagesWorkspace() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* 6. TEACHER CONTEXT ACTION MODAL */}
+      <TeacherContextActionModal
+        context={selectedContext}
+        isOpen={isContextModalOpen}
+        onClose={() => {
+          setIsContextModalOpen(false);
+          setSelectedContext(null);
+        }}
+        onConfirm={handleContextConfirm}
+      />
+
+      <ResourcePickerModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onSelect={(doc) => setAttachedResource(doc.title)}
+        theme="dark"
+        contextText={activeConversation ? `${activeConversation.messages[activeConversation.messages.length - 1]?.text || ""} ${inputText}` : inputText}
+      />
+
+      {/* Context Toast Notification */}
+      <AnimatePresence>
+        {contextToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed bottom-6 left-6 z-[999] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-lg text-sm font-medium"
+          >
+            {contextToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Teacher-Side Slide-Over Support Profile Drawer */}
+      <AnimatePresence>
+        {profileStudentId && (
+          <div className="fixed inset-0 z-[150] flex justify-end text-left normal-case">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setProfileStudentId(null)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="relative z-10 w-full max-w-2xl bg-zinc-950 border-l border-white/10 p-6 overflow-y-auto shadow-2xl"
+            >
+              <StudentStatisticsProfile
+                theme="axis"
+                selectedStudentId={profileStudentId}
+                isTeacher={true}
+                onBack={() => setProfileStudentId(null)}
+              />
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

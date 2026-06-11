@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { type Theme } from "@/lib/theme-utils";
+import { motion } from "framer-motion";
 
 // Terminology Tooltip Component
 function TermTooltip({ term, definition, children }: { term: string; definition: string; children: React.ReactNode }) {
@@ -54,14 +55,60 @@ interface AssessmentMarker {
   x: number;
   y: number; // Viewport position
 }
+
+interface AnalyticsPoint {
+  val: number;
+  marker: AssessmentMarker;
+}
+
+interface StudentTimelineItem {
+  period: string;
+  grade: number;
+  attendance: number;
+  submissionState: string;
+  assessment: string;
+}
+
+interface SubjectPerformanceStudent {
+  id: string;
+  name: string;
+  avgGrade: number;
+  attendance: number;
+  submissions: number;
+  overdueCount: number;
+  status: string;
+  insight: string;
+  timeline: StudentTimelineItem[];
+}
+
+interface SubjectPerformanceItem {
+  id: string;
+  subject: string;
+  avg: string;
+  change: string;
+  direction: string;
+  insight: string;
+  risk: string;
+  suggestedAction: string;
+  points: AnalyticsPoint[];
+  timeframes: {
+    month: AnalyticsPoint[];
+    year: AnalyticsPoint[];
+    overall: AnalyticsPoint[];
+  };
+  color: string;
+  students: SubjectPerformanceStudent[];
+  contextInsights: string[];
+}
+
 export function SchoolAnalytics({ theme }: { theme: Theme }) {
   const [showEnrollment, setShowEnrollment] = useState(false);
   
-  // Interactive Exploratory States
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<"month" | "term" | "year" | "multi">("term");
+  const [selectedTimeframe, setSelectedTimeframe] = useState<"month" | "year" | "overall">("month");
   const [hoveredMarker, setHoveredMarker] = useState<(AssessmentMarker & { subjectId: string }) | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [hoveredModalMarker, setHoveredModalMarker] = useState<{ marker: AssessmentMarker; x: number; y: number } | null>(null);
 
   const styling = useMemo(() => {
     return {
@@ -108,7 +155,7 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
   ];
 
   // Subject performance and expanded drill-down dataset
-  const subjectPerformance = useMemo(() => [
+  const subjectPerformance: SubjectPerformanceItem[] = useMemo(() => [
     { 
       id: "physics-hl",
       subject: "Physics HL", 
@@ -124,6 +171,26 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
         { val: 72, marker: { name: "IA Draft Submission", date: "Mar 22", avg: "5.0", high: "6.8", low: "2.8", x: 66, y: 22 } },
         { val: 69, marker: { name: "Semester Assessment", date: "Apr 28", avg: "4.8", high: "6.5", low: "2.5", x: 100, y: 32 } }
       ],
+      timeframes: {
+        month: [
+          { val: 78, marker: { name: "Weekly Quiz 1", date: "Apr 05", avg: "5.4", high: "7.0", low: "3.5", x: 0, y: 5 } },
+          { val: 75, marker: { name: "Weekly Quiz 2", date: "Apr 12", avg: "5.2", high: "6.9", low: "3.2", x: 33, y: 10 } },
+          { val: 72, marker: { name: "Weekly Quiz 3", date: "Apr 19", avg: "5.0", high: "6.8", low: "2.8", x: 66, y: 22 } },
+          { val: 69, marker: { name: "Weekly Quiz 4", date: "Apr 26", avg: "4.8", high: "6.5", low: "2.5", x: 100, y: 32 } }
+        ],
+        year: [
+          { val: 77, marker: { name: "Term 1 Exam", date: "Oct 15", avg: "5.3", high: "7.0", low: "3.2", x: 0, y: 8 } },
+          { val: 74, marker: { name: "Term 2 Exam", date: "Dec 18", avg: "5.1", high: "6.9", low: "2.9", x: 33, y: 15 } },
+          { val: 70, marker: { name: "Term 3 Exam", date: "Mar 12", avg: "4.9", high: "6.7", low: "2.6", x: 66, y: 25 } },
+          { val: 68, marker: { name: "Term 4 Exam", date: "Jun 02", avg: "4.7", high: "6.4", low: "2.4", x: 100, y: 34 } }
+        ],
+        overall: [
+          { val: 80, marker: { name: "Year 2024 Avg", date: "2024", avg: "5.6", high: "7.0", low: "3.8", x: 0, y: 2 } },
+          { val: 76, marker: { name: "Year 2025 Avg", date: "2025", avg: "5.3", high: "7.0", low: "3.0", x: 33, y: 10 } },
+          { val: 72, marker: { name: "Year 2026 Avg", date: "2026", avg: "5.0", high: "6.8", low: "2.8", x: 66, y: 22 } },
+          { val: 68, marker: { name: "Year 2027 Proj", date: "2027", avg: "4.7", high: "6.5", low: "2.5", x: 100, y: 32 } }
+        ]
+      },
       color: "stroke-red-400",
       students: [
         {
@@ -212,6 +279,26 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
         { val: 73, marker: { name: "Support Session Start", date: "Mar 10", avg: "5.3", high: "7.0", low: "3.2", x: 66, y: 18 } },
         { val: 75, marker: { name: "Semester Assessment", date: "Apr 25", avg: "5.5", high: "7.0", low: "3.5", x: 100, y: 5 } }
       ],
+      timeframes: {
+        month: [
+          { val: 70, marker: { name: "Weekly Quiz 1", date: "Apr 05", avg: "5.0", high: "6.5", low: "3.0", x: 0, y: 35 } },
+          { val: 72, marker: { name: "Weekly Quiz 2", date: "Apr 12", avg: "5.1", high: "6.8", low: "3.2", x: 33, y: 30 } },
+          { val: 73, marker: { name: "Weekly Quiz 3", date: "Apr 19", avg: "5.3", high: "7.0", low: "3.2", x: 66, y: 18 } },
+          { val: 75, marker: { name: "Weekly Quiz 4", date: "Apr 26", avg: "5.5", high: "7.0", low: "3.5", x: 100, y: 5 } }
+        ],
+        year: [
+          { val: 68, marker: { name: "Term 1 Exam", date: "Oct 15", avg: "4.8", high: "6.5", low: "2.5", x: 0, y: 40 } },
+          { val: 71, marker: { name: "Term 2 Exam", date: "Dec 18", avg: "5.0", high: "6.8", low: "2.8", x: 33, y: 30 } },
+          { val: 73, marker: { name: "Term 3 Exam", date: "Mar 12", avg: "5.2", high: "7.0", low: "3.0", x: 66, y: 20 } },
+          { val: 76, marker: { name: "Term 4 Exam", date: "Jun 02", avg: "5.6", high: "7.0", low: "3.5", x: 100, y: 4 } }
+        ],
+        overall: [
+          { val: 65, marker: { name: "Year 2024 Avg", date: "2024", avg: "4.5", high: "6.0", low: "2.5", x: 0, y: 50 } },
+          { val: 70, marker: { name: "Year 2025 Avg", date: "2025", avg: "5.0", high: "6.8", low: "2.8", x: 33, y: 35 } },
+          { val: 74, marker: { name: "Year 2026 Avg", date: "2026", avg: "5.4", high: "7.0", low: "3.2", x: 66, y: 15 } },
+          { val: 78, marker: { name: "Year 2027 Proj", date: "2027", avg: "5.8", high: "7.0", low: "3.5", x: 100, y: 2 } }
+        ]
+      },
       color: "stroke-emerald-400",
       students: [
         {
@@ -267,6 +354,26 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
         { val: 74, marker: { name: "Midterm Assessment", date: "Mar 15", avg: "5.5", high: "7.0", low: "3.2", x: 66, y: 15 } },
         { val: 73, marker: { name: "Semester Assessment", date: "Apr 29", avg: "5.4", high: "7.0", low: "3.1", x: 100, y: 20 } }
       ],
+      timeframes: {
+        month: [
+          { val: 73, marker: { name: "Weekly Quiz 1", date: "Apr 05", avg: "5.4", high: "7.0", low: "3.2", x: 0, y: 20 } },
+          { val: 74, marker: { name: "Weekly Quiz 2", date: "Apr 12", avg: "5.5", high: "7.0", low: "3.3", x: 33, y: 15 } },
+          { val: 73, marker: { name: "Weekly Quiz 3", date: "Apr 19", avg: "5.4", high: "7.0", low: "3.2", x: 66, y: 20 } },
+          { val: 73, marker: { name: "Weekly Quiz 4", date: "Apr 26", avg: "5.4", high: "7.0", low: "3.1", x: 100, y: 20 } }
+        ],
+        year: [
+          { val: 72, marker: { name: "Term 1 Exam", date: "Oct 15", avg: "5.3", high: "7.0", low: "3.1", x: 0, y: 25 } },
+          { val: 73, marker: { name: "Term 2 Exam", date: "Dec 18", avg: "5.4", high: "7.0", low: "3.2", x: 33, y: 20 } },
+          { val: 74, marker: { name: "Term 3 Exam", date: "Mar 12", avg: "5.5", high: "7.0", low: "3.3", x: 66, y: 15 } },
+          { val: 73, marker: { name: "Term 4 Exam", date: "Jun 02", avg: "5.4", high: "7.0", low: "3.1", x: 100, y: 20 } }
+        ],
+        overall: [
+          { val: 71, marker: { name: "Year 2024 Avg", date: "2024", avg: "5.2", high: "6.8", low: "3.0", x: 0, y: 30 } },
+          { val: 73, marker: { name: "Year 2025 Avg", date: "2025", avg: "5.4", high: "7.0", low: "3.2", x: 33, y: 20 } },
+          { val: 73, marker: { name: "Year 2026 Avg", date: "2026", avg: "5.4", high: "7.0", low: "3.2", x: 66, y: 20 } },
+          { val: 74, marker: { name: "Year 2027 Proj", date: "2027", avg: "5.5", high: "7.0", low: "3.3", x: 100, y: 15 } }
+        ]
+      },
       color: "stroke-cyan-400",
       students: [
         {
@@ -347,13 +454,15 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
     return subjectPerformance.find(s => s.id === selectedSubjectId) || null;
   }, [selectedSubjectId, subjectPerformance]);
 
-  // Set default student when subject expands
+  // Set default student when subject expands, and reset modal states
   useEffect(() => {
     if (activeSubject && activeSubject.students.length > 0) {
       setSelectedStudentId(activeSubject.students[0].id);
     } else {
       setSelectedStudentId(null);
     }
+    setHoveredModalMarker(null);
+    setSelectedTimeframe("month");
   }, [selectedSubjectId, activeSubject]);
 
   const activeStudent = useMemo(() => {
@@ -753,7 +862,7 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
                 <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] p-1.5 rounded-xl">
                   <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider pl-2.5">Timeframe View</span>
                   <div className="flex gap-1">
-                    {(["month", "term", "year", "multi"] as const).map((tf) => (
+                    {(["month", "year", "overall"] as const).map((tf) => (
                       <button
                         key={tf}
                         onClick={() => setSelectedTimeframe(tf)}
@@ -763,7 +872,9 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
                             : "text-white/40 hover:text-white"
                         }`}
                       >
-                        {tf}
+                        {tf === "month" && "Month"}
+                        {tf === "year" && "Year"}
+                        {tf === "overall" && "Overall"}
                       </button>
                     ))}
                   </div>
@@ -783,79 +894,159 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
                   </div>
 
                   {/* High Fidelity Interactive SVG Line Chart */}
-                  <div className="h-44 w-full relative pt-6 border-b border-white/5">
-                    {/* Y-Axis Guidelines */}
-                    <div className="absolute left-0 right-0 top-0 border-t border-dashed border-white/5 flex justify-between text-[8px] text-white/20">
-                      <span>7.0 (Highest)</span>
-                    </div>
-                    <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-white/5 flex justify-between text-[8px] text-white/20">
-                      <span>5.0 (Target)</span>
-                    </div>
-                    <div className="absolute left-0 right-0 bottom-0 border-t border-dashed border-white/5 flex justify-between text-[8px] text-white/20">
-                      <span>3.0 (At Risk)</span>
-                    </div>
+                  <div className="h-44 w-full relative border-b border-white/5 select-none">
+                    {(() => {
+                      const activePoints = activeSubject.timeframes[selectedTimeframe] || activeSubject.points;
+                      const chartWidth = 350;
+                      const chartHeight = 90;
+                      const paddingLeft = 25;
+                      const paddingTop = 15;
 
-                    <svg viewBox="0 0 400 120" className="w-full h-full overflow-visible absolute inset-0 z-10">
-                      {/* Gradient Fill under Path */}
-                      <defs>
-                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.1" />
-                          <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
+                      const getCoords = (pIdx: number, val: number) => {
+                        const x = paddingLeft + (pIdx / (activePoints.length - 1)) * chartWidth;
+                        const y = paddingTop + (1 - (val - 55) / 30) * chartHeight;
+                        return { x, y };
+                      };
 
-                      {/* Line Path */}
-                      <path
-                        d={`M 0,${120 - ((activeSubject.points[0].val - 55) / 30) * 120} 
-                            L 133,${120 - ((activeSubject.points[1].val - 55) / 30) * 120} 
-                            L 266,${120 - ((activeSubject.points[2].val - 55) / 30) * 120} 
-                            L 400,${120 - ((activeSubject.points[3].val - 55) / 30) * 120}`}
-                        fill="none"
-                        stroke="#22d3ee"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d={`M 0,${120 - ((activeSubject.points[0].val - 55) / 30) * 120} 
-                            L 133,${120 - ((activeSubject.points[1].val - 55) / 30) * 120} 
-                            L 266,${120 - ((activeSubject.points[2].val - 55) / 30) * 120} 
-                            L 400,${120 - ((activeSubject.points[3].val - 55) / 30) * 120}
-                            L 400,120 L 0,120 Z`}
-                        fill="url(#areaGrad)"
-                      />
+                      const pathPoints = activePoints.map((p: AnalyticsPoint, pIdx: number) => {
+                        const { x, y } = getCoords(pIdx, p.val);
+                        return `${pIdx === 0 ? 'M' : 'L'} ${x},${y}`;
+                      });
+                      const linePathD = pathPoints.join(" ");
+                      
+                      const firstX = paddingLeft;
+                      const lastX = paddingLeft + chartWidth;
+                      const bottomY = paddingTop + chartHeight; // 105
+                      const areaPathD = `${linePathD} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
 
-                      {/* Interactive Marker Circles */}
-                      {activeSubject.points.map((p, pIdx) => {
-                        const x = (pIdx / (activeSubject.points.length - 1)) * 400;
-                        const y = 120 - ((p.val - 55) / 30) * 120;
-                        return (
-                          <g key={pIdx} className="group/node">
-                            <circle
-                              cx={x}
-                              cy={y}
-                              r="5"
-                              className="fill-zinc-950 stroke-cyan-400 stroke-2 cursor-pointer hover:r-7 hover:fill-cyan-400 hover:stroke-white transition-all"
-                            />
-                            {/* Hover label anchor */}
-                            <text
-                              x={x}
-                              y={y - 12}
-                              textAnchor="middle"
-                              className="fill-white/80 text-[8px] font-bold opacity-0 group-hover/node:opacity-100 transition-opacity bg-zinc-950"
-                            >
-                              {p.marker.name}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  </div>
-                  <div className="flex justify-between text-[8px] text-white/30 uppercase tracking-widest font-mono">
-                    <span>January</span>
-                    <span>February</span>
-                    <span>March</span>
-                    <span>April</span>
+                      const getXLabel = (idx: number, timeframe: string) => {
+                        if (timeframe === "month") {
+                          return `Week ${idx + 1}`;
+                        } else if (timeframe === "year") {
+                          return `Term ${idx + 1}`;
+                        } else {
+                          const years = ["2024", "2025", "2026", "2027 Proj"];
+                          return years[idx] || "";
+                        }
+                      };
+
+                      return (
+                        <svg 
+                          viewBox="0 0 400 130" 
+                          preserveAspectRatio="none"
+                          className="w-full h-full overflow-visible absolute inset-0 z-10"
+                        >
+                          <defs>
+                            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.15" />
+                              <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.0" />
+                            </linearGradient>
+                          </defs>
+
+                          {/* Horizontal Guidelines */}
+                          <line x1="25" y1="15" x2="375" y2="15" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+                          <text x="25" y="10" className="fill-white/20 text-[8px] font-mono font-medium">7.0 (Highest)</text>
+
+                          <line x1="25" y1="60" x2="375" y2="60" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+                          <text x="25" y="55" className="fill-white/20 text-[8px] font-mono font-medium">5.0 (Target)</text>
+
+                          <line x1="25" y1="105" x2="375" y2="105" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+                          <text x="25" y="100" className="fill-white/20 text-[8px] font-mono font-medium">3.0 (At Risk)</text>
+
+                          {/* Area path with smooth morph animation */}
+                          <motion.path
+                            d={areaPathD}
+                            fill="url(#areaGrad)"
+                            animate={{ d: areaPathD }}
+                            transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                          />
+
+                          {/* Line path with smooth morph animation */}
+                          <motion.path
+                            d={linePathD}
+                            fill="none"
+                            stroke="#22d3ee"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            animate={{ d: linePathD }}
+                            transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                          />
+
+                          {/* Interactive node circles with spring glide animation */}
+                          {activePoints.map((p: AnalyticsPoint, pIdx: number) => {
+                            const { x, y } = getCoords(pIdx, p.val);
+                            return (
+                              <g key={pIdx} className="group/node">
+                                <motion.circle
+                                  cx={x}
+                                  cy={y}
+                                  r="5"
+                                  animate={{ cx: x, cy: y }}
+                                  transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                                  className="fill-zinc-950 stroke-cyan-400 stroke-2 cursor-pointer hover:r-7 hover:fill-cyan-400 hover:stroke-white transition-all"
+                                  onMouseEnter={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const parentRect = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
+                                    if (parentRect) {
+                                      setHoveredModalMarker({
+                                        marker: p.marker,
+                                        x: rect.left - parentRect.left + 8,
+                                        y: rect.top - parentRect.top - 62
+                                      });
+                                    }
+                                  }}
+                                  onMouseLeave={() => setHoveredModalMarker(null)}
+                                />
+                              </g>
+                            );
+                          })}
+
+                          {/* Dynamically positioned X-Axis Labels directly inside SVG */}
+                          {activePoints.map((p: AnalyticsPoint, pIdx: number) => {
+                            const { x } = getCoords(pIdx, p.val);
+                            return (
+                              <text
+                                key={`xlabel-${pIdx}`}
+                                x={x}
+                                y={124}
+                                textAnchor="middle"
+                                className="fill-white/30 text-[8.5px] font-mono font-semibold tracking-wider"
+                              >
+                                {getXLabel(pIdx, selectedTimeframe)}
+                              </text>
+                            );
+                          })}
+                        </svg>
+                      );
+                    })()}
+
+                    {/* High Fidelity Tooltip Overlay */}
+                    {hoveredModalMarker && (
+                      <div 
+                        className="absolute z-50 p-2.5 bg-zinc-950/95 border border-cyan-500/20 text-[9px] text-white rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.8)] backdrop-blur-xl pointer-events-none w-44 space-y-1 transition-opacity duration-150"
+                        style={{ left: hoveredModalMarker.x, top: hoveredModalMarker.y }}
+                      >
+                        <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                          <span className="font-extrabold text-cyan-400 uppercase tracking-wide truncate max-w-[100px]">{hoveredModalMarker.marker.name}</span>
+                          <span className="text-white/40 font-mono">{hoveredModalMarker.marker.date}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 text-[8px] text-white/60">
+                          <div>
+                            <span className="block text-white/30">Avg</span>
+                            <strong className="text-white font-mono">{hoveredModalMarker.marker.avg}</strong>
+                          </div>
+                          <div>
+                            <span className="block text-white/30">High</span>
+                            <strong className="text-emerald-400 font-mono">{hoveredModalMarker.marker.high}</strong>
+                          </div>
+                          <div>
+                            <span className="block text-white/30">Low</span>
+                            <strong className="text-red-400 font-mono">{hoveredModalMarker.marker.low}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -931,7 +1122,7 @@ export function SchoolAnalytics({ theme }: { theme: Theme }) {
 
                     {/* Timeline Log */}
                     <div className="space-y-3 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-white/[0.06]">
-                      {activeStudent.timeline.map((tl, idx) => (
+                      {activeStudent.timeline.map((tl: StudentTimelineItem, idx: number) => (
                         <div key={idx} className="pl-6 relative">
                           <div className={`absolute left-[5px] top-1.5 size-1.5 rounded-full ${
                             tl.grade >= 6 ? "bg-emerald-500" : tl.grade >= 5 ? "bg-cyan-500" : "bg-red-400 animate-pulse"

@@ -39,7 +39,7 @@ export function StudentIntelligence({
   // Switch to directory finder when selection is pushed from global search
   useEffect(() => {
     if (selectedStudentId) {
-      if (isTutorialActive && activeStepIndex === 8) {
+      if (isTutorialActive && activeStepIndex === 3) {
         setActiveView("statistics");
       } else {
         setActiveView("finder");
@@ -368,7 +368,7 @@ export function StudentIntelligence({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={isTutorialActive && activeStepIndex === 8 ? "tour-highlight rounded-3xl" : ""}
+            className={isTutorialActive && activeStepIndex === 3 ? "tour-highlight rounded-3xl" : ""}
           >
             <StudentStatisticsProfile
               theme={theme}

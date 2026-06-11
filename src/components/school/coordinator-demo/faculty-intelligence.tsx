@@ -22,16 +22,32 @@ export function FacultyIntelligence({
   searchQuery,
   onTriggerSubstitution,
   selectedTeacherId,
-  onClearSelectedTeacher
+  onClearSelectedTeacher,
+  onSelectTeacherId
 }: {
   theme: string;
   searchQuery: string;
   onTriggerSubstitution: (teacherName: string, classCoverName: string) => void;
   selectedTeacherId?: string | null;
   onClearSelectedTeacher?: () => void;
+  onSelectTeacherId?: (id: string | null) => void;
 }) {
   const [activeView, setActiveView] = useState<"overview" | "finder">("overview");
   const [selectedDept, setSelectedDept] = useState<DeptDetail | null>(null);
+
+  const getTeacherIdByName = (name: string): string | null => {
+    const clean = name.trim().toLowerCase();
+    if (clean === "aarav chen") return "tch-1";
+    if (clean === "ananya rao") return "tch-2";
+    if (clean === "marcus vance") return "tch-3";
+    if (clean === "sarah chen") return "tch-4";
+    if (clean === "david miller") return "tch-5";
+    if (clean === "clara dupont") return "tch-6";
+    if (clean === "claire dupont") return "tch-9";
+    if (clean === "robert blake") return "tch-7";
+    if (clean === "dilan patel") return "tch-8";
+    return null;
+  };
 
   // Switch to directory finder when selection is pushed from global search
   useEffect(() => {
@@ -50,9 +66,8 @@ export function FacultyIntelligence({
       leadName: "Marcus Vance",
       leadRole: "Mathematics Head",
       members: [
-        { name: "Marcus Vance", role: "Department Head", load: "18 periods / week", status: "teaching" },
-        { name: "Sarah Chen", role: "Algebra Specialist", load: "20 periods / week", status: "available" },
-        { name: "David Miller", role: "Statistics teacher", load: "16 periods / week", status: "teaching" },
+        { name: "Marcus Vance", role: "Department Head & Math", load: "18 periods / week", status: "teaching" },
+        { name: "David Miller", role: "Statistics Teacher", load: "16 periods / week", status: "teaching" },
       ]
     },
     {
@@ -61,12 +76,12 @@ export function FacultyIntelligence({
       teachersCount: 12,
       studentsCount: 280,
       ratio: 23.3,
-      leadName: "Ananya Rao",
-      leadRole: "Science Department Lead",
+      leadName: "Sarah Chen",
+      leadRole: "Science Department Head",
       members: [
-        { name: "Ananya Rao", role: "Department Lead & Chemistry", load: "14 periods / week", status: "meeting" },
-        { name: "Aarav Chen", role: "Physics Lead teacher", load: "18 periods / week", status: "available" },
-        { name: "Dilan Patel", role: "Biology Specialist", load: "20 periods / week", status: "teaching" },
+        { name: "Sarah Chen", role: "Science Department Head", load: "18 periods / week", status: "available" },
+        { name: "Ananya Rao", role: "Chemistry & College Counselor", load: "14 periods / week", status: "meeting" },
+        { name: "Dilan Patel", role: "Biology Specialist & CP Coordinator", load: "20 periods / week", status: "teaching" },
       ]
     },
     {
@@ -76,10 +91,9 @@ export function FacultyIntelligence({
       studentsCount: 190,
       ratio: 31.6,
       leadName: "Robert Blake",
-      leadRole: "Humanities Advisor",
+      leadRole: "Humanities Department Head",
       members: [
-        { name: "Robert Blake", role: "Humanities Lead teacher", load: "16 periods / week", status: "away" },
-        { name: "Claire DuPont", role: "Geography teacher", load: "18 periods / week", status: "teaching" },
+        { name: "Robert Blake", role: "Department Head & History", load: "16 periods / week", status: "away" },
       ]
     },
     {
@@ -89,23 +103,21 @@ export function FacultyIntelligence({
       studentsCount: 120,
       ratio: 24.0,
       leadName: "Claire DuPont",
-      leadRole: "Modern Languages Head",
+      leadRole: "Languages Department Head",
       members: [
-        { name: "Claire DuPont", role: "French Lead teacher", load: "18 periods / week", status: "teaching" },
-        { name: "Robert Blake", role: "Spanish Instructor", load: "12 periods / week", status: "away" },
+        { name: "Claire DuPont", role: "Languages Head & French", load: "18 periods / week", status: "teaching" },
       ]
     },
     {
       id: "arts",
-      name: "Performing & Visual Arts",
+      name: "English & Literature Department",
       teachersCount: 3,
-      studentsCount: 45,
+      studentsCount: 145,
       ratio: 15.0,
       leadName: "Clara Dupont",
-      leadRole: "Arts Center Lead",
+      leadRole: "English Literature Head",
       members: [
-        { name: "Clara Dupont", role: "Visual Arts Coordinator", load: "16 periods / week", status: "teaching" },
-        { name: "Sarah Chen", role: "Music Instructor", load: "14 periods / week", status: "available" },
+        { name: "Clara Dupont", role: "Department Head & English", load: "16 periods / week", status: "teaching" },
       ]
     }
   ];
@@ -278,8 +290,20 @@ export function FacultyIntelligence({
                   >
                     <div>
                       <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-widest block">{selectedDept.name}</span>
-                      <h3 className="text-sm font-bold text-white mt-0.5">{selectedDept.leadName}</h3>
-                      <span className="px-2 py-0.5 rounded bg-white/5 text-[8px] text-white/50 border border-white/10 uppercase font-mono mt-1 inline-block">
+                      <h3
+                        onClick={() => {
+                          const teacherId = getTeacherIdByName(selectedDept.leadName);
+                          if (teacherId && onSelectTeacherId) {
+                            onSelectTeacherId(teacherId);
+                            setActiveView("finder");
+                          }
+                        }}
+                        className="text-sm font-bold text-white mt-0.5 hover:text-cyan-400 cursor-pointer transition-colors inline-block"
+                        title="View Profile"
+                      >
+                        {selectedDept.leadName}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded bg-white/5 text-[8px] text-white/50 border border-white/10 uppercase font-mono mt-1.5 block w-fit">
                         {selectedDept.leadRole}
                       </span>
                     </div>
@@ -290,16 +314,28 @@ export function FacultyIntelligence({
                       <div className="space-y-2">
                         {selectedDept.members.map((member, idx) => (
                           <div key={idx} className="p-3 bg-white/[0.01] border border-white/[0.04] rounded-2xl space-y-2">
-                            <div className="flex justify-between items-center">
+                            <div
+                              onClick={() => {
+                                const teacherId = getTeacherIdByName(member.name);
+                                if (teacherId && onSelectTeacherId) {
+                                  onSelectTeacherId(teacherId);
+                                  setActiveView("finder");
+                                }
+                              }}
+                              className="flex justify-between items-start cursor-pointer group/member text-left"
+                              title="View Profile"
+                            >
                               <div>
-                                <strong className="text-white/95">{member.name}</strong>
+                                <strong className="text-white/95 group-hover/member:text-cyan-400 transition-colors block">
+                                  {member.name}
+                                </strong>
                                 <span className="text-[9px] text-white/40 block mt-0.5">{member.role}</span>
                               </div>
                               <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${styling.badge[member.status]}`}>
                                 {member.status}
                               </span>
                             </div>
-                            <div className="flex justify-between items-center text-[10px] text-white/35">
+                            <div className="flex justify-between items-center text-[10px] text-white/35 border-t border-white/5 pt-2 mt-1">
                               <span>Weekly Load: <strong>{member.load}</strong></span>
                               <div className="flex gap-2">
                                 <button onClick={() => alert(`Calling ${member.name}...`)} className="text-[9px] text-cyan-400 uppercase font-bold hover:underline">Call</button>

@@ -311,7 +311,7 @@ export function NotificationsSystem({ forceOpen, onOpenChange }: { forceOpen?: b
                         </div>
 
                         {/* Text Message Content */}
-                        <div className="flex-1 min-w-0 pr-12">
+                        <div className="flex-1 min-w-0 pr-24">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] font-semibold text-white/90 leading-tight">
                               {item.title}
@@ -329,7 +329,7 @@ export function NotificationsSystem({ forceOpen, onOpenChange }: { forceOpen?: b
                         </div>
 
                         {/* Inline Actions Drawer */}
-                        <div className="absolute right-2 top-2.5 flex flex-col items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute right-2 top-2 flex flex-row items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-[#0E0E11]/95 backdrop-blur-md border border-white/10 p-0.5 rounded-lg shadow-xl">
                           {/* Pin Toggle */}
                           <button
                             onClick={() => togglePin(item.id)}

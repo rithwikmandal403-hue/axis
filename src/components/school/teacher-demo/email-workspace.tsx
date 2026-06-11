@@ -1,11 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+import { detectContextInText } from "./teacher-context-engine";
+import { MessageTextWithTeacherContext } from "./teacher-context-trigger";
+import { TeacherContextActionModal } from "./teacher-context-modals";
+import type { DetectedContext } from "./teacher-context-engine";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
 type EmailFolder = "inbox" | "important" | "sent" | "drafts" | "announcements" | "archived";
+
+type RecipientTarget = {
+  id: string;
+  name: string;
+  email: string;
+  category: "Faculty" | "Guardians" | "Programme" | "Grade-Level" | "Subject Lead" | "Department" | "Broadcast";
+};
 
 type Email = {
   id: string;
@@ -13,6 +25,8 @@ type Email = {
   fromRole: string;
   fromAvatar: string;
   to: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   preview: string;
   body: string;
@@ -526,12 +540,116 @@ const FOLDERS: { id: EmailFolder; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
+const RECIPIENT_TARGETS: RecipientTarget[] = [
+  // Faculty & Staff
+  { id: "rec-fac-1", name: "Science Faculty", email: "science.faculty@axis.edu", category: "Faculty" },
+  { id: "rec-fac-2", name: "Mathematics Faculty", email: "math.faculty@axis.edu", category: "Faculty" },
+  { id: "rec-fac-3", name: "Languages Faculty", email: "languages.faculty@axis.edu", category: "Faculty" },
+  { id: "rec-fac-4", name: "All Teaching Staff", email: "all.staff@axis.edu", category: "Faculty" },
+  { id: "rec-fac-5", name: "Sarah Chen", email: "sarah.chen@axis.edu", category: "Faculty" },
+  { id: "rec-fac-6", name: "Aarav Chen", email: "aarav.chen@axis.edu", category: "Faculty" },
+  { id: "rec-fac-7", name: "Marcus Vance", email: "marcus.vance@axis.edu", category: "Faculty" },
+  { id: "rec-fac-8", name: "Ananya Rao", email: "ananya.rao@axis.edu", category: "Faculty" },
+  { id: "rec-fac-9", name: "Clara Dupont", email: "clara.dupont@axis.edu", category: "Faculty" },
+  { id: "rec-fac-10", name: "Robert Blake", email: "robert.blake@axis.edu", category: "Faculty" },
+
+  // Guardians & Parents
+  { id: "rec-gdn-1", name: "DP1 Parents/Guardians", email: "dp1.parents@family.com", category: "Guardians" },
+  { id: "rec-gdn-2", name: "DP2 Parents/Guardians", email: "dp2.parents@family.com", category: "Guardians" },
+  { id: "rec-gdn-3", name: "Grade 11 Parents", email: "g11.parents@family.com", category: "Guardians" },
+  { id: "rec-gdn-4", name: "Grade 12 Parents", email: "g12.parents@family.com", category: "Guardians" },
+  { id: "rec-gdn-5", name: "David Vance", email: "david.vance@family.com", category: "Guardians" },
+  { id: "rec-gdn-6", name: "Helena Watson", email: "helena.watson@family.com", category: "Guardians" },
+
+  // Students
+  { id: "rec-std-1", name: "Chloe Vance", email: "chloe.vance@axis.edu", category: "Programme" },
+  { id: "rec-std-2", name: "Lucas Gray", email: "lucas.gray@axis.edu", category: "Programme" },
+  { id: "rec-std-3", name: "Dilan Patel", email: "dilan.patel@axis.edu", category: "Programme" },
+  { id: "rec-std-4", name: "Emma Watson", email: "emma.watson@axis.edu", category: "Programme" },
+  { id: "rec-prg-1", name: "IB DP Candidates", email: "dp.candidates@axis.edu", category: "Programme" },
+  { id: "rec-prg-2", name: "MYP Students", email: "myp.students@axis.edu", category: "Programme" },
+  { id: "rec-prg-3", name: "CP Candidates", email: "cp.candidates@axis.edu", category: "Programme" },
+
+  // Cohorts
+  { id: "rec-grd-1", name: "Grade 11 Cohort", email: "g11.cohort@axis.edu", category: "Grade-Level" },
+  { id: "rec-grd-2", name: "Grade 12 Cohort", email: "g12.cohort@axis.edu", category: "Grade-Level" },
+
+  // Subject Leads & Departments
+  { id: "rec-sub-1", name: "EE Supervisors", email: "ee.supervisors@axis.edu", category: "Subject Lead" },
+  { id: "rec-sub-2", name: "TOK Essay Advisors", email: "tok.advisors@axis.edu", category: "Subject Lead" },
+  { id: "rec-sub-3", name: "Subject Heads", email: "subject.heads@axis.edu", category: "Subject Lead" },
+  { id: "rec-dep-1", name: "Science Department", email: "science.dept@axis.edu", category: "Department" },
+  { id: "rec-dep-2", name: "Math Department", email: "math.dept@axis.edu", category: "Department" },
+  { id: "rec-dep-3", name: "Admin Staff", email: "admin.staff@axis.edu", category: "Department" },
+
+  // Custom Groups & External Orgs
+  { id: "rec-grp-1", name: "DP1 Teachers", email: "dp1.teachers@axis.edu", category: "Faculty" },
+  { id: "rec-grp-2", name: "Leadership Team", email: "leadership@axis.edu", category: "Faculty" },
+  { id: "rec-grp-3", name: "Parent Representative", email: "parent.rep@family.com", category: "Guardians" },
+  { id: "rec-ext-1", name: "External Consultant", email: "consultant.ext@axis.edu", category: "Broadcast" },
+  { id: "rec-ext-2", name: "IB Evaluation Board", email: "ib.eval@ib.org", category: "Broadcast" },
+
+  // Broadcasts
+  { id: "rec-bdc-1", name: "All School Members", email: "all@axis.edu", category: "Broadcast" },
+  { id: "rec-bdc-2", name: "DP Cohort Announcement", email: "dp.announcements@axis.edu", category: "Broadcast" },
+];
+
+function parseRecipientsString(str: string): RecipientTarget[] {
+  if (!str) return [];
+  return str.split(",").map((part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return null;
+    const found = RECIPIENT_TARGETS.find(
+      (t) => t.name.toLowerCase() === trimmed.toLowerCase() || t.email.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (found) return found;
+    return {
+      id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: trimmed,
+      email: trimmed,
+      category: "Faculty"
+    } as RecipientTarget;
+  }).filter(Boolean) as RecipientTarget[];
+}
+
+function handleRecipientInputKeyDown(
+  e: React.KeyboardEvent<HTMLInputElement>,
+  list: RecipientTarget[],
+  setList: React.Dispatch<React.SetStateAction<RecipientTarget[]>>,
+  searchVal: string,
+  setSearchVal: React.Dispatch<React.SetStateAction<string>>
+) {
+  if (e.key === "Enter" || e.key === "," || e.key === ";") {
+    e.preventDefault();
+    const trimmed = searchVal.trim().replace(/[;,]$/, "").trim();
+    if (!trimmed) return;
+    if (list.some((r) => r.email.toLowerCase() === trimmed.toLowerCase())) {
+      setSearchVal("");
+      return;
+    }
+    const newRecipient: RecipientTarget = {
+      id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: trimmed,
+      email: trimmed,
+      category: "Faculty"
+    };
+    setList([...list, newRecipient]);
+    setSearchVal("");
+  } else if (e.key === "Backspace" && !searchVal && list.length > 0) {
+    setList(list.slice(0, -1));
+  }
+}
+
 export function EmailWorkspace() {
   const [activeFolder, setActiveFolder] = useState<EmailFolder>("inbox");
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>("em-1");
   const [searchQuery, setSearchQuery] = useState("");
   const [contextOverlay, setContextOverlay] = useState<ContextOverlay>(null);
   const [emails, setEmails] = useState<Email[]>(EMAILS);
+
+  const [selectedContext, setSelectedContext] = useState<DetectedContext | null>(null);
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+  const [contextToast, setContextToast] = useState<string | null>(null);
 
   // Accounts State
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([
@@ -546,6 +664,59 @@ export function EmailWorkspace() {
   const [newEmail, setNewEmail] = useState("");
   const [newLabel, setNewLabel] = useState<"work" | "home" | "custom">("work");
   const [newCustomLabel, setNewCustomLabel] = useState("");
+
+  // Compose Modal States
+  const [showComposeModal, setShowComposeModal] = useState(false);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [composeTo, setComposeTo] = useState<RecipientTarget[]>([]);
+  const [composeCc, setComposeCc] = useState<RecipientTarget[]>([]);
+  const [composeBcc, setComposeBcc] = useState<RecipientTarget[]>([]);
+  const [toSearch, setToSearch] = useState("");
+  const [ccSearch, setCcSearch] = useState("");
+  const [bccSearch, setBccSearch] = useState("");
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState(""); // Stores HTML/Rich text string
+  const [composeAttachments, setComposeAttachments] = useState<string[]>([]);
+  const [isDragOverAttachment, setIsDragOverAttachment] = useState(false);
+  const [draftSavedStatus, setDraftSavedStatus] = useState("");
+
+  // Autocomplete UI Suggestions states
+  const [showToSuggestions, setShowToSuggestions] = useState(false);
+  const [showCcSuggestions, setShowCcSuggestions] = useState(false);
+  const [showBccSuggestions, setShowBccSuggestions] = useState(false);
+
+  // Recipient autocompletes list filters
+  const filteredToSuggestions = useMemo(() => {
+    const q = toSearch.toLowerCase().trim();
+    return RECIPIENT_TARGETS.filter((t) => {
+      const isAlreadySelected = composeTo.some((r) => r.email.toLowerCase() === t.email.toLowerCase());
+      if (isAlreadySelected) return false;
+      if (!q) return true;
+      return t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
+    });
+  }, [toSearch, composeTo]);
+
+  const filteredCcSuggestions = useMemo(() => {
+    const q = ccSearch.toLowerCase().trim();
+    return RECIPIENT_TARGETS.filter((t) => {
+      const isAlreadySelected = composeCc.some((r) => r.email.toLowerCase() === t.email.toLowerCase());
+      if (isAlreadySelected) return false;
+      if (!q) return true;
+      return t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
+    });
+  }, [ccSearch, composeCc]);
+
+  const filteredBccSuggestions = useMemo(() => {
+    const q = bccSearch.toLowerCase().trim();
+    return RECIPIENT_TARGETS.filter((t) => {
+      const isAlreadySelected = composeBcc.some((r) => r.email.toLowerCase() === t.email.toLowerCase());
+      if (isAlreadySelected) return false;
+      if (!q) return true;
+      return t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
+    });
+  }, [bccSearch, composeBcc]);
 
   const activeAccount = useMemo(() => {
     return accounts.find((a) => a.email === activeAccountEmail) || accounts[0];
@@ -582,6 +753,96 @@ export function EmailWorkspace() {
     return emailAcc === activeAccountEmail ? email : null;
   }, [emails, selectedEmailId, activeAccountEmail]);
 
+  const detectedContexts = useMemo(() => {
+    if (!selectedEmail) return [];
+    return detectContextInText(selectedEmail.body);
+  }, [selectedEmail]);
+
+  const handleContextAction = (context: DetectedContext) => {
+    setSelectedContext(context);
+    setIsContextModalOpen(true);
+  };
+
+  const handleContextConfirm = (context: DetectedContext, formData: Record<string, string>) => {
+    const contextData = {
+      ...context,
+      title: formData.title || context.title,
+      description: formData.description || context.description,
+      date: formData.date || context.date,
+      time: formData.time || context.time,
+      targetGroup: formData.targetGroup || context.targetGroup,
+      participants: formData.participants ? formData.participants.split(",").map(p => p.trim()) : context.participants
+    };
+
+    if (context.type === "meeting") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingMeeting = contextData;
+      }
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "meeting",
+          autoOpen: true,
+          context: contextData
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "meetings", autoOpenModal: true }
+      }));
+    } else if (context.type === "task" || context.type === "assignment") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        if (context.type === "task") win.axisContextPendingTask = contextData;
+        else win.axisContextPendingAssignment = contextData;
+      }
+      const targetClass = contextData.targetGroup || "Grade 11 Physics (B)";
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: context.type,
+          autoOpen: true,
+          context: contextData,
+          targetClass
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "class-space", targetClass, autoOpenModal: true }
+      }));
+    } else if (context.type === "event" || context.type === "calendar") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingEvent = contextData;
+      }
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: context.type === "calendar" ? "calendar" : "event",
+          autoOpen: true,
+          context: contextData
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "calendar", autoOpenModal: true }
+      }));
+    } else if (context.type === "announcement") {
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "announcement",
+          autoOpen: true,
+          context: contextData,
+          targetClass: contextData.targetGroup || "Grade 11 Physics (B)"
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "home", autoOpenModal: true }
+      }));
+    }
+
+    setContextToast(`✓ ${context.type.charAt(0).toUpperCase() + context.type.slice(1)} created successfully`);
+    setTimeout(() => setContextToast(null), 2500);
+  };
+
   const handleSelectEmail = (id: string) => {
     setSelectedEmailId(id);
     setEmails((prev) =>
@@ -601,6 +862,273 @@ export function EmailWorkspace() {
       prev.map((em) => (em.id === id ? { ...em, folder: "archived" as EmailFolder } : em))
     );
     setSelectedEmailId(null);
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const triggerToast = (msg: string) => {
+    setContextToast(msg);
+    setTimeout(() => setContextToast(null), 3000);
+  };
+
+  const handleSendEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (composeTo.length === 0 || !composeSubject.trim() || !composeBody.trim()) return;
+
+    const newSentEmail: Email = {
+      id: `em-sent-${Date.now()}`,
+      from: "Aarav Chen",
+      fromRole: "Physics Teacher",
+      fromAvatar: "AC",
+      to: composeTo.map((r) => r.name || r.email).join(", "),
+      cc: composeCc.map((r) => r.name || r.email).join(", ") || undefined,
+      bcc: composeBcc.map((r) => r.name || r.email).join(", ") || undefined,
+      subject: composeSubject,
+      preview: composeBody.replace(/<[^>]*>/g, "").slice(0, 80),
+      body: composeBody,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: "Today",
+      folder: "sent",
+      isRead: true,
+      isStarred: false,
+      tags: composeAttachments.length > 0 ? [...composeAttachments] : [],
+      accountEmail: activeAccountEmail,
+    };
+
+    setEmails((prev) => {
+      const filtered = activeDraftId ? prev.filter((em) => em.id !== activeDraftId) : prev;
+      return [newSentEmail, ...filtered];
+    });
+
+    setShowComposeModal(false);
+    setComposeTo([]);
+    setComposeCc([]);
+    setComposeBcc([]);
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
+    setComposeSubject("");
+    setComposeBody("");
+    setComposeAttachments([]);
+    setActiveDraftId(null);
+    triggerToast("Email dispatched successfully.");
+  };
+
+  const handleOpenComposeDraft = () => {
+    setActiveDraftId(null);
+    setComposeTo([]);
+    setComposeCc([]);
+    setComposeBcc([]);
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
+    setComposeSubject("");
+    setComposeBody("");
+    setComposeAttachments([]);
+    setShowCc(false);
+    setShowBcc(false);
+    setShowComposeModal(true);
+    setDraftSavedStatus("");
+  };
+
+  const handleDiscardDraft = () => {
+    if (activeDraftId) {
+      setEmails((prev) => prev.filter((e) => e.id !== activeDraftId));
+      setSelectedEmailId(null);
+    }
+    setShowComposeModal(false);
+    setActiveDraftId(null);
+    setComposeTo([]);
+    setComposeCc([]);
+    setComposeBcc([]);
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
+    setComposeSubject("");
+    setComposeBody("");
+    setComposeAttachments([]);
+    triggerToast("Draft discarded.");
+  };
+
+  const handleOpenDraft = (draft: Email) => {
+    setActiveDraftId(draft.id);
+    setComposeTo(parseRecipientsString(draft.to));
+    setComposeCc(parseRecipientsString(draft.cc || ""));
+    setComposeBcc(parseRecipientsString(draft.bcc || ""));
+    setToSearch("");
+    setCcSearch("");
+    setBccSearch("");
+    setComposeSubject(draft.subject);
+    setComposeBody(draft.body);
+    setComposeAttachments(draft.tags?.filter((t) => t !== "draft") || []);
+    setShowCc(!!draft.cc);
+    setShowBcc(!!draft.bcc);
+    setShowComposeModal(true);
+    setDraftSavedStatus("Draft loaded");
+  };
+
+  useEffect(() => {
+    if (!showComposeModal) return;
+
+    const hasContent =
+      composeTo.length > 0 ||
+      composeCc.length > 0 ||
+      composeBcc.length > 0 ||
+      composeSubject.trim() ||
+      composeBody.trim() ||
+      composeAttachments.length > 0;
+
+    if (!hasContent) return;
+
+    const timer = setTimeout(() => {
+      let draftId = activeDraftId;
+      if (!draftId) {
+        draftId = `draft-${Date.now()}`;
+        setActiveDraftId(draftId);
+      }
+
+      const draftEmail: Email = {
+        id: draftId,
+        from: "Aarav Chen",
+        fromRole: "Physics Teacher",
+        fromAvatar: "AC",
+        to: composeTo.map((r) => r.name || r.email).join(", "),
+        cc: composeCc.map((r) => r.name || r.email).join(", ") || undefined,
+        bcc: composeBcc.map((r) => r.name || r.email).join(", ") || undefined,
+        subject: composeSubject || "(No Subject)",
+        preview: composeBody.replace(/<[^>]*>/g, "").slice(0, 80) || "(No Content)",
+        body: composeBody,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        date: "Today",
+        folder: "drafts",
+        isRead: true,
+        isStarred: false,
+        tags: composeAttachments.length > 0 ? ["draft", ...composeAttachments] : ["draft"],
+        accountEmail: activeAccountEmail,
+      };
+
+      setEmails((prev) => {
+        const index = prev.findIndex((e) => e.id === draftId);
+        if (index > -1) {
+          const next = [...prev];
+          next[index] = draftEmail;
+          return next;
+        } else {
+          return [draftEmail, ...prev];
+        }
+      });
+
+      setDraftSavedStatus("Saved just now");
+    }, 1000);
+
+    setDraftSavedStatus("Saving...");
+    return () => clearTimeout(timer);
+  }, [composeTo, composeCc, composeBcc, composeSubject, composeBody, composeAttachments, showComposeModal, activeDraftId, activeAccountEmail]);
+
+  useEffect(() => {
+    const handleCompose = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setActiveDraftId(null);
+        setComposeTo(parseRecipientsString(customEvent.detail.to || ""));
+        setComposeCc(parseRecipientsString(customEvent.detail.cc || ""));
+        setComposeBcc(parseRecipientsString(customEvent.detail.bcc || ""));
+        setComposeSubject(customEvent.detail.subject || "");
+        setComposeBody(customEvent.detail.body || "");
+        setComposeAttachments([]);
+        setShowCc(!!customEvent.detail.cc);
+        setShowBcc(!!customEvent.detail.bcc);
+        setShowComposeModal(true);
+        setDraftSavedStatus("");
+      }
+    };
+    window.addEventListener("axis-compose-email", handleCompose);
+
+    const win = window as typeof window & {
+      pendingComposeEmail?: { to: string; subject: string; body: string };
+    };
+    if (typeof window !== "undefined" && win.pendingComposeEmail) {
+      const details = win.pendingComposeEmail;
+      setActiveDraftId(null);
+      setComposeTo(parseRecipientsString(details.to || ""));
+      setComposeCc([]);
+      setComposeBcc([]);
+      setComposeSubject(details.subject || "");
+      setComposeBody(details.body || "");
+      setComposeAttachments([]);
+      setShowCc(false);
+      setShowBcc(false);
+      setShowComposeModal(true);
+      setDraftSavedStatus("");
+      delete win.pendingComposeEmail;
+    }
+
+    return () => window.removeEventListener("axis-compose-email", handleCompose);
+  }, []);
+
+  useEffect(() => {
+    if (showComposeModal && editorRef.current) {
+      if (editorRef.current.innerHTML !== composeBody) {
+        editorRef.current.innerHTML = composeBody;
+      }
+    }
+  }, [showComposeModal, composeBody]);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverAttachment(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOverAttachment(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverAttachment(false);
+    try {
+      const dataStr = e.dataTransfer.getData("application/json");
+      if (dataStr) {
+        const payload = JSON.parse(dataStr);
+        if (payload && payload.title) {
+          if (!composeAttachments.includes(payload.title)) {
+            setComposeAttachments((prev) => [...prev, payload.title]);
+            triggerToast(`Linked "${payload.title}" as email attachment.`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error parsing dropped attachment:", err);
+    }
+  };
+
+  const handleRemoveAttachment = (fileName: string) => {
+    setComposeAttachments((prev) => prev.filter((name) => name !== fileName));
+  };
+
+  const handleFileUploadTrigger = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const name = e.target.files[0].name;
+      if (!composeAttachments.includes(name)) {
+        setComposeAttachments((prev) => [...prev, name]);
+      }
+    }
+  };
+
+  const execEditorCommand = (command: string, value: string = "") => {
+    if (typeof document !== "undefined") {
+      document.execCommand(command, false, value);
+      if (editorRef.current) {
+        setComposeBody(editorRef.current.innerHTML);
+      }
+    }
   };
 
   // Connect New Account Callback
@@ -660,6 +1188,16 @@ Axis Admin System`,
 
   // Render body text with highlighted keywords for Context
   const renderHighlightedBody = (text: string) => {
+    if (detectedContexts.length > 0) {
+      return (
+        <MessageTextWithTeacherContext
+          text={text}
+          contexts={detectedContexts}
+          onAction={handleContextAction}
+        />
+      );
+    }
+
     const keywords = Object.keys(ENTITY_CONTEXT);
     const sortedKeywords = [...keywords].sort((a, b) => b.length - a.length);
 
@@ -769,7 +1307,10 @@ Axis Admin System`,
 
         {/* Compose Button */}
         <div className="p-safe-md">
-          <button className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-[#09090b] bg-white hover:bg-white/90 rounded-lg shadow-md transition-all">
+          <button
+            onClick={handleOpenComposeDraft}
+            className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-[#09090b] bg-white hover:bg-white/90 rounded-lg shadow-md transition-all"
+          >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
             </svg>
@@ -836,7 +1377,13 @@ Axis Admin System`,
               return (
                 <div
                   key={email.id}
-                  onClick={() => handleSelectEmail(email.id)}
+                  onClick={() => {
+                    if (email.folder === "drafts") {
+                      handleOpenDraft(email);
+                    } else {
+                      handleSelectEmail(email.id);
+                    }
+                  }}
                   className={`p-safe-md rounded-lg border cursor-pointer transition-all ${
                     isSelected
                       ? "bg-white/[0.07] border-white/20"
@@ -1082,6 +1629,390 @@ Axis Admin System`,
               </form>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <TeacherContextActionModal
+        context={selectedContext}
+        isOpen={isContextModalOpen}
+        onClose={() => {
+          setIsContextModalOpen(false);
+          setSelectedContext(null);
+        }}
+        onConfirm={handleContextConfirm}
+      />
+
+      {/* 5. Compose / Edit Draft Modal */}
+      <AnimatePresence>
+        {showComposeModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 bg-black/85 backdrop-blur-sm">
+            <div className="fixed inset-0 cursor-default" onClick={handleDiscardDraft} />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative w-full max-w-2xl border p-5 md:p-6 rounded-2xl shadow-2xl z-10 flex flex-col gap-4 transition-all duration-200 ${
+                isDragOverAttachment ? "ring-2 ring-cyan-400 border-cyan-400/50 scale-[1.01]" : ""
+              } bg-[#0E0E10] border-white/10 text-white`}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b pb-3 border-white/10">
+                <h3 className="text-xs font-bold uppercase tracking-wider">
+                  {activeDraftId ? "Edit Saved Draft" : "New Axis Message"}
+                </h3>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-medium text-white/40">
+                    {draftSavedStatus}
+                  </span>
+                  <button type="button" onClick={handleDiscardDraft} className="text-white/40 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-white/5 transition-all">✕</button>
+                </div>
+              </div>
+
+              {/* Composition Form */}
+              <form onSubmit={handleSendEmail} className="space-y-3.5 text-xs font-bold border-none flex-1 flex flex-col min-h-0">
+                {/* To Field with suggestions */}
+                <div className="space-y-1.5 relative">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] uppercase tracking-wider text-zinc-500">Recipient (To)</label>
+                    <div className="flex gap-2">
+                      {!showCc && (
+                        <button type="button" onClick={() => setShowCc(true)} className="text-[9px] font-bold text-cyan-400 hover:underline">+ CC</button>
+                      )}
+                      {!showBcc && (
+                        <button type="button" onClick={() => setShowBcc(true)} className="text-[9px] font-bold text-cyan-400 hover:underline">+ BCC</button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-zinc-850 bg-zinc-950 text-white focus-within:border-cyan-500 transition-all">
+                    {composeTo.map((recipient) => (
+                      <div
+                        key={recipient.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-white/5 text-white hover:bg-white/10 transition-all"
+                      >
+                        <span>{recipient.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setComposeTo(composeTo.filter((r) => r.id !== recipient.id))}
+                          className="text-white/40 hover:text-white font-bold ml-0.5 text-xs select-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <input
+                      type="text"
+                      required={composeTo.length === 0}
+                      value={toSearch}
+                      onFocus={() => setShowToSuggestions(true)}
+                      onKeyDown={(e) => handleRecipientInputKeyDown(e, composeTo, setComposeTo, toSearch, setToSearch)}
+                      onChange={(e) => { setToSearch(e.target.value); setShowToSuggestions(true); }}
+                      placeholder={composeTo.length === 0 ? "Search groups, departments or enter email..." : ""}
+                      className="flex-grow min-w-[120px] bg-transparent border-none outline-none text-xs text-white placeholder-white/35"
+                    />
+                  </div>
+                  {showToSuggestions && filteredToSuggestions.length > 0 && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowToSuggestions(false)} />
+                      <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto z-40 border rounded-xl p-1 shadow-2xl bg-[#0A0A0C] border-zinc-850">
+                        {filteredToSuggestions.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              if (!composeTo.some((r) => r.email.toLowerCase() === t.email.toLowerCase())) {
+                                setComposeTo([...composeTo, t]);
+                              }
+                              setToSearch("");
+                              setShowToSuggestions(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left transition-colors hover:bg-white/5 text-white"
+                          >
+                            <span className="font-semibold">{t.name}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-white/40">{t.category}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* CC Line */}
+                {showCc && (
+                  <div className="space-y-1.5 relative">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] uppercase tracking-wider text-zinc-500">Carbon Copy (CC)</label>
+                      <button type="button" onClick={() => { setShowCc(false); setComposeCc([]); }} className="text-[9px] font-bold text-red-400 hover:underline">Remove</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-zinc-850 bg-zinc-950 text-white focus-within:border-cyan-500 transition-all">
+                      {composeCc.map((recipient) => (
+                        <div
+                          key={recipient.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-white/5 text-white hover:bg-white/10 transition-all"
+                        >
+                          <span>{recipient.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setComposeCc(composeCc.filter((r) => r.id !== recipient.id))}
+                            className="text-white/40 hover:text-white font-bold ml-0.5 text-xs select-none"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <input
+                        type="text"
+                        value={ccSearch}
+                        onFocus={() => setShowCcSuggestions(true)}
+                        onKeyDown={(e) => handleRecipientInputKeyDown(e, composeCc, setComposeCc, ccSearch, setCcSearch)}
+                        onChange={(e) => { setCcSearch(e.target.value); setShowCcSuggestions(true); }}
+                        placeholder={composeCc.length === 0 ? "Enter CC recipient..." : ""}
+                        className="flex-grow min-w-[120px] bg-transparent border-none outline-none text-xs text-white placeholder-white/35"
+                      />
+                    </div>
+                    {showCcSuggestions && filteredCcSuggestions.length > 0 && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowCcSuggestions(false)} />
+                        <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto z-40 border rounded-xl p-1 shadow-2xl bg-[#0A0A0C] border-zinc-850">
+                          {filteredCcSuggestions.map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                if (!composeCc.some((r) => r.email.toLowerCase() === t.email.toLowerCase())) {
+                                  setComposeCc([...composeCc, t]);
+                                }
+                                setCcSearch("");
+                                setShowCcSuggestions(false);
+                              }}
+                              className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left transition-colors hover:bg-white/5 text-white"
+                            >
+                              <span className="font-semibold">{t.name}</span>
+                              <span className="text-[8px] uppercase tracking-widest text-white/30">{t.category}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* BCC Line */}
+                {showBcc && (
+                  <div className="space-y-1.5 relative">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] uppercase tracking-wider text-zinc-500">Blind Carbon Copy (BCC)</label>
+                      <button type="button" onClick={() => { setShowBcc(false); setComposeBcc([]); }} className="text-[9px] font-bold text-red-400 hover:underline">Remove</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-zinc-850 bg-zinc-950 text-white focus-within:border-cyan-500 transition-all">
+                      {composeBcc.map((recipient) => (
+                        <div
+                          key={recipient.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-white/5 text-white hover:bg-white/10 transition-all"
+                        >
+                          <span>{recipient.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setComposeBcc(composeBcc.filter((r) => r.id !== recipient.id))}
+                            className="text-white/40 hover:text-white font-bold ml-0.5 text-xs select-none"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <input
+                        type="text"
+                        value={bccSearch}
+                        onFocus={() => setShowBccSuggestions(true)}
+                        onKeyDown={(e) => handleRecipientInputKeyDown(e, composeBcc, setComposeBcc, bccSearch, setBccSearch)}
+                        onChange={(e) => { setBccSearch(e.target.value); setShowBccSuggestions(true); }}
+                        placeholder={composeBcc.length === 0 ? "Enter BCC recipient..." : ""}
+                        className="flex-grow min-w-[120px] bg-transparent border-none outline-none text-xs text-white placeholder-white/35"
+                      />
+                    </div>
+                    {showBccSuggestions && filteredBccSuggestions.length > 0 && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowBccSuggestions(false)} />
+                        <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto z-40 border rounded-xl p-1 shadow-2xl bg-[#0A0A0C] border-zinc-850">
+                          {filteredBccSuggestions.map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                if (!composeBcc.some((r) => r.email.toLowerCase() === t.email.toLowerCase())) {
+                                  setComposeBcc([...composeBcc, t]);
+                                }
+                                setBccSearch("");
+                                setShowBccSuggestions(false);
+                              }}
+                              className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left transition-colors hover:bg-white/5 text-white"
+                            >
+                              <span className="font-semibold">{t.name}</span>
+                              <span className="text-[8px] uppercase tracking-widest text-white/30">{t.category}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Subject field */}
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-zinc-500">Subject</label>
+                  <input
+                    type="text"
+                    required
+                    value={composeSubject}
+                    onChange={(e) => setComposeSubject(e.target.value)}
+                    placeholder="e.g. Physics Lab safety guidelines"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-850 bg-zinc-950 text-white focus:border-cyan-500 outline-none transition-all"
+                  />
+                </div>
+
+                {/* Rich text editor with formatting toolbar */}
+                <div className="space-y-1 flex-grow flex flex-col min-h-0">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] uppercase tracking-wider text-zinc-500">Message Body</label>
+                    {/* Rich text editing keys */}
+                    <div className="flex items-center gap-1 bg-white/[0.02] border border-white/5 p-0.5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => execEditorCommand("bold")}
+                        className="size-5 flex items-center justify-center rounded hover:bg-white/5 text-[10px] font-bold text-white/80"
+                        title="Bold"
+                      >
+                        B
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => execEditorCommand("italic")}
+                        className="size-5 flex items-center justify-center rounded hover:bg-white/5 text-[10px] italic font-serif text-white/80"
+                        title="Italic"
+                      >
+                        I
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => execEditorCommand("underline")}
+                        className="size-5 flex items-center justify-center rounded hover:bg-white/5 text-[10px] underline text-white/80"
+                        title="Underline"
+                      >
+                        U
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => execEditorCommand("insertUnorderedList")}
+                        className="size-5 flex items-center justify-center rounded hover:bg-white/5 text-[10px] text-white/80"
+                        title="Bullet List"
+                      >
+                        •
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-grow border border-zinc-850 rounded-xl bg-zinc-950 overflow-hidden flex flex-col min-h-[140px] relative">
+                    <div
+                      ref={editorRef}
+                      contentEditable
+                      onBlur={() => {
+                        if (editorRef.current) {
+                          setComposeBody(editorRef.current.innerHTML);
+                        }
+                      }}
+                      className="flex-grow p-3 text-xs outline-none text-white overflow-y-auto prose prose-invert prose-xs min-h-[140px] select-text"
+                    />
+                    {!composeBody && (
+                      <span className="absolute left-3 top-3 text-white/30 text-xs pointer-events-none select-none">
+                        Write email draft here...
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Linked Documents list */}
+                {composeAttachments.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider text-zinc-500">Linked Documents ({composeAttachments.length})</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {composeAttachments.map((file) => (
+                        <div
+                          key={file}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg text-[10px]"
+                        >
+                          <span>{file}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAttachment(file)}
+                            className="text-cyan-400/60 hover:text-cyan-400 font-extrabold text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Form Footer Action panel */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-auto">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleFileUploadTrigger}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/80 rounded-lg text-[11px] border border-white/5 transition-all"
+                    >
+                      <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 0l-3.536 3.536m3.536-3.536L15 12M9 15.5H3m15.364-5.636L12 18.364M12 18.364l-3.536-3.536M12 12l-3.536 3.536M3 15.5l3.536-3.536M3 15.5l3.536 3.536" />
+                      </svg>
+                      File
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <span className="text-[9px] text-white/30 font-medium hidden sm:inline">
+                      Drag files into compose box to link
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDiscardDraft}
+                      className="px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-[11px] text-white/70 hover:text-white transition-all font-semibold"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 bg-white hover:bg-white/90 text-zinc-950 font-extrabold rounded-lg text-[11px] transition-all shadow-md"
+                    >
+                      Send Message
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {contextToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-xl border border-cyan-500/30 bg-[#0E0E10]/95 backdrop-blur-md shadow-2xl flex items-center gap-2.5 text-xs text-cyan-400 font-semibold"
+          >
+            {contextToast}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { StudentSupportFlag, ACCOMMODATIONS_MAP, type StudentSupportInfo } from "../student-support-context";
+import { StudentStatisticsProfile } from "../coordinator-demo/student-statistics-profile";
 
 type Student = {
   id: string;
@@ -80,11 +82,26 @@ export function AttendanceWorkspace({
   const [filter, setFilter] = useState<"all" | "present" | "absent" | "late">("all");
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null);
+  const [showAccommodationsList, setShowAccommodationsList] = useState(false);
 
   const rosters = propsRosters !== undefined ? propsRosters : localRosters;
   const selectedClass = propsSelectedClass !== undefined ? propsSelectedClass : localSelectedClass;
 
   const activeClassData = rosters[selectedClass];
+
+  const activeClassAccommodations = useMemo(() => {
+    if (!activeClassData) return [];
+    return activeClassData.roster
+      .map((student) => {
+        const info = ACCOMMODATIONS_MAP[student.name];
+        if (info && info.planActive) {
+          return { student, ...info };
+        }
+        return null;
+      })
+      .filter(Boolean) as (StudentSupportInfo & { student: Student })[];
+  }, [activeClassData]);
 
   const handleStatusChange = (studentId: string, newStatus: Student["status"]) => {
     if (onStatusChange) {
@@ -215,6 +232,60 @@ export function AttendanceWorkspace({
           </div>
         </div>
 
+        {/* Roll-Call Access Arrangements Warning */}
+        {activeClassAccommodations.length > 0 && (
+          <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-3 text-left">
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5 font-mono">
+                <span className="size-2 rounded-full bg-indigo-400 animate-pulse shadow-[0_0_6px_#818cf8]" />
+                {activeClassAccommodations.length} student{activeClassAccommodations.length > 1 ? "s" : ""} in this session require access arrangements.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAccommodationsList(!showAccommodationsList)}
+                className="text-[9px] uppercase tracking-wider font-extrabold text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                {showAccommodationsList ? "[Hide Details]" : "[Show Details]"}
+              </button>
+            </div>
+            {showAccommodationsList && (
+              <div className="overflow-x-auto border-t border-indigo-500/10 pt-2.5">
+                <table className="w-full text-left border-collapse text-[10.5px]">
+                  <thead>
+                    <tr className="text-[8px] font-bold uppercase tracking-widest text-indigo-400/60 border-b border-indigo-500/10">
+                      <th className="pb-1.5">Student Name</th>
+                      <th className="pb-1.5">Provisions</th>
+                      <th className="pb-1.5 text-right">Verification Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-indigo-500/5 text-white/80">
+                    {activeClassAccommodations.map((item) => (
+                      <tr key={item.student.id} className="hover:bg-indigo-500/[0.02] transition-colors">
+                        <td className="py-2 font-semibold flex items-center gap-1">
+                          {item.student.name}
+                          <StudentSupportFlag studentName={item.student.name} onViewProfile={() => setProfileStudentId(item.student.id)} />
+                        </td>
+                        <td className="py-2 font-medium">
+                          {item.provisions.join(" · ")}
+                        </td>
+                        <td className="py-2 text-right">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${
+                            item.status === "Verified by IB"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          }`}>
+                            {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Filter bar */}
         <div className="flex flex-wrap items-center justify-between gap-safe-md border-b border-white/[0.06] pb-safe-md">
           <div className="flex items-center gap-1.5">
@@ -262,7 +333,10 @@ export function AttendanceWorkspace({
                       <div className="flex size-7 items-center justify-center rounded-full bg-white/[0.05] border border-white/[0.08] text-[10px] font-bold text-white/70">
                         {student.avatar}
                       </div>
-                      <span className="text-xs font-medium text-white/90">{student.name}</span>
+                      <span className="text-xs font-medium text-white/90 flex items-center">
+                        {student.name}
+                        <StudentSupportFlag studentName={student.name} onViewProfile={() => setProfileStudentId(student.id)} />
+                      </span>
                     </td>
                     <td className="py-3.5 text-center text-xs">
                       <span className={`inline-block size-1.5 rounded-full ${student.deviceSynced ? "bg-white/60" : "bg-white/10"}`} />
@@ -327,6 +401,35 @@ export function AttendanceWorkspace({
               <span className="text-[10px] text-white/40 mt-0.5">Presence logs synced to school office and student profiles.</span>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Teacher-Side Slide-Over Support Profile Drawer */}
+      <AnimatePresence>
+        {profileStudentId && (
+          <div className="fixed inset-0 z-[150] flex justify-end text-left normal-case">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setProfileStudentId(null)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="relative z-10 w-full max-w-2xl bg-zinc-950 border-l border-white/10 p-6 overflow-y-auto shadow-2xl"
+            >
+              <StudentStatisticsProfile
+                theme="axis"
+                selectedStudentId={profileStudentId}
+                isTeacher={true}
+                onBack={() => setProfileStudentId(null)}
+              />
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -3,6 +3,189 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { detectContextInText } from "./teacher-context-engine";
+import { MessageTextWithTeacherContext } from "./teacher-context-trigger";
+import { TeacherContextActionModal } from "./teacher-context-modals";
+import type { DetectedContext } from "./teacher-context-engine";
+
+// ─── Pre-Meeting Calibration Tools ────────────────────────────────────────
+
+interface HTMLVideoElementWithSink extends HTMLVideoElement {
+  setSinkId: (sinkId: string) => Promise<void>;
+}
+
+interface AudioContextWithSink extends AudioContext {
+  setSinkId: (sinkId: string) => Promise<void>;
+}
+
+const defaultCameras = [
+  { deviceId: "default-cam", label: "Integrated FaceTime HD Camera", kind: "videoinput", groupId: "" },
+  { deviceId: "usb-cam-1", label: "Logitech Brio 4K USB Webcam", kind: "videoinput", groupId: "" }
+] as unknown as MediaDeviceInfo[];
+
+const defaultMicrophones = [
+  { deviceId: "default-mic", label: "Built-in MacBook Microphone (Core Audio)", kind: "audioinput", groupId: "" },
+  { deviceId: "studio-mic-1", label: "Yeti Stereo USB Microphone", kind: "audioinput", groupId: "" },
+  { deviceId: "bt-mic-1", label: "AirPods Pro Bluetooth Microphone", kind: "audioinput", groupId: "" }
+] as unknown as MediaDeviceInfo[];
+
+const defaultSpeakers = [
+  { deviceId: "default-spk", label: "MacBook Pro Speakers (Built-in)", kind: "audiooutput", groupId: "" },
+  { deviceId: "bt-spk-1", label: "AirPods Pro Bluetooth Stereo", kind: "audiooutput", groupId: "" },
+  { deviceId: "ext-spk-1", label: "External Display Audio Out", kind: "audiooutput", groupId: "" }
+] as unknown as MediaDeviceInfo[];
+
+function createSimulatedStream(): { stream: MediaStream; cleanup: () => void } {
+  if (typeof window === "undefined") {
+    return { stream: new MediaStream(), cleanup: () => {} };
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 480;
+  const ctx = canvas.getContext("2d");
+  
+  let animationFrameId: number;
+  let phase = 0;
+  
+  const draw = () => {
+    if (!ctx) return;
+    
+    // Draw dark background matching Axis theme
+    ctx.fillStyle = "#0A0A0C";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw some modern digital grid or glowing dots
+    ctx.strokeStyle = "rgba(6, 182, 212, 0.15)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < canvas.width; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvas.height);
+      ctx.stroke();
+    }
+    for (let j = 0; j < canvas.height; j += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, j);
+      ctx.lineTo(canvas.width, j);
+      ctx.stroke();
+    }
+    
+    // Draw cyan sine wave (simulated video/audio signal)
+    ctx.strokeStyle = "#06B6D4"; // Cyan
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let x = 0; x < canvas.width; x++) {
+      const y = canvas.height / 2 + Math.sin(x * 0.01 + phase) * 50;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    
+    // Draw text indicator
+    ctx.fillStyle = "rgba(6, 182, 212, 0.8)";
+    ctx.font = "bold 20px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("SIMULATED CAMERA FEED (NO HARDWARE)", canvas.width / 2, canvas.height / 2 - 80);
+    ctx.font = "14px sans-serif";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillText("Axis Pre-Meeting Calibration Active", canvas.width / 2, canvas.height / 2 + 100);
+    
+    phase += 0.05;
+    animationFrameId = requestAnimationFrame(draw);
+  };
+  
+  draw();
+  
+  const stream = canvas.captureStream ? canvas.captureStream(30) : new MediaStream();
+  
+  // Also create a simulated audio track if Web Audio API is supported
+  let audioContext: AudioContext | null = null;
+  let oscillator: OscillatorNode | null = null;
+  let gainNode: GainNode | null = null;
+  let mediaStreamDestination: MediaStreamAudioDestinationNode | null = null;
+  
+  try {
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (AudioContextClass) {
+      audioContext = new AudioContextClass();
+      oscillator = audioContext.createOscillator();
+      gainNode = audioContext.createGain();
+      mediaStreamDestination = audioContext.createMediaStreamDestination();
+      
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.00001, audioContext.currentTime);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(mediaStreamDestination);
+      oscillator.start();
+      
+      const audioTrack = mediaStreamDestination.stream.getAudioTracks()[0];
+      if (audioTrack && stream.addTrack) {
+        stream.addTrack(audioTrack);
+      }
+    }
+  } catch (e) {
+    console.warn("Web Audio API not supported, audio track omitted from simulated stream:", e);
+  }
+  
+  return {
+    stream,
+    cleanup: () => {
+      cancelAnimationFrame(animationFrameId);
+      if (oscillator) oscillator.stop();
+      if (audioContext) audioContext.close();
+    }
+  };
+}
+
+interface VideoPreviewProps {
+  stream: MediaStream | null;
+  isActive: boolean;
+  className?: string;
+  selectedSpeaker?: string;
+}
+
+function VideoPreview({ stream, isActive, className, selectedSpeaker }: VideoPreviewProps) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+
+    if (isActive && stream) {
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+      }
+      video.play().catch((err: unknown) => {
+        console.warn("Error playing video stream:", err);
+      });
+    } else {
+      video.srcObject = null;
+    }
+  }, [stream, isActive]);
+
+  useEffect(() => {
+    const video = ref.current as HTMLVideoElementWithSink | null;
+    if (!video || !selectedSpeaker) return;
+    if (video.setSinkId) {
+      video.setSinkId(selectedSpeaker).catch((err: unknown) => {
+        console.warn("Error setting sink ID for speaker output:", err);
+      });
+    }
+  }, [selectedSpeaker]);
+
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted
+      className={className}
+    />
+  );
+}
+
 type MeetingItem = {
   id: string;
   title: string;
@@ -186,6 +369,121 @@ export function MeetingsWorkspace({
   const [meetTitle, setMeetTitle] = useState("");
   const [meetPurpose, setMeetPurpose] = useState("");
   const [meetTime, setMeetTime] = useState("12:45 PM (Period 5)");
+
+  const [selectedContext, setSelectedContext] = useState<DetectedContext | null>(null);
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
+  const [contextToast, setContextToast] = useState<string | null>(null);
+
+  const handleContextAction = (context: DetectedContext) => {
+    setSelectedContext(context);
+    setIsContextModalOpen(true);
+  };
+
+  const handleContextConfirm = (context: DetectedContext, formData: Record<string, string>) => {
+    const contextData = {
+      ...context,
+      title: formData.title || context.title,
+      description: formData.description || context.description,
+      date: formData.date || context.date,
+      time: formData.time || context.time,
+      targetGroup: formData.targetGroup || context.targetGroup,
+      participants: formData.participants ? formData.participants.split(",").map(p => p.trim()) : context.participants
+    };
+
+    if (context.type === "meeting") {
+      setMeetTitle(contextData.title || "Coordination Meeting");
+      setMeetPurpose(contextData.description || "");
+      if (contextData.date) {
+        setMeetTime(`${contextData.date} ${contextData.time || "14:30"}`);
+      }
+    } else if (context.type === "task" || context.type === "assignment") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        if (context.type === "task") win.axisContextPendingTask = contextData;
+        else win.axisContextPendingAssignment = contextData;
+      }
+      const targetClass = contextData.targetGroup || "Grade 11 Physics (B)";
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: context.type,
+          autoOpen: true,
+          context: contextData,
+          targetClass
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "class-space", targetClass, autoOpenModal: true }
+      }));
+    } else if (context.type === "event" || context.type === "calendar") {
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        win.axisContextPendingEvent = contextData;
+      }
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: context.type === "calendar" ? "calendar" : "event",
+          autoOpen: true,
+          context: contextData
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "calendar", autoOpenModal: true }
+      }));
+    } else if (context.type === "announcement") {
+      window.dispatchEvent(new CustomEvent("axis-context-auto-action", {
+        detail: {
+          type: "announcement",
+          autoOpen: true,
+          context: contextData,
+          targetClass: contextData.targetGroup || "Grade 11 Physics (B)"
+        }
+      }));
+      window.dispatchEvent(new CustomEvent("axis-navigate-workspace", {
+        detail: { workspace: "home", autoOpenModal: true }
+      }));
+    }
+
+    setContextToast(`✓ ${context.type.charAt(0).toUpperCase() + context.type.slice(1)} created successfully`);
+    setTimeout(() => setContextToast(null), 2500);
+  };
+
+  useEffect(() => {
+    const handleContextAutoAction = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.type === "meeting") {
+        const { context } = customEvent.detail;
+        if (context) {
+          setMeetTitle(context.title || "Coordination Meeting");
+          setMeetPurpose(context.description || context.trigger || "");
+          if (context.date) {
+            setMeetTime(`${context.date} ${context.time || "14:30"}`);
+          }
+        }
+      }
+    };
+    window.addEventListener("axis-context-auto-action", handleContextAutoAction);
+    return () => {
+      window.removeEventListener("axis-context-auto-action", handleContextAutoAction);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      if (win.axisContextPendingMeeting) {
+        const context = win.axisContextPendingMeeting;
+        setMeetTitle(context.title || "Coordination Meeting");
+        setMeetPurpose(context.description || context.trigger || "");
+        if (context.date) {
+          setMeetTime(`${context.date} ${context.time || "14:30"}`);
+        }
+        delete win.axisContextPendingMeeting;
+      }
+    }
+  }, []);
   
   // Custom smart selection picker states
   const [meetingType, setMeetingType] = useState<"class" | "multi-class" | "department" | "staff" | "custom" | "guest">("class");
@@ -350,11 +648,20 @@ export function MeetingsWorkspace({
     return `http://localhost:3000/school/experience/demo?role=guest&meetingId=${tempShareId}&title=${encodeURIComponent(meetTitle.trim() || "Spontaneous Virtual Realignment")}`;
   }, [meetTitle, tempShareId]);
 
-  // Device Calibration states (Inline on RHS)
   const [cameraActive, setCameraActive] = useState(true);
   const [micActive, setMicActive] = useState(true);
-  const [bgBlurActive, setBgBlurActive] = useState(false);
-  const [audioInputDevice, setAudioInputDevice] = useState("System Default (MacBook Mic)");
+
+  // Refactored hardware selections
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [microphones, setMicrophones] = useState<MediaDeviceInfo[]>([]);
+  const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>("");
+  const [selectedMicrophone, setSelectedMicrophone] = useState<string>("");
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string>("");
+  const [permissionStatus, setPermissionStatus] = useState<"pending" | "granted" | "denied">("pending");
+  const [selectedBg, setSelectedBg] = useState<"none" | "blur" | "axis" | "school">("none");
+  const [micLevel, setMicLevel] = useState(0);
+  const [isTestingSpeaker, setIsTestingSpeaker] = useState(false);
 
   // Active Call Session states
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -365,36 +672,104 @@ export function MeetingsWorkspace({
   // Live media stream state
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
 
-  // Initialize and maintain a single local MediaStream
+  // Initialize and enumerate devices/permission
   useEffect(() => {
     let activeStream: MediaStream | null = null;
+    let simulatedCleanup: (() => void) | null = null;
     let isCurrent = true;
 
-    async function setupLocalStream() {
+    async function initDevicesAndStream() {
       try {
-        activeStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-        if (isCurrent) {
-          setLocalStream(activeStream);
-        } else {
-          activeStream.getTracks().forEach(t => t.stop());
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (!isCurrent) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
         }
+        setPermissionStatus("granted");
+        activeStream = stream;
+        setLocalStream(stream);
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevs = devices.filter(d => d.kind === "videoinput");
+        const audioInDevs = devices.filter(d => d.kind === "audioinput");
+        const audioOutDevs = devices.filter(d => d.kind === "audiooutput");
+
+        setCameras(videoDevs.length ? videoDevs : defaultCameras);
+        setMicrophones(audioInDevs.length ? audioInDevs : defaultMicrophones);
+        setSpeakers(audioOutDevs.length ? audioOutDevs : defaultSpeakers);
+
+        if (videoDevs.length && !selectedCamera) setSelectedCamera(videoDevs[0].deviceId);
+        if (audioInDevs.length && !selectedMicrophone) {
+          setSelectedMicrophone(audioInDevs[0].deviceId);
+        }
+        if (audioOutDevs.length && !selectedSpeaker) setSelectedSpeaker(audioOutDevs[0].deviceId);
       } catch (err) {
-        console.warn("Failed to obtain media stream in meetings workspace:", err);
+        console.warn("Media stream access denied or failed, using simulated devices:", err);
+        setPermissionStatus("denied");
+        setCameras(defaultCameras);
+        setMicrophones(defaultMicrophones);
+        setSpeakers(defaultSpeakers);
+        setSelectedCamera("default-cam");
+        setSelectedMicrophone("default-mic");
+        setSelectedSpeaker("default-spk");
+
+        const sim = createSimulatedStream();
+        simulatedCleanup = sim.cleanup;
+        if (isCurrent) {
+          setLocalStream(sim.stream);
+        } else {
+          sim.cleanup();
+        }
       }
     }
 
-    setupLocalStream();
+    initDevicesAndStream();
 
     return () => {
       isCurrent = false;
       if (activeStream) {
         activeStream.getTracks().forEach(t => t.stop());
       }
+      if (simulatedCleanup) {
+        simulatedCleanup();
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Update MediaStream when Camera/Mic selections change
+  useEffect(() => {
+    if (permissionStatus !== "granted") return;
+
+    let isCurrent = true;
+
+    async function updateStream() {
+      try {
+        const constraints: MediaStreamConstraints = {
+          video: selectedCamera ? { deviceId: { exact: selectedCamera } } : true,
+          audio: selectedMicrophone ? { deviceId: { exact: selectedMicrophone } } : true,
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (isCurrent) {
+          if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+          }
+          setLocalStream(stream);
+        } else {
+          stream.getTracks().forEach(t => t.stop());
+        }
+      } catch (err) {
+        console.warn("Failed to update media stream constraints:", err);
+      }
+    }
+
+    updateStream();
+
+    return () => {
+      isCurrent = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCamera, selectedMicrophone, permissionStatus]);
 
   // Synchronize audio track status based on view and mute states
   useEffect(() => {
@@ -415,6 +790,137 @@ export function MeetingsWorkspace({
       });
     }
   }, [localStream, currentView, isVideoMuted, cameraActive]);
+
+  // Real-time Mic Level Analyzer & Simulated fluctuation
+  useEffect(() => {
+    if (!localStream) {
+      setMicLevel(0);
+      return;
+    }
+
+    let audioContext: AudioContext | null = null;
+    let analyser: AnalyserNode | null = null;
+    let microphone: MediaStreamAudioSourceNode | null = null;
+    let javascriptNode: ScriptProcessorNode | null = null;
+    let animationFrameId: number;
+
+    const isActive = currentView === "meeting" ? !isAudioMuted : micActive;
+    if (!isActive) {
+      setMicLevel(0);
+      return;
+    }
+
+    const isSimulated = permissionStatus === "denied";
+
+    if (isSimulated) {
+      let count = 0;
+      const simulateMic = () => {
+        count += 0.15;
+        const base = Math.abs(Math.sin(count)) * 25;
+        const noise = Math.random() * 8;
+        setMicLevel(Math.min(100, Math.max(0, base + noise)));
+        animationFrameId = requestAnimationFrame(simulateMic);
+      };
+      simulateMic();
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+      };
+    }
+
+    try {
+      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      audioContext = new AudioContextClass();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      
+      microphone = audioContext.createMediaStreamSource(localStream);
+      javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+      
+      microphone.connect(analyser);
+      analyser.connect(javascriptNode);
+      javascriptNode.connect(audioContext.destination);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      javascriptNode.onaudioprocess = () => {
+        analyser!.getByteFrequencyData(dataArray);
+        let values = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          values += dataArray[i];
+        }
+        const average = values / bufferLength;
+        setMicLevel(Math.min(100, Math.round((average / 120) * 100)));
+      };
+    } catch (e) {
+      console.warn("Failed to setup audio analyser:", e);
+      let count = 0;
+      const simulateMic = () => {
+        count += 0.1;
+        setMicLevel(Math.round(20 + Math.sin(count) * 10 + Math.random() * 5));
+        animationFrameId = requestAnimationFrame(simulateMic);
+      };
+      simulateMic();
+    }
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (javascriptNode) javascriptNode.disconnect();
+      if (microphone) microphone.disconnect();
+      if (audioContext) audioContext.close();
+    };
+  }, [localStream, micActive, isAudioMuted, currentView, permissionStatus]);
+
+  // Synthesis Speaker Audio Test Chime
+  const handleTestSpeaker = () => {
+    if (isTestingSpeaker) return;
+    setIsTestingSpeaker(true);
+    try {
+      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioContextClass() as AudioContextWithSink;
+      
+      if (selectedSpeaker && ctx.setSinkId) {
+        ctx.setSinkId(selectedSpeaker).catch((err: unknown) => {
+          console.warn("Error setting sink ID:", err);
+        });
+      }
+      
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "triangle";
+      osc1.frequency.setValueAtTime(659.25, now);
+      gain1.gain.setValueAtTime(0, now);
+      gain1.gain.linearRampToValueAtTime(0.15, now + 0.05);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880, now + 0.15);
+      gain2.gain.setValueAtTime(0, now + 0.15);
+      gain2.gain.linearRampToValueAtTime(0.2, now + 0.2);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      
+      osc1.start(now);
+      osc1.stop(now + 0.5);
+      osc2.start(now + 0.15);
+      osc2.stop(now + 0.85);
+      
+      setTimeout(() => {
+        setIsTestingSpeaker(false);
+        ctx.close();
+      }, 1000);
+    } catch (err) {
+      console.warn("Failed to play speaker test chime:", err);
+      setIsTestingSpeaker(false);
+    }
+  };
 
   // Unified Sidebar States
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -1113,82 +1619,284 @@ Follow-ups Generated:
                 </div>
 
                 {/* Inline Live Calibration Tools */}
-                <div className="space-y-safe-sm pt-safe-md border-t border-white/[0.05]">
-                  <span className="text-[9px] font-bold text-white/35 uppercase tracking-widest block">Live Device Calibration</span>
-                  
-                  <div className="grid grid-cols-[1.1fr_0.9fr] gap-safe-md">
-                    {/* Tiny Camera screen */}
-                    <div className="rounded-xl border border-white/[0.06] bg-[#0E0E10] aspect-video flex flex-col justify-between p-safe-sm relative overflow-hidden">
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        {cameraActive ? (
-                          <video
-                            ref={(el) => {
-                              if (el && localStream) {
-                                el.srcObject = localStream;
-                              }
-                            }}
-                            autoPlay
-                            playsInline
-                            muted
-                            className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${bgBlurActive ? "blur-sm opacity-50 scale-102" : "opacity-80"}`}
-                          />
-                        ) : (
-                          <span className="text-[8px] text-white/20">Camera Off</span>
+                <div className="space-y-4 pt-5 border-t border-white/[0.08]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest block text-white/40">
+                      Pre-Meeting Hardware Check
+                    </span>
+                    {permissionStatus === "granted" ? (
+                      <span className="text-[8px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                        System Ready
+                      </span>
+                    ) : permissionStatus === "denied" ? (
+                      <span className="text-[8px] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                        Simulated Mode
+                      </span>
+                    ) : (
+                      <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                        Pending Permission
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Left Column: Live Preview & Mic Activity */}
+                    <div className="space-y-2">
+                      {/* Aspect-video video container with background glow/ring */}
+                      <div className={`relative rounded-xl aspect-video overflow-hidden bg-black border ${
+                        selectedBg === "axis" ? "border-cyan-500 ring-2 ring-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.25)]" :
+                        selectedBg === "school" ? "border-amber-500 ring-2 ring-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.25)]" :
+                        "border-white/10"
+                      }`}>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                          {cameraActive ? (
+                            <VideoPreview
+                              stream={localStream}
+                              isActive={cameraActive}
+                              selectedSpeaker={selectedSpeaker}
+                              className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${
+                                selectedBg === "blur" ? "blur-md opacity-60 scale-105" : "opacity-80"
+                              }`}
+                            />
+                          ) : (
+                            <span className="text-[9px] text-white/30 uppercase tracking-widest font-extrabold">Camera Off</span>
+                          )}
+                        </div>
+
+                        {/* CSS Background overlays */}
+                        {cameraActive && selectedBg === "axis" && (
+                          <div className="absolute inset-0 bg-gradient-to-tr from-cyan-950/40 via-transparent to-transparent pointer-events-none z-10 flex flex-col justify-end p-2">
+                            <span className="text-[7px] font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded self-start flex items-center gap-1 uppercase tracking-widest">
+                              <span className="size-1 rounded-full bg-cyan-400 animate-ping" />
+                              Axis Digital
+                            </span>
+                          </div>
                         )}
+
+                        {cameraActive && selectedBg === "school" && (
+                          <div className="absolute inset-0 bg-gradient-to-tr from-amber-950/40 via-transparent to-transparent pointer-events-none z-10 flex flex-col justify-end p-2">
+                            <span className="text-[7px] font-extrabold text-amber-400 bg-amber-950/80 border border-amber-500/30 px-1.5 py-0.5 rounded self-start flex items-center gap-1 uppercase tracking-widest">
+                              <span className="size-1 rounded-full bg-amber-400 animate-ping" />
+                              School Pride
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Self Label */}
+                        <span className="absolute top-2 left-2 text-[8px] text-white/40 uppercase tracking-widest z-10 font-bold bg-black/40 px-1.5 py-0.5 rounded">
+                          Self Mirror
+                        </span>
+
+                        {/* Video Control Buttons Layer */}
+                        <div className="absolute bottom-2 right-2 flex gap-1 z-20">
+                          <button
+                            type="button"
+                            title={cameraActive ? "Turn Camera Off" : "Turn Camera On"}
+                            aria-label={cameraActive ? "Turn Camera Off" : "Turn Camera On"}
+                            onClick={() => setCameraActive(!cameraActive)}
+                            className={`size-6 rounded-md flex items-center justify-center border transition-all ${
+                              cameraActive ? "bg-black/60 border-white/10 hover:bg-black/80 text-white" : "bg-red-500/20 border-red-500/30 text-red-400"
+                            }`}
+                          >
+                            {cameraActive ? (
+                              <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                              </svg>
+                            ) : (
+                              <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            title={micActive ? "Mute Microphone" : "Unmute Microphone"}
+                            aria-label={micActive ? "Mute Microphone" : "Unmute Microphone"}
+                            onClick={() => setMicActive(!micActive)}
+                            className={`size-6 rounded-md flex items-center justify-center border transition-all ${
+                              micActive ? "bg-black/60 border-white/10 hover:bg-black/80 text-white" : "bg-red-500/20 border-red-500/30 text-red-400"
+                            }`}
+                          >
+                            {micActive ? (
+                              <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                              </svg>
+                            ) : (
+                              <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            title="Cycle Background Effects"
+                            aria-label="Cycle Background Effects"
+                            onClick={() => {
+                              const bgs: ("none" | "blur" | "axis" | "school")[] = ["none", "blur", "axis", "school"];
+                              const nextIdx = (bgs.indexOf(selectedBg) + 1) % bgs.length;
+                              setSelectedBg(bgs[nextIdx]);
+                            }}
+                            className={`size-6 rounded-md flex items-center justify-center border transition-all ${
+                              selectedBg !== "none" ? "bg-cyan-500 border-transparent text-white" : "bg-black/60 border-white/10 hover:bg-black/80 text-white"
+                            }`}
+                          >
+                            <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.096-.813L9 9l.813 5.187L14 15l-4.187.904zM18 10.5l-.562-3.438L14 6.5l3.438-.563L18 2.5l.562 3.438L22 6.5l-3.438.562L18 10.5z" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-[7px] text-white/30 uppercase tracking-widest z-10 leading-none">Self Mirror</span>
-                      
-                      <div className="flex gap-1 justify-center z-10">
-                        <button
-                          type="button"
-                          onClick={() => setCameraActive(!cameraActive)}
-                          className={`size-6 rounded-md flex items-center justify-center border transition-all ${
-                            cameraActive ? "bg-white/[0.04] border-white/10 text-white" : "bg-red-500/10 border-red-500/20 text-red-400"
-                          }`}
-                        >
-                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setMicActive(!micActive)}
-                          className={`size-6 rounded-md flex items-center justify-center border transition-all ${
-                            micActive ? "bg-white/[0.04] border-white/10 text-white" : "bg-red-500/10 border-red-500/20 text-red-400"
-                          }`}
-                        >
-                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBgBlurActive(!bgBlurActive)}
-                          className={`size-6 rounded-md flex items-center justify-center border transition-all ${
-                            bgBlurActive ? "bg-white text-black border-transparent" : "bg-white/[0.04] border-white/10 text-white"
-                          }`}
-                        >
-                          <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1" />
-                          </svg>
-                        </button>
+
+                      {/* Mic Level Indicator */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[8px] font-bold uppercase tracking-wider">
+                          <span className="text-white/35">Microphone Level</span>
+                          <span className="font-mono text-cyan-400">{micActive ? `${Math.round(micLevel)}%` : "MUTED"}</span>
+                        </div>
+                        <div className="h-2 rounded-full overflow-hidden relative bg-white/5">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-emerald-500 transition-all duration-75"
+                            style={{ width: micActive ? `${micLevel}%` : "0%" }}
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Mic selector routes */}
-                    <div className="flex flex-col justify-center space-y-1.5">
-                      <span className="text-[7.5px] font-bold text-white/35 uppercase tracking-wider block">Input Audio Source</span>
-                      <select
-                        value={audioInputDevice}
-                        onChange={(e) => setAudioInputDevice(e.target.value)}
-                        className="w-full rounded border border-white/10 bg-[#0E0E10] px-2 py-1 text-[9px] text-white/80 focus:outline-none"
-                      >
-                        <option>System default mic</option>
-                        <option>Studio Bluetooth mic</option>
-                      </select>
-                      <div className="text-[7.5px] text-white/20 italic mt-0.5 leading-none">
-                        {micActive ? "✓ Mic level synced" : "✗ Mic deactivated"}
+                    {/* Right Column: Device Selectors & Status */}
+                    <div className="space-y-2.5 flex flex-col justify-between">
+                      {/* Selectors */}
+                      <div className="space-y-1.5">
+                        <div>
+                          <label className="text-[8px] font-bold uppercase tracking-wider block mb-0.5 text-white/35">Camera Input</label>
+                          <select
+                            value={selectedCamera}
+                            onChange={(e) => setSelectedCamera(e.target.value)}
+                            className="w-full rounded border px-2 py-1 text-[9px] focus:outline-none bg-[#0E0E10] border-white/10 text-white/80"
+                          >
+                            {cameras.map((c) => (
+                              <option key={c.deviceId} value={c.deviceId}>
+                                {c.label || `Camera (${c.deviceId.slice(0, 5)}...)`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[8px] font-bold uppercase tracking-wider block mb-0.5 text-white/35">Microphone Input</label>
+                          <select
+                            value={selectedMicrophone}
+                            onChange={(e) => {
+                              setSelectedMicrophone(e.target.value);
+                            }}
+                            className="w-full rounded border px-2 py-1 text-[9px] focus:outline-none bg-[#0E0E10] border-white/10 text-white/80"
+                          >
+                            {microphones.map((m) => (
+                              <option key={m.deviceId} value={m.deviceId}>
+                                {m.label || `Microphone (${m.deviceId.slice(0, 5)}...)`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[8px] font-bold uppercase tracking-wider block mb-0.5 text-white/35">Speaker Output</label>
+                          <div className="flex gap-1.5">
+                            <select
+                              value={selectedSpeaker}
+                              onChange={(e) => setSelectedSpeaker(e.target.value)}
+                              className="flex-1 rounded border px-2 py-1 text-[9px] focus:outline-none bg-[#0E0E10] border-white/10 text-white/80"
+                            >
+                              {speakers.map((s) => (
+                                <option key={s.deviceId} value={s.deviceId}>
+                                  {s.label || `Speaker (${s.deviceId.slice(0, 5)}...)`}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={handleTestSpeaker}
+                              disabled={isTestingSpeaker}
+                              className={`rounded px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+                                isTestingSpeaker
+                                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                                  : "bg-white/10 hover:bg-white/20 border border-white/10 text-white"
+                              }`}
+                            >
+                              {isTestingSpeaker ? (
+                                <>
+                                  <span className="flex gap-0.5 animate-pulse">
+                                    <span className="w-0.5 h-1.5 bg-cyan-400" />
+                                    <span className="w-0.5 h-2.5 bg-cyan-400" />
+                                    <span className="w-0.5 h-1.5 bg-cyan-400" />
+                                  </span>
+                                  Test...
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+                                  </svg>
+                                  Test
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Device Status Summary Card */}
+                      <div className="rounded-lg p-2.5 space-y-1.5 border bg-[#0E0E10]/50 border-white/[0.04]">
+                        <span className="text-[8px] font-extrabold uppercase tracking-widest block text-white/30">
+                          Device Readiness
+                        </span>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[8px] font-bold">
+                          <div className="flex items-center gap-1">
+                            <span className={`size-1.5 rounded-full ${cameraActive && cameras.length > 0 ? "bg-emerald-400" : "bg-red-400"}`} />
+                            <span className="text-white/50">Camera: {cameraActive && cameras.length > 0 ? "Active" : "Off"}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className={`size-1.5 rounded-full ${micActive && microphones.length > 0 ? "bg-emerald-400" : "bg-red-400"}`} />
+                            <span className="text-white/50">Mic: {micActive && microphones.length > 0 ? "Active" : "Off"}</span>
+                          </div>
+                          <div className="flex items-center gap-1 col-span-2">
+                            <span className={`size-1.5 rounded-full ${speakers.length > 0 ? "bg-emerald-400" : "bg-red-400"}`} />
+                            <span className="text-white/50">Speaker: {speakers.length > 0 ? "Connected" : "Not Found"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Background Effects Grid Selector */}
+                  <div className="space-y-1.5">
+                    <span className="text-[8px] font-bold uppercase tracking-wider block text-white/35">
+                      Background Effects
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { id: "none", label: "None", icon: "∅" },
+                        { id: "blur", label: "Blur", icon: "░" },
+                        { id: "axis", label: "Axis", icon: "✦" },
+                        { id: "school", label: "School", icon: "🎓" }
+                      ].map((bg) => (
+                        <button
+                          key={bg.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedBg(bg.id as "none" | "blur" | "axis" | "school");
+                          }}
+                          className={`rounded py-1.5 px-1 text-[8.5px] font-extrabold uppercase tracking-wider border transition-all flex flex-col items-center gap-1 ${
+                            selectedBg === bg.id
+                              ? "bg-cyan-500 border-cyan-500 text-white shadow-lg shadow-cyan-500/10"
+                              : "bg-[#0E0E10] border-white/10 text-white/60 hover:bg-white/5"
+                          }`}
+                        >
+                          <span className="text-xs leading-none">{bg.icon}</span>
+                          <span>{bg.label}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1414,24 +2122,43 @@ Follow-ups Generated:
                     <div className={`space-y-4 ${isScreenSharing ? "lg:col-span-1 flex flex-col justify-between gap-4 h-full" : "col-span-2 grid grid-cols-2 gap-6"}`}>
                       
                       {/* Grid Box 1: Self */}
-                      <div className={`rounded-2xl border flex flex-col justify-between p-4 relative overflow-hidden ${theme === "light" ? "bg-white border-black/[0.08] text-zinc-900" : "bg-[#0E0E10] border-white/[0.08] text-white"} ${isScreenSharing ? "flex-1 min-h-[120px] aspect-video" : "aspect-video"}`}>
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className={`rounded-2xl border flex flex-col justify-between p-4 relative overflow-hidden bg-[#0E0E10] border-white/[0.08] text-white ${isScreenSharing ? "flex-1 min-h-[120px] aspect-video" : "aspect-video"} ${
+                        selectedBg === "axis" ? "border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.25)]" :
+                        selectedBg === "school" ? "border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.25)]" : ""
+                      }`}>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                           {!isVideoMuted ? (
-                            <video
-                              ref={(el) => {
-                                if (el && localStream) {
-                                  el.srcObject = localStream;
-                                }
-                              }}
-                              autoPlay
-                              playsInline
-                              muted
-                              className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${bgBlurActive ? "blur-md opacity-50 scale-102" : "opacity-80"}`}
+                            <VideoPreview
+                              stream={localStream}
+                              isActive={!isVideoMuted}
+                              selectedSpeaker={selectedSpeaker}
+                              className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${
+                                selectedBg === "blur" ? "blur-md opacity-60 scale-105" : "opacity-80"
+                              }`}
                             />
                           ) : (
                             <div className="text-white/20 text-[10px] font-semibold uppercase tracking-wider">Video Disabled</div>
                           )}
                         </div>
+
+                        {/* CSS Background overlays inside meeting */}
+                        {!isVideoMuted && selectedBg === "axis" && (
+                          <div className="absolute inset-0 bg-gradient-to-tr from-cyan-950/40 via-transparent to-transparent pointer-events-none z-10 flex flex-col justify-end p-2">
+                            <span className="text-[7px] font-extrabold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-1.5 py-0.5 rounded self-start flex items-center gap-1 uppercase tracking-widest leading-none">
+                              <span className="size-1 rounded-full bg-cyan-400 animate-ping" />
+                              Axis Digital
+                            </span>
+                          </div>
+                        )}
+
+                        {!isVideoMuted && selectedBg === "school" && (
+                          <div className="absolute inset-0 bg-gradient-to-tr from-amber-950/40 via-transparent to-transparent pointer-events-none z-10 flex flex-col justify-end p-2">
+                            <span className="text-[7px] font-extrabold text-amber-400 bg-amber-950/80 border border-amber-500/30 px-1.5 py-0.5 rounded self-start flex items-center gap-1 uppercase tracking-widest leading-none">
+                              <span className="size-1 rounded-full bg-amber-400 animate-ping" />
+                              School Pride
+                            </span>
+                          </div>
+                        )}
 
                         <div className="flex justify-between items-start z-10">
                           <span className="text-[9px] font-bold text-white/35 uppercase tracking-wider">Aarav Chen</span>
@@ -1607,7 +2334,16 @@ Follow-ups Generated:
                                     {msg.role}
                                   </span>
                                   <p className="text-xs text-white/70 leading-normal mt-1.5 whitespace-pre-wrap">
-                                    {msg.text}
+                                    {msg.sender === "teacher" ? msg.text : (() => {
+                                      const detected = detectContextInText(msg.text);
+                                      return detected.length > 0 ? (
+                                        <MessageTextWithTeacherContext
+                                          text={msg.text}
+                                          contexts={detected}
+                                          onAction={handleContextAction}
+                                        />
+                                      ) : msg.text;
+                                    })()}
                                   </p>
                                 </div>
                               ))}
@@ -1965,6 +2701,29 @@ Follow-ups Generated:
               </button>
 
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <TeacherContextActionModal
+        context={selectedContext}
+        isOpen={isContextModalOpen}
+        onClose={() => {
+          setIsContextModalOpen(false);
+          setSelectedContext(null);
+        }}
+        onConfirm={handleContextConfirm}
+      />
+
+      <AnimatePresence>
+        {contextToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-xl border border-cyan-500/30 bg-[#0E0E10]/95 backdrop-blur-md shadow-2xl flex items-center gap-2.5 text-xs text-cyan-400 font-semibold"
+          >
+            {contextToast}
           </motion.div>
         )}
       </AnimatePresence>

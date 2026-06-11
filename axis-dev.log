@@ -1,6 +1,426 @@
    ▲ Next.js 15.5.18
    - Local:        http://localhost:3000
-   - Network:      http://192.168.1.11:3000
+   - Network:      http://192.168.1.6:3000
 
  ✓ Starting...
- ✓ Ready in 2.6s
+ ✓ Ready in 2.4s
+ ○ Compiling /school/experience/demo ...
+ ✓ Compiled /school/experience/demo in 19.1s (1534 modules)
+ ✓ Compiled in 2.9s (697 modules)
+ GET /school/experience/demo 200 in 22523ms
+ ✓ Compiled in 12.2s (1525 modules)
+ ✓ Compiled in 5.6s (1525 modules)
+ ✓ Compiled in 1380ms (1525 modules)
+ ✓ Compiled in 7s (1525 modules)
+ ✓ Compiled in 11.2s (1525 modules)
+ ⨯ ./src/components/school/teacher-demo/meetings-workspace.tsx
+Error:   [31mx[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1892:1]
+ [2m1889[0m |                       ))}
+ [2m1890[0m |                     </div>
+ [2m1891[0m |                   </div>
+ [2m1892[0m |                 </div>d"}
+      : [35;1m                        ^[0m
+ [2m1893[0m |                       </div>
+ [2m1894[0m |                     </div>
+ [2m1895[0m |                   </div>
+      `----
+  [31mx[0m Expected '</', got 'jsx text (
+  [31m|[0m                     )'
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1893:1]
+ [2m1890[0m |                         </div>
+ [2m1891[0m |                       </div>
+ [2m1892[0m |                     </div>d"}
+ [2m1893[0m | [35;1m,[0m[35;1m-[0m[35;1m>[0m                       </div>
+ [2m1894[0m | [35;1m`[0m[35;1m-[0m[35;1m>[0m                     </div>
+ [2m1895[0m |                       </div>
+ [2m1896[0m |                     </div>
+      `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/teacher-demo/meetings-workspace.tsx
+./src/components/school/teacher-demo/teacher-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/teacher-demo/meetings-workspace.tsx
+Error:   [31mx[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1898:1]
+ [2m1895[0m |                       ))}
+ [2m1896[0m |                     </div>
+ [2m1897[0m |                   </div>
+ [2m1898[0m |                 </div>d"}
+      : [35;1m                        ^[0m
+ [2m1899[0m |                       </div>
+ [2m1900[0m |                     </div>
+ [2m1901[0m |                   </div>
+      `----
+  [31mx[0m Expression expected
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1902:1]
+ [2m1899[0m |                       </div>
+ [2m1900[0m |                     </div>
+ [2m1901[0m |                   </div>
+ [2m1902[0m |                 </div>
+      : [35;1m                ^[0m
+ [2m1903[0m | 
+ [2m1904[0m |                 {/* Assisted intelligent highlights with dynamic Context warnings */}
+ [2m1905[0m |                 <div className={`rounded-lg ${contextLayerInsight.bgColor} ${contextLayerInsight.borderColor} border p-2.5 text-[9px] ${contextLayerInsight.textColor} leading-normal flex items-start gap-2 transition-all duration-300`}>
+      `----
+  [31mx[0m Unterminated regexp literal
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1902:1]
+ [2m1899[0m |                       </div>
+ [2m1900[0m |                     </div>
+ [2m1901[0m |                   </div>
+ [2m1902[0m |                 </div>
+      : [35;1m                 ^^^^^[0m
+ [2m1903[0m | 
+ [2m1904[0m |                 {/* Assisted intelligent highlights with dynamic Context warnings */}
+ [2m1905[0m |                 <div className={`rounded-lg ${contextLayerInsight.bgColor} ${contextLayerInsight.borderColor} border p-2.5 text-[9px] ${contextLayerInsight.textColor} leading-normal flex items-start gap-2 transition-all duration-300`}>
+      `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/teacher-demo/meetings-workspace.tsx
+./src/components/school/teacher-demo/teacher-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/teacher-demo/meetings-workspace.tsx
+Error:   [31mx[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1898:1]
+ [2m1895[0m |                       ))}
+ [2m1896[0m |                     </div>
+ [2m1897[0m |                   </div>
+ [2m1898[0m |                 </div>d"}
+      : [35;1m                        ^[0m
+ [2m1899[0m |                       </div>
+ [2m1900[0m |                     </div>
+ [2m1901[0m |                   </div>
+      `----
+  [31mx[0m Expression expected
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1902:1]
+ [2m1899[0m |                       </div>
+ [2m1900[0m |                     </div>
+ [2m1901[0m |                   </div>
+ [2m1902[0m |                 </div>
+      : [35;1m                ^[0m
+ [2m1903[0m | 
+ [2m1904[0m |                 {/* Assisted intelligent highlights with dynamic Context warnings */}
+ [2m1905[0m |                 <div className={`rounded-lg ${contextLayerInsight.bgColor} ${contextLayerInsight.borderColor} border p-2.5 text-[9px] ${contextLayerInsight.textColor} leading-normal flex items-start gap-2 transition-all duration-300`}>
+      `----
+  [31mx[0m Unterminated regexp literal
+      ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\teacher-demo\meetings-workspace.tsx[0m:1902:1]
+ [2m1899[0m |                       </div>
+ [2m1900[0m |                     </div>
+ [2m1901[0m |                   </div>
+ [2m1902[0m |                 </div>
+      : [35;1m                 ^^^^^[0m
+ [2m1903[0m | 
+ [2m1904[0m |                 {/* Assisted intelligent highlights with dynamic Context warnings */}
+ [2m1905[0m |                 <div className={`rounded-lg ${contextLayerInsight.bgColor} ${contextLayerInsight.borderColor} border p-2.5 text-[9px] ${contextLayerInsight.textColor} leading-normal flex items-start gap-2 transition-all duration-300`}>
+      `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/teacher-demo/meetings-workspace.tsx
+./src/components/school/teacher-demo/teacher-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ✓ Compiled in 21.6s (1525 modules)
+ ✓ Compiled in 12.7s (1525 modules)
+ ✓ Compiled in 1358ms (1525 modules)
+ ✓ Compiled in 2s (1525 modules)
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ⨯ ./src/components/school/coordinator-demo/coordinator-meetings.tsx
+Error:   [31mx[0m Expected a semicolon
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:766:1]
+ [2m763[0m |         setIsTestingSpeaker(false);
+ [2m764[0m |         ctx.close();
+ [2m765[0m |       }, 1000);
+ [2m766[0m |     } catch (err) {
+     : [35;1m      ^^^^^[0m
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+     `----
+  [31mx[0m Expression expected
+     ,-[[36;1;4mC:\Users\ADMIN\Desktop\Axis\src\components\school\coordinator-demo\coordinator-meetings.tsx[0m:770:1]
+ [2m767[0m |       console.warn("Failed to play speaker test chime:", err);
+ [2m768[0m |       setIsTestingSpeaker(false);
+ [2m769[0m |     }
+ [2m770[0m |   };
+     : [35;1m  ^[0m
+ [2m771[0m | 
+ [2m772[0m |   // Captions simulation
+ [2m773[0m |   useEffect(() => {
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/school/coordinator-demo/coordinator-meetings.tsx
+./src/components/school/coordinator-demo/coordinator-demo-shell.tsx
+./src/components/school/shared-demo-experience.tsx
+ ✓ Compiled in 2.5s (1525 modules)
+ ✓ Compiled in 2.3s (1525 modules)
+ ✓ Compiled in 1637ms (1525 modules)
+ ✓ Compiled in 6.2s (1525 modules)
+ ✓ Compiled in 2.1s (1525 modules)
+ ✓ Compiled in 1944ms (1525 modules)
+ ✓ Compiled in 3.2s (1525 modules)
+ ✓ Compiled in 3.2s (1525 modules)
+ GET /school/experience/demo 200 in 3882ms
+ ○ Compiling /school/experience ...
+ ✓ Compiled /school/experience in 12s (1546 modules)
+ GET /school/experience 200 in 13453ms
+ ✓ Compiled in 1467ms (705 modules)

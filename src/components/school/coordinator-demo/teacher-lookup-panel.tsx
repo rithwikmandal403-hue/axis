@@ -17,17 +17,26 @@ export type Teacher = {
   phone: string;
   assignedClasses: string[];
   designation: string;
-  leadershipRole?: string;
-  isSubjectLead?: boolean;
-  isHeadOfDept?: boolean;
-  isTokSupervisor?: boolean;
-  isEeSupervisor?: boolean;
-  isCasAdvisor?: boolean;
-  isLeadershipTeam?: boolean;
-  isRecentContact?: boolean;
-  meetingAvailability?: string;
-  currentResponsibilities?: string[];
   notes: string[];
+  meetingAvailability?: string;
+
+  // Multi-role model
+  roles: string[];
+  isHeadOfDept?: boolean;
+  isCasAdvisor?: boolean;
+  isEeSupervisor?: boolean;
+  isTokTeacher?: boolean;
+  isCounselor?: boolean;
+  isRecentContact?: boolean;
+
+  // Detailed fields for Detail Panel
+  subjectsTaught?: string[];
+  homeroomAssignments?: string[];
+  casAssignments?: string[];
+  eeSupervision?: string[];
+  tokResponsibilities?: string[];
+  deptLeadership?: string[];
+  studentAllocations?: string[];
 };
 
 const INITIAL_TEACHERS: Teacher[] = [
@@ -35,91 +44,115 @@ const INITIAL_TEACHERS: Teacher[] = [
     id: "tch-1",
     name: "Aarav Chen",
     avatar: "AC",
-    role: "Physics Master Teacher",
-    department: "Science",
+    role: "Guidance Counselor & Advisor",
+    department: "Pastoral",
     status: "available",
-    currentRoom: "Lab 3",
+    currentRoom: "Room 102",
     email: "aarav.chen@school.edu",
     phone: "+1 (555) 019-2834",
-    assignedClasses: ["Grade 11 Physics (B)", "Grade 12 Adv Physics (A)"],
-    designation: "Subject Lead & Advisor",
-    leadershipRole: "CAS Coordinator",
-    isSubjectLead: true,
+    assignedClasses: ["Pastoral review 11-F", "Workload Counseling"],
+    designation: "Guidance Counselor",
+    roles: ["Counselor", "TOK Teacher", "CAS Advisor", "Homeroom Advisor"],
+    isCounselor: true,
+    isTokTeacher: true,
     isCasAdvisor: true,
-    isTokSupervisor: true,
-    isEeSupervisor: true,
     isRecentContact: false,
-    meetingAvailability: "Tuesdays & Thursdays, Period 5",
-    currentResponsibilities: ["Physics Lab Safety Coordinator", "CAS Portfolio Reviewer"],
-    notes: ["Discussed CAS portfolio checklist deadlines.", "Physics HL IA cover assigned to Dr. Sarah."]
+    meetingAvailability: "Daily, Period 2",
+    subjectsTaught: ["Pastoral Review", "Stress Management"],
+    homeroomAssignments: ["Grade 11-F Advisor"],
+    casAssignments: ["Student Welfare Committee Mentor"],
+    eeSupervision: ["2 Students (World Studies EE)"],
+    tokResponsibilities: ["Theory of Knowledge Section A Tutor"],
+    deptLeadership: [],
+    studentAllocations: ["45 Students (Welfare & Academic Support)"],
+    notes: ["Counseling roster expanded for DP1 Candidates.", "Discussed study skills with 11-F class."]
   },
   {
     id: "tch-2",
     name: "Ananya Rao",
     avatar: "AR",
-    role: "Chemistry Specialist",
+    role: "Chemistry Specialist & College Counselor",
     department: "Science",
     status: "meeting",
     currentRoom: "Conference Hall B",
     email: "ananya.rao@school.edu",
     phone: "+1 (555) 019-2835",
     assignedClasses: ["Grade 11 Chemistry (A)", "Grade 12 DP Chemistry"],
-    designation: "Science Department Lead",
-    leadershipRole: "Head of Department",
-    isHeadOfDept: true,
-    isLeadershipTeam: true,
+    designation: "Senior College Counselor",
+    roles: ["Chemistry Teacher", "College Counselor", "EE Supervisor", "CAS Advisor"],
+    isCounselor: true,
     isEeSupervisor: true,
+    isCasAdvisor: true,
     isRecentContact: true,
     meetingAvailability: "Wednesdays, Period 3",
-    currentResponsibilities: ["Science Curriculum Review", "IA Moderation Oversight"],
+    subjectsTaught: ["Grade 11 Chemistry HL", "Grade 12 Chemistry SL"],
+    homeroomAssignments: [],
+    casAssignments: ["Career Guidance Club Support"],
+    eeSupervision: ["3 Students (Chemistry/Materials Science EE)"],
+    tokResponsibilities: [],
+    deptLeadership: [],
+    studentAllocations: ["60 Students (College Applications Guide)"],
     notes: ["Oversight meeting scheduled for Next Tuesday.", "Science lab budget review complete."]
   },
   {
     id: "tch-3",
     name: "Marcus Vance",
     avatar: "MV",
-    role: "Advanced Calculus Expert",
+    role: "Head of Math & Calculus Expert",
     department: "Mathematics",
     status: "teaching",
     currentRoom: "Room 204",
     email: "marcus.vance@school.edu",
     phone: "+1 (555) 019-2836",
     assignedClasses: ["Grade 12 Calculus", "Grade 10 Algebra II"],
-    designation: "Head of Math & Grade Lead",
-    leadershipRole: "Head of Department",
+    designation: "Head of Mathematics",
+    roles: ["Math Teacher", "Head of Department", "EE Supervisor"],
     isHeadOfDept: true,
-    isLeadershipTeam: true,
     isEeSupervisor: true,
     isRecentContact: true,
     meetingAvailability: "Mondays, Period 4",
-    currentResponsibilities: ["Mathematics Predicted Grades Moderation", "DP Exam Supervisor"],
+    subjectsTaught: ["Grade 12 Calculus HL", "Grade 10 Algebra II"],
+    homeroomAssignments: [],
+    casAssignments: [],
+    eeSupervision: ["2 Students (Math EE)"],
+    tokResponsibilities: [],
+    deptLeadership: ["Mathematics Department Head"],
+    studentAllocations: ["12 Students (Extended Math IA support)"],
     notes: ["Math AA HL curriculum mapping verified.", "Sub cover request approved for Period 4."]
   },
   {
     id: "tch-4",
     name: "Sarah Chen",
     avatar: "SC",
-    role: "Guidance Counselor",
-    department: "Pastoral",
+    role: "Head of Science & Physics Master",
+    department: "Science",
     status: "available",
-    currentRoom: "Room 102",
+    currentRoom: "Lab 3",
     email: "sarah.chen@school.edu",
     phone: "+1 (555) 019-2837",
-    assignedClasses: ["Pastoral review 11-F", "Workload Counseling"],
-    designation: "Pastoral Lead Coordinator",
-    leadershipRole: "Programme Leader",
-    isLeadershipTeam: true,
-    isTokSupervisor: true,
+    assignedClasses: ["Grade 11 Physics (B)", "Grade 12 Adv Physics (A)"],
+    designation: "Head of Science Department",
+    roles: ["Physics Teacher", "Head of Department", "TOK Teacher", "EE Supervisor", "CAS Advisor"],
+    isHeadOfDept: true,
+    isCasAdvisor: true,
+    isEeSupervisor: true,
+    isTokTeacher: true,
     isRecentContact: true,
-    meetingAvailability: "Daily, Period 2",
-    currentResponsibilities: ["TOK Oversight & Deadlines", "University Application Assistance"],
-    notes: ["TOK supervisor assignments confirmed.", "Counseling roster expanded for DP1 Candidates."]
+    meetingAvailability: "Tuesdays & Thursdays, Period 5",
+    subjectsTaught: ["Physics HL", "Physics SL"],
+    homeroomAssignments: ["Grade 12 Science Homeroom"],
+    casAssignments: ["Eco-Club Mentor", "CAS Portfolio Reviewer"],
+    eeSupervision: ["4 Students (Physics IA/EE)"],
+    tokResponsibilities: ["Theory of Knowledge Section B Tutor"],
+    deptLeadership: ["Science Department Head"],
+    studentAllocations: ["15 Students (Academic & IA Advising)"],
+    notes: ["TOK supervisor assignments confirmed.", "Discussed CAS portfolio checklist deadlines."]
   },
   {
     id: "tch-5",
     name: "David Miller",
     avatar: "DM",
-    role: "Athletics Coach",
+    role: "Athletics Coach & CAS Advisor",
     department: "Physical Ed",
     status: "teaching",
     currentRoom: "Gymnasium",
@@ -127,54 +160,123 @@ const INITIAL_TEACHERS: Teacher[] = [
     phone: "+1 (555) 019-2838",
     assignedClasses: ["MYP PE Grade 10", "DP Sports Science"],
     designation: "Sports Activities Lead",
-    leadershipRole: "Coordinator",
-    isSubjectLead: true,
+    roles: ["Sports Science Teacher", "CAS Advisor", "Homeroom Advisor"],
     isCasAdvisor: true,
     isRecentContact: false,
     meetingAvailability: "Fridays, Period 6",
-    currentResponsibilities: ["MYP PE Curriculum Coordination", "School Sports Teams Coordinator"],
+    subjectsTaught: ["MYP PE Grade 10", "DP Sports Science"],
+    homeroomAssignments: ["Grade 10 Sports Homeroom Advisor"],
+    casAssignments: ["School Sports Teams Coordinator", "Outdoor Adventure CAS Mentor"],
+    eeSupervision: [],
+    tokResponsibilities: [],
+    deptLeadership: [],
+    studentAllocations: ["20 Students (Sports Science IA)"],
     notes: ["Athletics coordination schedule updated.", "MYP PE checklist submitted."]
   },
   {
     id: "tch-6",
     name: "Clara Dupont",
     avatar: "CD",
-    role: "Literature Specialist",
+    role: "Literature HoD & TOK Teacher",
     department: "English",
     status: "teaching",
     currentRoom: "Room 3A",
     email: "clara.dupont@school.edu",
     phone: "+1 (555) 019-2839",
     assignedClasses: ["MYP Language & Lit Grade 10", "DP English A1"],
-    designation: "Subject Lead English",
-    leadershipRole: "Head of Department",
+    designation: "Head of English Department",
+    roles: ["English Teacher", "Head of Department", "EE Supervisor", "TOK Teacher"],
     isHeadOfDept: true,
-    isSubjectLead: true,
     isEeSupervisor: true,
+    isTokTeacher: true,
     isRecentContact: false,
     meetingAvailability: "Thursdays, Period 4",
-    currentResponsibilities: ["English Literature Syllabus Design", "Extended Essay Support Coordinator"],
+    subjectsTaught: ["MYP Language & Lit Grade 10", "DP English A1"],
+    homeroomAssignments: [],
+    casAssignments: [],
+    eeSupervision: ["5 Students (English Lit EE)"],
+    tokResponsibilities: ["TOK Essay Tutor (Languages & Lit)"],
+    deptLeadership: ["English Department Head"],
+    studentAllocations: ["18 Students (English A1 Portfolios)"],
     notes: ["English literature syllabus updates published.", "EE supervisor loadings adjusted."]
   },
   {
     id: "tch-7",
     name: "Robert Blake",
     avatar: "RB",
-    role: "History Teacher",
+    role: "History Teacher & TOK Coordinator",
     department: "Humanities",
     status: "away",
     currentRoom: "Home (Sick)",
     email: "robert.blake@school.edu",
     phone: "+1 (555) 019-2840",
     assignedClasses: ["MYP History Grade 9", "DP History Grade 12"],
-    designation: "Humanities Advisor",
-    leadershipRole: "Subject Lead",
-    isSubjectLead: true,
-    isTokSupervisor: true,
+    designation: "History Specialist",
+    roles: ["History Teacher", "TOK Coordinator", "TOK Teacher", "EE Supervisor"],
+    isTokTeacher: true,
+    isEeSupervisor: true,
     isRecentContact: false,
     meetingAvailability: "Mondays, Period 6",
-    currentResponsibilities: ["Grade 12 Cohort Lead Coordination", "Theory of Knowledge Moderation"],
+    subjectsTaught: ["MYP History Grade 9", "DP History Grade 12"],
+    homeroomAssignments: [],
+    casAssignments: [],
+    eeSupervision: ["4 Students (History EE)"],
+    tokResponsibilities: ["TOK Coordinator", "Theory of Knowledge Moderation Lead"],
+    deptLeadership: [],
+    studentAllocations: ["25 Students (History IA / TOK Exhibitions)"],
     notes: ["Sick leave logged for Friday; cover requested.", "History research projects review pending."]
+  },
+  {
+    id: "tch-8",
+    name: "Dilan Patel",
+    avatar: "DP",
+    role: "Biology Specialist & CP Coordinator",
+    department: "Science",
+    status: "teaching",
+    currentRoom: "Lab 1",
+    email: "dilan.patel@school.edu",
+    phone: "+1 (555) 019-2841",
+    assignedClasses: ["Grade 11 Biology (A)", "Grade 12 Biology HL"],
+    designation: "Biology Specialist",
+    roles: ["Biology Teacher", "CP Coordinator", "EE Supervisor", "CAS Advisor"],
+    isEeSupervisor: true,
+    isCasAdvisor: true,
+    isRecentContact: false,
+    meetingAvailability: "Mondays, Period 5",
+    subjectsTaught: ["Grade 11 Biology (A)", "Grade 12 Biology HL"],
+    homeroomAssignments: [],
+    casAssignments: ["Eco-Club Mentor"],
+    eeSupervision: ["3 Students (Biology EE)"],
+    tokResponsibilities: [],
+    deptLeadership: [],
+    studentAllocations: ["14 Students (CP Reflective Projects / Biology IA)"],
+    notes: ["Biology IA draft reviews completed.", "Eco-club recycling project approved."]
+  },
+  {
+    id: "tch-9",
+    name: "Claire DuPont",
+    avatar: "CD",
+    role: "Modern Languages HoD & DP Coordinator",
+    department: "Languages",
+    status: "teaching",
+    currentRoom: "Room 108",
+    email: "claire.dupont@school.edu",
+    phone: "+1 (555) 019-2842",
+    assignedClasses: ["Grade 11 French B SL", "Grade 12 French A HL"],
+    designation: "Head of Languages Department",
+    roles: ["French Teacher", "Head of Department", "DP Coordinator", "EE Supervisor"],
+    isHeadOfDept: true,
+    isEeSupervisor: true,
+    isRecentContact: false,
+    meetingAvailability: "Wednesdays, Period 4",
+    subjectsTaught: ["Grade 11 French B SL", "Grade 12 French A HL"],
+    homeroomAssignments: [],
+    casAssignments: ["Language Week Organiser"],
+    eeSupervision: ["2 Students (French B EE)"],
+    tokResponsibilities: [],
+    deptLeadership: ["Languages Department Head"],
+    studentAllocations: ["10 Students (DP Coordinator Advising / French Orals)"],
+    notes: ["Modern languages oral exams timetable scheduled.", "French B SL portfolio checklists locked."]
   }
 ];
 
@@ -355,18 +457,16 @@ export function TeacherLookupPanel({
     return teachers
       .filter((teacher) => {
         // 1. Role Filter
-        if (roleFilter === "subject-leads") {
-          if (!teacher.isSubjectLead) return false;
-        } else if (roleFilter === "heads-of-dept") {
+        if (roleFilter === "heads-of-dept") {
           if (!teacher.isHeadOfDept) return false;
-        } else if (roleFilter === "tok-supervisors") {
-          if (!teacher.isTokSupervisor) return false;
+        } else if (roleFilter === "tok-teachers") {
+          if (!teacher.isTokTeacher) return false;
         } else if (roleFilter === "ee-supervisors") {
           if (!teacher.isEeSupervisor) return false;
         } else if (roleFilter === "cas-advisors") {
           if (!teacher.isCasAdvisor) return false;
-        } else if (roleFilter === "leadership-team") {
-          if (!teacher.isLeadershipTeam) return false;
+        } else if (roleFilter === "counselors") {
+          if (!teacher.isCounselor) return false;
         } else if (roleFilter === "recent-contacts") {
           if (!teacher.isRecentContact) return false;
         }
@@ -383,7 +483,7 @@ export function TeacherLookupPanel({
             teacher.department.toLowerCase().includes(query) ||
             teacher.designation.toLowerCase().includes(query) ||
             teacher.currentRoom.toLowerCase().includes(query) ||
-            (teacher.leadershipRole && teacher.leadershipRole.toLowerCase().includes(query))
+            teacher.roles.some(r => r.toLowerCase().includes(query))
           );
         }
         return true;
@@ -407,12 +507,11 @@ export function TeacherLookupPanel({
       <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] pb-4">
         {[
           { id: "all", label: "All Faculty" },
-          { id: "subject-leads", label: "Subject Leads" },
           { id: "heads-of-dept", label: "Heads of Dept" },
-          { id: "tok-supervisors", label: "TOK Supervisors" },
-          { id: "ee-supervisors", label: "EE Supervisors" },
           { id: "cas-advisors", label: "CAS Advisors" },
-          { id: "leadership-team", label: "Leadership Team" },
+          { id: "ee-supervisors", label: "EE Supervisors" },
+          { id: "tok-teachers", label: "TOK Teachers" },
+          { id: "counselors", label: "Counselors" },
           { id: "recent-contacts", label: "Recent Contacts" }
         ].map((role) => (
           <button
@@ -503,20 +602,20 @@ export function TeacherLookupPanel({
                     {teacher.avatar}
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5">
-                      <h4 className={`text-sm font-bold tracking-tight ${styles.textPrimary}`}>{teacher.name}</h4>
-                      {teacher.leadershipRole && (
-                        <span
-                          title={teacher.leadershipRole}
-                          className="px-1.5 py-0.2 rounded border border-zinc-700/40 text-[7px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-800/40"
-                        >
-                          Lead
-                        </span>
-                      )}
-                    </div>
+                    <h4 className={`text-sm font-bold tracking-tight ${styles.textPrimary}`}>{teacher.name}</h4>
                     <span className={`text-[10px] uppercase font-semibold tracking-wider text-cyan-400 block mt-0.5`}>
                       {teacher.role}
                     </span>
+                    <div className="flex flex-wrap gap-1 mt-1.5 max-w-[210px]">
+                      {teacher.roles.map((r, i) => (
+                        <span
+                          key={i}
+                          className="px-1.5 py-0.2 rounded border border-cyan-500/25 text-[7px] font-black uppercase tracking-wider text-cyan-400 bg-cyan-500/5"
+                        >
+                          {r}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -556,7 +655,7 @@ export function TeacherLookupPanel({
                 <th className="p-4">Department</th>
                 <th className="p-4">Email</th>
                 <th className="p-4">Room</th>
-                <th className="p-4">Leadership</th>
+                <th className="p-4">Responsibilities</th>
                 <th className="p-4 text-center">Status</th>
               </tr>
             </thead>
@@ -578,13 +677,13 @@ export function TeacherLookupPanel({
                   <td className="p-4 font-medium text-white/90">{teacher.email}</td>
                   <td className="p-4 font-mono font-bold text-cyan-400">{teacher.currentRoom}</td>
                   <td className="p-4 font-medium text-zinc-400">
-                    {teacher.leadershipRole ? (
-                      <span className="px-1.5 py-0.5 rounded bg-zinc-800/40 border border-zinc-700/60 text-[8px] font-bold uppercase tracking-wider">
-                        {teacher.leadershipRole}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
+                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      {teacher.roles.map((r, i) => (
+                        <span key={i} className="px-1 py-0.2 rounded bg-zinc-800/40 border border-zinc-700/60 text-[7.5px] font-bold uppercase tracking-wider text-zinc-300">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="p-4 text-center">
                     <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-widest border ${styles.badge[teacher.status]}`}>
@@ -618,8 +717,8 @@ export function TeacherLookupPanel({
                 >
                   <td className="py-2 px-3 font-bold text-white flex items-center gap-1.5">
                     {teacher.name}
-                    {teacher.leadershipRole && (
-                      <span title={teacher.leadershipRole} className="text-zinc-500 text-[8px] font-semibold"> (Lead)</span>
+                    {teacher.isHeadOfDept && (
+                      <span title="Department Head" className="text-cyan-400 text-[8px] font-bold"> (HoD)</span>
                     )}
                   </td>
                   <td className="py-2 px-3 text-white/50">{teacher.role}</td>
@@ -661,7 +760,7 @@ export function TeacherLookupPanel({
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
                   <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest">
-                    Faculty Position Telemetry
+                    Faculty Position Overview
                   </span>
                   <button
                     onClick={() => setSelectedTeacher(null)}
@@ -681,7 +780,7 @@ export function TeacherLookupPanel({
                   <div className="space-y-1">
                     <h3 className={`text-base font-black tracking-tight ${styles.textPrimary}`}>{selectedTeacher.name}</h3>
                     <p className={`text-xs ${styles.textSecondary}`}>
-                      {selectedTeacher.role} · Department: <strong>{selectedTeacher.department}</strong>
+                      Primary Role: <strong>{selectedTeacher.role}</strong>
                     </p>
                     <span className="inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                       {selectedTeacher.designation}
@@ -689,19 +788,9 @@ export function TeacherLookupPanel({
                   </div>
                 </div>
 
-                {/* Subtle Leadership Banner */}
-                {selectedTeacher.leadershipRole && (
-                  <div className="p-3 bg-zinc-850/30 border border-zinc-800/40 rounded-xl flex items-center justify-between text-xs">
-                    <div className="space-y-0.5">
-                      <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest block">Leadership Designation</span>
-                      <span className="text-[11px] font-bold text-zinc-300">{selectedTeacher.leadershipRole}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Live position and class info */}
+                {/* Live position and Contact Information */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Availability & Location Log</h4>
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Contact & Availability</h4>
                   <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3 text-xs">
                     <div className="flex justify-between items-center">
                       <span className={styles.textSecondary}>Availability Status:</span>
@@ -721,30 +810,39 @@ export function TeacherLookupPanel({
                       <span className={styles.textSecondary}>Phone Contact:</span>
                       <span className={`font-mono ${styles.textSecondary}`}>{selectedTeacher.phone}</span>
                     </div>
+                    <div className="flex justify-between items-center">
+                      <span className={styles.textSecondary}>Meeting Availability:</span>
+                      <span className="font-semibold text-cyan-400">{selectedTeacher.meetingAvailability || "By Appointment"}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Assigned Subjects & Responsibilities */}
+                {/* Subjects Taught & Active Responsibilities */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Assigned Classes & Responsibilities</h4>
-                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3 text-xs">
-                    <div className="space-y-1">
-                      <span className={`text-[10px] ${styles.textSecondary} block`}>Assigned Teaching Blocks:</span>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {selectedTeacher.assignedClasses.map((cls, idx) => (
-                          <span key={idx} className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-semibold text-white">
-                            {cls}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {selectedTeacher.currentResponsibilities && (
-                      <div className="space-y-1 pt-2 border-t border-white/[0.04]">
-                        <span className={`text-[10px] ${styles.textSecondary} block`}>Special Project Responsibilities:</span>
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Subjects & Responsibilities</h4>
+                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3.5 text-xs">
+                    {/* Subjects Taught */}
+                    {selectedTeacher.subjectsTaught && selectedTeacher.subjectsTaught.length > 0 && (
+                      <div className="space-y-1">
+                        <span className={`text-[10px] ${styles.textSecondary} block`}>Subjects Taught:</span>
                         <div className="flex flex-wrap gap-1.5 mt-1">
-                          {selectedTeacher.currentResponsibilities.map((resp, idx) => (
+                          {selectedTeacher.subjectsTaught.map((sub, idx) => (
+                            <span key={idx} className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-semibold text-white">
+                              📚 {sub}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Active Responsibilities */}
+                    {selectedTeacher.roles && selectedTeacher.roles.length > 0 && (
+                      <div className="space-y-1 pt-2 border-t border-white/[0.04]">
+                        <span className={`text-[10px] ${styles.textSecondary} block`}>Current Responsibilities:</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {selectedTeacher.roles.map((r, idx) => (
                             <span key={idx} className="px-2 py-0.5 rounded-md bg-cyan-950/20 border border-cyan-500/10 text-[9.5px] font-semibold text-cyan-400">
-                              {resp}
+                              {r}
                             </span>
                           ))}
                         </div>
@@ -753,15 +851,81 @@ export function TeacherLookupPanel({
                   </div>
                 </div>
 
-                {/* Statistics / Availability */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 rounded-2xl bg-white/[0.01] border border-white/[0.04] text-center space-y-0.5 flex flex-col justify-center">
-                    <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Meeting Availability</span>
-                    <span className="text-[10px] font-bold text-cyan-400 mt-1 block leading-tight">{selectedTeacher.meetingAvailability || "By Appointment"}</span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-white/[0.01] border border-white/[0.04] text-center space-y-0.5 flex flex-col justify-center">
-                    <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Weekly Load</span>
-                    <h5 className="text-sm font-black text-cyan-400 font-mono mt-1">16-20 Periods</h5>
+                {/* Operational Details (Homeroom, CAS, EE, TOK, Dept Leadership, Student Allocations) */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-white/35 uppercase tracking-widest">Operational Allocations</h4>
+                  <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-3.5 text-xs">
+                    {/* Homeroom Assignments */}
+                    {selectedTeacher.homeroomAssignments && selectedTeacher.homeroomAssignments.length > 0 && (
+                      <div className="flex justify-between items-start gap-4">
+                        <span className={styles.textSecondary}>Homeroom:</span>
+                        <div className="text-right font-semibold text-white">
+                          {selectedTeacher.homeroomAssignments.map((hr, idx) => (
+                            <div key={idx}>🏡 {hr}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* CAS Assignments */}
+                    {selectedTeacher.casAssignments && selectedTeacher.casAssignments.length > 0 && (
+                      <div className="flex justify-between items-start gap-4 pt-2 border-t border-white/[0.04]">
+                        <span className={styles.textSecondary}>CAS Assignments:</span>
+                        <div className="text-right font-semibold text-white">
+                          {selectedTeacher.casAssignments.map((cas, idx) => (
+                            <div key={idx}>🎯 {cas}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* EE Supervision */}
+                    {selectedTeacher.eeSupervision && selectedTeacher.eeSupervision.length > 0 && (
+                      <div className="flex justify-between items-start gap-4 pt-2 border-t border-white/[0.04]">
+                        <span className={styles.textSecondary}>EE Supervision:</span>
+                        <div className="text-right font-semibold text-white">
+                          {selectedTeacher.eeSupervision.map((ee, idx) => (
+                            <div key={idx}>📝 {ee}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TOK Responsibilities */}
+                    {selectedTeacher.tokResponsibilities && selectedTeacher.tokResponsibilities.length > 0 && (
+                      <div className="flex justify-between items-start gap-4 pt-2 border-t border-white/[0.04]">
+                        <span className={styles.textSecondary}>TOK Responsibilities:</span>
+                        <div className="text-right font-semibold text-white">
+                          {selectedTeacher.tokResponsibilities.map((tok, idx) => (
+                            <div key={idx}>💡 {tok}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Department Leadership */}
+                    {selectedTeacher.deptLeadership && selectedTeacher.deptLeadership.length > 0 && (
+                      <div className="flex justify-between items-start gap-4 pt-2 border-t border-white/[0.04]">
+                        <span className={styles.textSecondary}>Department Leadership:</span>
+                        <div className="text-right font-semibold text-cyan-400">
+                          {selectedTeacher.deptLeadership.map((leader, idx) => (
+                            <div key={idx}>👑 {leader}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Relevant Student Allocations */}
+                    {selectedTeacher.studentAllocations && selectedTeacher.studentAllocations.length > 0 && (
+                      <div className="flex justify-between items-start gap-4 pt-2 border-t border-white/[0.04]">
+                        <span className={styles.textSecondary}>Student Allocations:</span>
+                        <div className="text-right font-semibold text-white">
+                          {selectedTeacher.studentAllocations.map((alloc, idx) => (
+                            <div key={idx}>👥 {alloc}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

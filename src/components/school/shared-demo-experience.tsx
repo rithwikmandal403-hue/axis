@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
 import { ExperienceEntrance } from "@/components/school/experience-entrance";
-import { DemoTutorialProvider, coordinatorSteps } from "@/components/school/demo-tutorial-context";
+import { DemoTutorialProvider } from "@/components/school/demo-tutorial-context";
 import { TeacherDemoShell } from "@/components/school/teacher-demo/teacher-demo-shell";
 import { CoordinatorDemoShell } from "@/components/school/coordinator-demo/coordinator-demo-shell";
 import { getSchoolDemoRole } from "@/lib/school-demo-roles";
