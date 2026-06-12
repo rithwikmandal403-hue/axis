@@ -20,6 +20,7 @@ type ClassItem = {
   activeTasks: number;
   pendingGrading: number;
   color: string;
+  accentColor?: string;
   code: string;
 };
 
@@ -142,11 +143,11 @@ const INITIAL_CURRICULUM_DOCS: CurriculumDoc[] = [
 ];
 
 const CLASSES: ClassItem[] = [
-  { id: "cls-1", name: "DP1 Physics HL", unit: "Mechanics & Kinematics", studentCount: 24, activeTasks: 3, pendingGrading: 5, color: "from-sky-500/20 to-indigo-500/20", code: "PHY-DP1" },
-  { id: "cls-2", name: "DP1 Chemistry HL", unit: "Chemical Bonding & Structure", studentCount: 20, activeTasks: 2, pendingGrading: 2, color: "from-emerald-500/20 to-teal-500/20", code: "CHE-DP1" },
-  { id: "cls-3", name: "DP2 Physics HL", unit: "Quantum & Nuclear Physics", studentCount: 18, activeTasks: 4, pendingGrading: 3, color: "from-violet-500/20 to-purple-500/20", code: "PHY-DP2" },
-  { id: "cls-4", name: "MYP 4 Science", unit: "Ecosystems & Bio-Energy", studentCount: 22, activeTasks: 2, pendingGrading: 1, color: "from-amber-500/20 to-rose-500/20", code: "SCI-MYP4" },
-  { id: "cls-5", name: "Homeroom 11-F", unit: "Advisory & Personal Mentorship", studentCount: 26, activeTasks: 1, pendingGrading: 0, color: "from-pink-500/20 to-orange-500/20", code: "HR-11F" },
+  { id: "cls-1", name: "DP1 Physics HL", unit: "Mechanics & Kinematics", studentCount: 24, activeTasks: 3, pendingGrading: 5, color: "from-cyan-500/20 to-transparent", accentColor: "bg-cyan-500", code: "PHY-DP1" },
+  { id: "cls-2", name: "DP1 Chemistry HL", unit: "Chemical Bonding & Structure", studentCount: 20, activeTasks: 2, pendingGrading: 2, color: "from-emerald-500/20 to-transparent", accentColor: "bg-emerald-500", code: "CHE-DP1" },
+  { id: "cls-3", name: "DP2 Physics HL", unit: "Quantum & Nuclear Physics", studentCount: 18, activeTasks: 4, pendingGrading: 3, color: "from-cyan-500/20 to-transparent", accentColor: "bg-cyan-500", code: "PHY-DP2" },
+  { id: "cls-4", name: "MYP 4 Science", unit: "Ecosystems & Bio-Energy", studentCount: 22, activeTasks: 2, pendingGrading: 1, color: "from-emerald-500/20 to-transparent", accentColor: "bg-emerald-500", code: "SCI-MYP4" },
+  { id: "cls-5", name: "Homeroom 11-F", unit: "Advisory & Personal Mentorship", studentCount: 26, activeTasks: 1, pendingGrading: 0, color: "from-rose-500/20 to-transparent", accentColor: "bg-rose-500", code: "HR-11F" },
 ];
 
 const CLASS_STUDENTS: Record<string, ClassStudent[]> = {
@@ -907,70 +908,88 @@ export function ClassSpaceWorkspace() {
 
   // ─── RENDERERS ─────────────────────────────────────────────────────────────
 
-  if (!selectedClassId || !currentClass) {
-    return (
-      <div className="w-full max-w-5xl mx-auto py-10">
-        <div className="flex flex-col mb-8">
-          <h2 className="text-xl font-bold tracking-tight text-white/95">Class Space</h2>
-          <p className="text-xs text-white/40 mt-1">Select an active class group to view tasks, resources, and submissions.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {CLASSES.map((cls) => {
-            const classTaskCount = tasks.filter((t) => t.classId === cls.id && t.visibility !== "archived").length;
-            const classResourceCount = resources.filter((r) => r.classId === cls.id).length;
-            return (
-              <button
-                key={cls.id}
-                onClick={() => handleSelectClass(cls.id)}
-                className="group relative flex flex-col text-left rounded-2xl border border-white/[0.06] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/15 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-all duration-300 overflow-hidden"
-              >
-                {/* Glow backdrop */}
-                <div className={`absolute -right-16 -top-16 size-32 rounded-full bg-gradient-to-br ${cls.color} opacity-20 group-hover:opacity-40 blur-2xl transition-all duration-500`} />
-
-                <div className="relative z-10 flex flex-col h-full justify-between w-full">
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] text-white/40 uppercase font-semibold">
-                        {cls.code}
-                      </span>
-                      {classTaskCount > 0 && (
-                        <span className="size-2 rounded-full bg-sky-400 animate-pulse" />
-                      )}
-                    </div>
-                    <h3 className="text-sm font-bold text-white/90 mt-3 group-hover:text-white transition-colors">
-                      {cls.name}
-                    </h3>
-                    <p className="text-xs text-white/40 mt-1 line-clamp-1">
-                      {cls.unit}
-                    </p>
-                  </div>
-
-                  <div className="mt-8 pt-4 border-t border-white/[0.04] grid grid-cols-3 gap-2">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-white/30 uppercase tracking-wider">Students</span>
-                      <span className="text-sm font-semibold text-white/80 mt-1">{cls.studentCount}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-white/30 uppercase tracking-wider">Tasks</span>
-                      <span className="text-sm font-semibold text-white/80 mt-1">{classTaskCount}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-white/30 uppercase tracking-wider">Resources</span>
-                      <span className="text-sm font-semibold text-white/80 mt-1">{classResourceCount}</span>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full flex flex-col gap-safe-lg">
+    <div className="w-full">
+      <AnimatePresence mode="wait">
+        {!selectedClassId || !currentClass ? (
+          <motion.div
+            key="grid"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="w-full max-w-5xl mx-auto py-10"
+          >
+            <div className="flex flex-col mb-8">
+              <h2 className="text-xl font-bold tracking-tight text-white/95">Class Space</h2>
+              <p className="text-xs text-white/40 mt-1">Select an active class group to view tasks, resources, and submissions.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {CLASSES.map((cls) => {
+                const classTaskCount = tasks.filter((t) => t.classId === cls.id && t.visibility !== "archived").length;
+                const classResourceCount = resources.filter((r) => r.classId === cls.id).length;
+                return (
+                  <button
+                    key={cls.id}
+                    onClick={() => handleSelectClass(cls.id)}
+                    className="group relative flex flex-col text-left rounded-2xl border border-white/[0.06] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/15 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-all duration-300 overflow-hidden"
+                  >
+                    {/* Glow backdrop */}
+                    <div className={`absolute -right-16 -top-16 size-32 rounded-full bg-gradient-to-br ${cls.color} opacity-20 group-hover:opacity-40 blur-2xl transition-all duration-500`} />
+
+                    <div className="relative z-10 flex flex-col h-full justify-between w-full">
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {cls.accentColor && (
+                              <span className={`h-2.5 w-2.5 rounded-full ${cls.accentColor} shrink-0`} />
+                            )}
+                            <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] text-white/40 uppercase font-semibold">
+                              {cls.code}
+                            </span>
+                          </div>
+                          {classTaskCount > 0 && (
+                            <span className="size-2 rounded-full bg-sky-400 animate-pulse" />
+                          )}
+                        </div>
+                        <h3 className="text-sm font-bold text-white/90 mt-3 group-hover:text-white transition-colors">
+                          {cls.name}
+                        </h3>
+                        <p className="text-xs text-white/40 mt-1 line-clamp-1">
+                          {cls.unit}
+                        </p>
+                      </div>
+
+                      <div className="mt-8 pt-4 border-t border-white/[0.04] grid grid-cols-3 gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-white/30 uppercase tracking-wider">Students</span>
+                          <span className="text-sm font-semibold text-white/80 mt-1">{cls.studentCount}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-white/30 uppercase tracking-wider">Tasks</span>
+                          <span className="text-sm font-semibold text-white/80 mt-1">{classTaskCount}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-white/30 uppercase tracking-wider">Resources</span>
+                          <span className="text-sm font-semibold text-white/80 mt-1">{classResourceCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="class"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const }}
+            className="w-full flex flex-col gap-safe-lg"
+          >
       {/* Top Banner and class details header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/[0.06] pb-safe-sm gap-safe-md">
         <div className="flex items-center gap-safe-sm">
@@ -983,6 +1002,9 @@ export function ClassSpaceWorkspace() {
           </button>
           <div>
             <div className="flex items-center gap-safe-sm">
+              {currentClass.accentColor && (
+                <span className={`h-2.5 w-2.5 rounded-full ${currentClass.accentColor} shrink-0`} />
+              )}
               <h2 className="text-lg font-bold tracking-tight text-white/90">{currentClass.name}</h2>
               <span className="text-[10px] px-2 py-0.5 rounded border border-white/10 bg-white/[0.03] text-white/40 uppercase font-semibold">
                 {currentClass.code}
@@ -2286,6 +2308,9 @@ export function ClassSpaceWorkspace() {
           </div>
         )}
       </div>
+      </motion.div>
+      )}
+      </AnimatePresence>
 
       {/* Teacher-Side Slide-Over Support Profile Drawer */}
       <AnimatePresence>

@@ -7,6 +7,7 @@ import { ExperienceEntrance } from "@/components/school/experience-entrance";
 import { DemoTutorialProvider } from "@/components/school/demo-tutorial-context";
 import { TeacherDemoShell } from "@/components/school/teacher-demo/teacher-demo-shell";
 import { CoordinatorDemoShell } from "@/components/school/coordinator-demo/coordinator-demo-shell";
+import { StudentDemoShell } from "@/components/school/student-demo/student-demo-shell";
 import { getSchoolDemoRole } from "@/lib/school-demo-roles";
 
 // ─── GUEST WORKSPACE ─────────────────────────────────────────────────────────
@@ -263,13 +264,15 @@ export function SharedDemoExperience() {
   }
 
   const role = getSchoolDemoRole(roleParam);
-  const perspective = role.id === "coordinator" ? "coordinator" : "teacher";
+  const perspective = role.id === "coordinator" ? "coordinator" : role.id === "student" ? "student" : "teacher";
 
   return (
     <ExperienceEntrance>
       <DemoTutorialProvider perspective={perspective}>
         {role.id === "coordinator" ? (
           <CoordinatorDemoShell />
+        ) : role.id === "student" ? (
+          <StudentDemoShell perspectiveLabel={role.label} perspectiveId={role.id} />
         ) : (
           <TeacherDemoShell perspectiveLabel={role.label} perspectiveId={role.id} />
         )}

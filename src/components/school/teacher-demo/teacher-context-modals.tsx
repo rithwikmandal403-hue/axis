@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { DetectedContext } from "./teacher-context-engine";
+import { CustomDateTimePicker } from "./custom-datetime-picker";
 
 export type ContextActionType = "event" | "meeting" | "task" | "reminder" | "assignment" | "followup" | "announcement" | "calendar" | null;
 
@@ -179,20 +180,18 @@ function renderContextForm(
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Date</label>
-              <input
+              <CustomDateTimePicker
                 type="date"
                 value={formData.date}
-                onChange={(e) => handleChange("date", e.target.value)}
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+                onChange={(val) => handleChange("date", val)}
               />
             </div>
             <div>
               <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Time</label>
-              <input
+              <CustomDateTimePicker
                 type="time"
                 value={formData.time}
-                onChange={(e) => handleChange("time", e.target.value)}
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+                onChange={(val) => handleChange("time", val)}
               />
             </div>
           </div>
@@ -215,11 +214,10 @@ function renderContextForm(
           </div>
           <div>
             <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Date & Time</label>
-            <input
-              type="datetime-local"
+            <CustomDateTimePicker
+              type="datetime"
               value={formData.date}
-              onChange={(e) => handleChange("date", e.target.value)}
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+              onChange={(val) => handleChange("date", val)}
             />
           </div>
         </>
@@ -232,11 +230,10 @@ function renderContextForm(
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Due Date</label>
-              <input
+              <CustomDateTimePicker
                 type="date"
                 value={formData.date}
-                onChange={(e) => handleChange("date", e.target.value)}
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+                onChange={(val) => handleChange("date", val)}
               />
             </div>
             <div>
@@ -264,11 +261,10 @@ function renderContextForm(
           {commonFields}
           <div>
             <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Remind On</label>
-            <input
-              type="datetime-local"
+            <CustomDateTimePicker
+              type="datetime"
               value={formData.date}
-              onChange={(e) => handleChange("date", e.target.value)}
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+              onChange={(val) => handleChange("date", val)}
             />
           </div>
         </>
@@ -281,11 +277,10 @@ function renderContextForm(
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Due Date</label>
-              <input
+              <CustomDateTimePicker
                 type="date"
                 value={formData.date}
-                onChange={(e) => handleChange("date", e.target.value)}
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+                onChange={(val) => handleChange("date", val)}
               />
             </div>
             <div>
@@ -308,11 +303,10 @@ function renderContextForm(
           {commonFields}
           <div>
             <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Follow-up Date</label>
-            <input
+            <CustomDateTimePicker
               type="date"
               value={formData.date}
-              onChange={(e) => handleChange("date", e.target.value)}
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+              onChange={(val) => handleChange("date", val)}
             />
           </div>
         </>
@@ -335,11 +329,10 @@ function renderContextForm(
             </div>
             <div>
               <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Expiry Date</label>
-              <input
+              <CustomDateTimePicker
                 type="date"
                 value={formData.date}
-                onChange={(e) => handleChange("date", e.target.value)}
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+                onChange={(val) => handleChange("date", val)}
               />
             </div>
           </div>
@@ -358,20 +351,18 @@ function renderContextForm(
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Scheduled Date</label>
-              <input
+              <CustomDateTimePicker
                 type="date"
                 value={formData.date}
-                onChange={(e) => handleChange("date", e.target.value)}
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+                onChange={(val) => handleChange("date", val)}
               />
             </div>
             <div>
               <label className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2 block">Time</label>
-              <input
+              <CustomDateTimePicker
                 type="time"
                 value={formData.time}
-                onChange={(e) => handleChange("time", e.target.value)}
-                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all"
+                onChange={(val) => handleChange("time", val)}
               />
             </div>
           </div>

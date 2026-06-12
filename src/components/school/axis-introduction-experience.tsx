@@ -630,8 +630,8 @@ function BeatSchoolMap() {
   const statusIcons: Record<string, string> = {
     occupied: "●",
     available: "○",
-    maintenance: "⚠",
-    projector: "▶",
+    maintenance: "▲",
+    projector: "■",
   };
 
   return (
@@ -695,7 +695,7 @@ function BeatSchoolMap() {
               className="text-[7px] md:text-[8px]"
               style={{ color: room.color }}
             >
-              {statusIcons[room.status]} {room.status === "maintenance" ? "Repair" : room.status === "projector" ? "Projector ✓" : room.status}
+              {statusIcons[room.status]} {room.status === "maintenance" ? "Repair" : room.status === "projector" ? "Projector Ready" : room.status}
             </span>
           </motion.div>
         ))}

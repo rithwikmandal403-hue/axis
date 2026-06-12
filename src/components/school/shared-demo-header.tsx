@@ -141,6 +141,8 @@ export function SharedDemoHeader({
               : ""
           }`}>
             <AnnouncementsPanel 
+              theme={theme}
+              perspectiveId={perspectiveId}
               forceOpen={isTutorialActive && activeStepIndex === 15}
               onOpenChange={(open) => {
                 if (open) {

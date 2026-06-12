@@ -4,6 +4,25 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
+const PLAN_ICONS: Record<string, React.ReactNode> = {
+  settings: (
+    <svg className="size-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.43l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.991l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.645-.869l.214-1.28z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  analytics: (
+    <svg className="size-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    </svg>
+  ),
+  time: (
+    <svg className="size-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+};
+
 export default function AdoptPage() {
   const [theme, setTheme] = useState("dark");
   const [formData, setFormData] = useState({
@@ -236,7 +255,7 @@ export default function AdoptPage() {
                 desc: "Instead of jumping between isolated grading, messaging, and scheduling systems, teachers coordinate everything inside a single workspace.",
                 metric: "-40%",
                 metricLabel: "Staff Tool Switching",
-                icon: "⚙️"
+                icon: "settings"
               },
               {
                 title: "Coordinator Overview",
@@ -244,7 +263,7 @@ export default function AdoptPage() {
                 desc: "School coordinators and leadership gain instant visibility into room changes, attendance updates, and coverage schedules without manual checks.",
                 metric: "100%",
                 metricLabel: "On-Time Coordination",
-                icon: "📊"
+                icon: "analytics"
               },
               {
                 title: "Automated Daily Tasks",
@@ -252,13 +271,13 @@ export default function AdoptPage() {
                 desc: "Axis connects room bookings and class timetables automatically. Teachers can verify student attendance in seconds using Bluetooth sync.",
                 metric: "15 min",
                 metricLabel: "Saved Per Class Daily",
-                icon: "⏱️"
+                icon: "time"
               }
             ].map((card, idx) => (
               <div key={idx} className={`p-6 rounded-3xl border ${styling.cardBg} flex flex-col justify-between space-y-6`}>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-2xl">{card.icon}</span>
+                    <span className="text-2xl flex items-center justify-center">{PLAN_ICONS[card.icon]}</span>
                     <span className="text-xs text-cyan-400 font-mono tracking-widest font-bold">0{idx + 1}</span>
                   </div>
                   <div>
@@ -610,9 +629,24 @@ export default function AdoptPage() {
               Work 1-on-1 with a school implementation specialist to walk through classroom scheduling, room setup, attendance updates, parent notifications, and campus overview tools.
             </p>
             <ul className="space-y-2 text-xs text-white/70">
-              <li className="flex items-center gap-2">🌐 Live SIS / Active Directory setup advice</li>
-              <li className="flex items-center gap-2">📱 Sandbox roster uploading verification</li>
-              <li className="flex items-center gap-2">🔒 Privacy and security compliance walkthrough</li>
+              <li className="flex items-center gap-2">
+                <svg className="size-4 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.905 0-5.64-.5-8.143-1.418m16.286 0A11.95 11.95 0 0012 10.5c2.905 0 5.64.5 8.143 1.418m-16.286 0C5.07 10.2 8.4 10 12 10s6.93.2 8.143.418" />
+                </svg>
+                <span>Live SIS / Active Directory setup advice</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <svg className="size-4 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H13.5a1.5 1.5 0 011.5 1.5V21a1.5 1.5 0 01-1.5 1.5H10.5A1.5 1.5 0 019 21V3a1.5 1.5 0 011.5-1.5z" />
+                </svg>
+                <span>Sandbox roster uploading verification</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <svg className="size-4 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <span>Privacy and security compliance walkthrough</span>
+              </li>
             </ul>
           </div>
           

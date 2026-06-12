@@ -31,8 +31,8 @@ type DemoTutorialContextValue = {
   prevStep: () => void;
   endTutorial: () => void;
   goToStep: (index: number) => void;
-  perspective?: "teacher" | "coordinator";
-  setPerspective?: (perspective: "teacher" | "coordinator") => void;
+  perspective?: "teacher" | "coordinator" | "student";
+  setPerspective?: (perspective: "teacher" | "coordinator" | "student") => void;
 };
 
 const DemoTutorialContext = createContext<DemoTutorialContextValue | null>(null);
@@ -40,7 +40,7 @@ const DemoTutorialContext = createContext<DemoTutorialContextValue | null>(null)
 type DemoTutorialProviderProps = {
   children: ReactNode;
   steps?: TutorialStep[];
-  perspective?: "teacher" | "coordinator";
+  perspective?: "teacher" | "coordinator" | "student";
 };
 
 const defaultTeacherSteps: TutorialStep[] = [
@@ -239,7 +239,98 @@ const coordinatorSteps: TutorialStep[] = [
   },
 ];
 
-export { coordinatorSteps };
+const studentSteps: TutorialStep[] = [
+  {
+    id: "welcome",
+    title: "Welcome to Axis",
+    description: "Welcome to Axis, your connected school environment. All your classes, schedules, tasks, and communications are here.",
+    highlight: "dashboard",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "dashboard",
+    title: "Today's Dashboard",
+    description: "Your dashboard displays today's schedule, active class tasks, academic overview, recent feedback, and alerts.",
+    highlight: "dashboard",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "schedule",
+    title: "My Schedule",
+    description: "See your personal classes, free blocks, lunch breaks, and events. Overrides from coordinators appear here automatically.",
+    highlight: "schedule",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "class-space",
+    title: "Class Space",
+    description: "Access your enrolled classes. View active assignments, submission portals, graded feedback, and resource materials.",
+    highlight: "class-space",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "messages",
+    title: "Messages",
+    description: "Stay in touch with your teachers and classmates. File attachments and class channels are unified here.",
+    highlight: "messages",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "email",
+    title: "Email",
+    description: "Your official school email, complete with filters, threads, and connected calendar events.",
+    highlight: "email",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "academic-profile",
+    title: "Academic Profile",
+    description: "Track your grades, view historical performance charts, compare averages, and verify accommodations.",
+    highlight: "academic-profile",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "university-readiness",
+    title: "University Readiness",
+    description: "Track your path to higher education. Monitor application stages, target universities, and profile criteria.",
+    highlight: "university-readiness",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "essential-space",
+    title: "Essential Space",
+    description: "Your personal notes, task list, and recent captures are always available to help organize your week.",
+    highlight: "essential-space",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "personal-database",
+    title: "Personal Database",
+    description: "A private folder system to store assignments, notes, templates, and research documents.",
+    highlight: "personal-database",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "connected-resources",
+    title: "Connected Resources",
+    description: "Browse school libraries, student guidelines, university advice, and resources permitted for students.",
+    highlight: "connected-resources",
+    buttons: ["next", "skip"],
+  },
+  {
+    id: "search",
+    title: "Axis Search",
+    description: "Press `/` or search at the top to find classes, messages, resources, or files immediately.",
+    highlight: "search",
+    isFinal: true,
+    welcomeMessage: "Welcome to Axis.",
+    primaryButton: "Explore Axis",
+    secondaryButton: "Replay Tour Later",
+    buttons: ["finish"],
+  },
+];
+
+export { coordinatorSteps, studentSteps };
 
 export function DemoTutorialProvider({
   children,
@@ -247,11 +338,15 @@ export function DemoTutorialProvider({
   perspective = "teacher",
 }: DemoTutorialProviderProps) {
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
-  const [currentPerspective, setCurrentPerspective] = useState<"teacher" | "coordinator">(perspective);
+  const [currentPerspective, setCurrentPerspective] = useState<"teacher" | "coordinator" | "student">(perspective);
 
   const isTutorialActive = activeStepIndex >= 0;
 
-  const currentSteps = currentPerspective === "coordinator" ? coordinatorSteps : steps;
+  const currentSteps = useMemo(() => {
+    if (currentPerspective === "coordinator") return coordinatorSteps;
+    if (currentPerspective === "student") return studentSteps;
+    return steps;
+  }, [currentPerspective, steps]);
 
   const startTutorial = useCallback(() => setActiveStepIndex(0), []);
   const endTutorial = useCallback(() => setActiveStepIndex(-1), []);
@@ -267,7 +362,7 @@ export function DemoTutorialProvider({
     (index: number) => setActiveStepIndex(Math.max(0, Math.min(index, currentSteps.length - 1))),
     [currentSteps.length],
   );
-  const setPerspective = useCallback((newPerspective: "teacher" | "coordinator") => {
+  const setPerspective = useCallback((newPerspective: "teacher" | "coordinator" | "student") => {
     setCurrentPerspective(newPerspective);
     setActiveStepIndex(-1);
   }, []);
